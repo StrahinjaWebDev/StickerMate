@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CircleOff } from "lucide-react";
+import { ArrowRight, CircleOff, Layers3 } from "lucide-react";
 import { ProgressBar } from "@/components/ProgressBar";
 import { BulkActions } from "@/features/stickers/BulkActions";
 import { FilterBar } from "@/features/stickers/FilterBar";
@@ -21,6 +22,8 @@ export default function HomePage() {
   const onboarded = useCollectionStore((state) => state.onboarded);
   const quantities = useCollectionStore((state) => state.quantities);
   const viewMode = useCollectionStore((state) => state.viewMode);
+  const reviewCurrentIndex = useCollectionStore((state) => state.reviewCurrentIndex);
+  const reviewCompleted = useCollectionStore((state) => state.reviewCompleted);
   const setViewMode = useCollectionStore((state) => state.setViewMode);
   const { t } = useI18n();
   const [query, setQuery] = useState("");
@@ -51,6 +54,27 @@ export default function HomePage() {
       </section>
 
       <StatsCards stats={stats} />
+      {!reviewCompleted && reviewCurrentIndex > 0 ? (
+        <Link
+          href="/review"
+          className="flex flex-col gap-3 rounded-lg border border-pitch/20 bg-pitch/10 p-4 text-ink shadow-sm transition hover:bg-pitch/15 dark:border-pitch/30 dark:bg-pitch/15 dark:text-white sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-pitch text-white">
+              <Layers3 size={21} />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-black">{t("review.continueReview")}</span>
+              <span className="mt-0.5 block text-sm font-semibold text-neutral-600 dark:text-neutral-300">
+                {t("review.progress", { current: reviewCurrentIndex + 1, total: stickers.length })}
+              </span>
+            </span>
+          </span>
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-pitch shadow-sm dark:bg-neutral-900">
+            <ArrowRight size={19} />
+          </span>
+        </Link>
+      ) : null}
       <RecentStickers />
       <TeamStrip />
 

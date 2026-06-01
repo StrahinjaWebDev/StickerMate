@@ -1,6 +1,6 @@
 # StickerMate
 
-StickerMate is a fast, mobile-first web app for tracking a FIFA World Cup 2026 sticker collection. It is designed for quick collection entry, duplicate management, team-by-team browsing, and offline-first personal use.
+StickerMate is a fast, mobile-first web app for tracking the 980 standard-album stickers in a FIFA World Cup 2026 collection. It is designed for quick collection entry, duplicate management, team-by-team browsing, and offline-first personal use.
 
 ## Overview
 
@@ -9,6 +9,7 @@ StickerMate keeps the experience closer to a polished consumer app than a spread
 ## Features
 
 - Quick Import for pasted sticker codes with automatic separator detection
+- Quick Album Review for one-card-at-a-time setup with saved progress
 - Quantity-based collection tracking: missing, owned, and duplicates
 - Dashboard statistics with completion progress
 - Instant search by code, player/name, or team
@@ -19,7 +20,7 @@ StickerMate keeps the experience closer to a polished consumer app than a spread
 - Sticker detail pages with larger image preview
 - Duplicate page for trading preparation
 - Settings for theme, export, import, reset, and onboarding replay
-- LocalStorage autosave
+- LocalStorage autosave for collection data, language, theme, view mode, and review progress
 - PWA-ready manifest and service worker
 - Optional local sticker image downloader
 - Serbian and English UI with persisted language switching
@@ -79,7 +80,9 @@ StickerMate is a standard Next.js application and can be deployed to Vercel or a
 
 ## Data Structure
 
-The source checklist lives in [data/stickers.json](./data/stickers.json). The app derives teams, lookup maps, search data, statistics, and image metadata from this file.
+The source checklist lives in [data/stickers.json](./data/stickers.json). The full imported checklist contains 1,034 canonical codes. StickerMate filters the active album tracker to the 980 standard stickers and excludes the 54 collector variants whose codes end with lowercase `s`.
+
+The app derives teams, lookup maps, search data, statistics, review order, and image metadata from the active album sticker set.
 
 Each sticker is normalized to:
 
@@ -103,6 +106,18 @@ Example:
 ```text
 BRA1 BRA2 BRA2 ARG1 POR15
 ```
+
+## Quick Album Review
+
+Quick Album Review is the recommended first-run workflow. It presents one standard-album sticker at a time and lets the user mark it as missing, owned, or duplicate. Progress is persisted in LocalStorage, so the review can be paused and resumed later from the dashboard or Settings.
+
+The review supports:
+
+- Large tap targets for mobile use
+- Keyboard shortcuts for fast desktop entry
+- Swipe gestures on the sticker image
+- Team/section jumping
+- Completion summary with export backup
 
 ## Image System
 
@@ -145,9 +160,13 @@ The UI reads text through a small typed translation helper in `lib/i18n.ts` and 
 
 To add another language, create a new dictionary file with the same keys and register it in `lib/i18n.ts`. Components should not need to change.
 
-## Friend & Trade System
+## PWA Support
 
-The current Trades page is intentionally lightweight and prepared for future expansion. Planned additions include shareable duplicate lists, wishlists, friend comparisons, and collection sync.
+StickerMate includes a web app manifest and service worker registration. The current PWA layer is intentionally simple: it supports installability and lightweight app-shell caching while collection data remains stored locally in the browser through LocalStorage.
+
+## Trade System
+
+The Duplicates page lists all stickers with quantities above one and is the foundation for trading. The Trades page is prepared for future expansion with wishlists, friend comparisons, shareable duplicate lists, and collection sync.
 
 ## Roadmap
 

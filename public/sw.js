@@ -1,5 +1,5 @@
-const CACHE_NAME = "stickermate-v1";
-const APP_SHELL = ["/", "/duplicates", "/trades", "/settings", "/icon.svg"];
+const CACHE_NAME = "stickermate-v2";
+const APP_SHELL = ["/", "/duplicates", "/trades", "/settings", "/review", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -17,21 +17,48 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
+  if (url.origin !== self.location.origin) return;
 
-      return fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => {
-          if (event.request.mode === "navigate") return caches.match("/");
-          return undefined;
-        });
-    })
-  );
+  if (event.request.mode === "navigate") {
+    event.respondWith(networkFirst(event.request, "/"));
+    return;
+  }
+
+  if (url.pathname.startsWith("/_next/")) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  if (url.pathname.startsWith("/stickers/") || url.pathname === "/icon.svg" || url.pathname === "/manifest.webmanifest") {
+    event.respondWith(cacheFirst(event.request));
+  }
 });
+
+async function networkFirst(request, fallbackUrl) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    return caches.match(fallbackUrl);
+  }
+}
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (response.ok) {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(request, response.clone());
+  }
+  return response;
+}

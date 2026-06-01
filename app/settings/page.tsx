@@ -1,11 +1,13 @@
 "use client";
 
 import { ChangeEvent, useRef, useState } from "react";
-import { Download, Moon, RotateCcw, Sun, Upload, Wand2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Download, Layers3, Moon, RotateCcw, Sun, Upload, Wand2 } from "lucide-react";
 import { clsx } from "clsx";
 import { Button, Card } from "@/components/ui/Primitives";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useI18n } from "@/hooks/useI18n";
+import { excludedVariantCount, fullChecklistCount, stickerCount } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { ThemePreference } from "@/types/sticker";
 
@@ -16,12 +18,14 @@ const themeOptions: Array<{ value: ThemePreference; labelKey: "settings.system" 
 ];
 
 export default function SettingsPage() {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const theme = useCollectionStore((state) => state.theme);
   const setTheme = useCollectionStore((state) => state.setTheme);
   const setOnboarded = useCollectionStore((state) => state.setOnboarded);
   const resetCollection = useCollectionStore((state) => state.resetCollection);
+  const resetReview = useCollectionStore((state) => state.resetReview);
   const exportPayload = useCollectionStore((state) => state.exportPayload);
   const importPayload = useCollectionStore((state) => state.importPayload);
   const { t } = useI18n();
@@ -58,6 +62,12 @@ export default function SettingsPage() {
     if (!confirmed) return;
     resetCollection();
     setMessage(t("settings.resetDone"));
+  }
+
+  function handleRestartReview() {
+    setOnboarded(true);
+    resetReview();
+    router.push("/review");
   }
 
   return (
@@ -103,12 +113,34 @@ export default function SettingsPage() {
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <SettingsButton icon={<Download size={19} />} label={t("settings.export")} onClick={handleExport} />
           <SettingsButton icon={<Upload size={19} />} label={t("settings.import")} onClick={() => inputRef.current?.click()} />
+          <SettingsButton icon={<Layers3 size={19} />} label={t("settings.restartReview")} onClick={handleRestartReview} />
           <SettingsButton icon={<Wand2 size={19} />} label={t("settings.onboarding")} onClick={() => setOnboarded(false)} />
           <SettingsButton icon={<RotateCcw size={19} />} label={t("settings.reset")} onClick={handleReset} danger />
         </div>
         <input ref={inputRef} className="hidden" type="file" accept="application/json,.json" onChange={handleImport} />
         {message ? <p className="mt-4 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{message}</p> : null}
       </Card>
+
+      <Card>
+        <h2 className="text-lg font-black text-ink dark:text-white">{t("settings.dataInfoTitle")}</h2>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <DataPoint label={t("settings.fullChecklistCount")} value={fullChecklistCount} />
+          <DataPoint label={t("settings.albumStickerCount")} value={stickerCount} />
+          <DataPoint label={t("settings.excludedVariantCount")} value={excludedVariantCount} />
+        </div>
+        <p className="mt-4 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
+          {t("settings.albumScopeNote")}
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+function DataPoint({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
+      <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{label}</p>
+      <p className="mt-1 text-2xl font-black text-ink dark:text-white">{value}</p>
     </div>
   );
 }

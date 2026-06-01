@@ -4,7 +4,7 @@ import type { CollectionStats, Sticker, StickerChecklist, StickerFilter } from "
 const source = checklist as StickerChecklist;
 const lastStickerImageBase = "https://www.laststicker.com/i/cards/12176";
 
-export const stickers: Sticker[] = source.stickers.map((sticker) => {
+export const allStickers: Sticker[] = source.stickers.map((sticker) => {
   const imageCode = sticker.code.toLowerCase();
   return {
     ...sticker,
@@ -13,7 +13,11 @@ export const stickers: Sticker[] = source.stickers.map((sticker) => {
     imageSource: "laststicker"
   };
 });
-export const stickerCount = source.canonicalCount || stickers.length;
+export const fullChecklistCount = source.canonicalCount || allStickers.length;
+export const excludedVariantStickers = allStickers.filter((sticker) => !isAlbumSticker(sticker));
+export const stickers: Sticker[] = allStickers.filter(isAlbumSticker);
+export const stickerCount = stickers.length;
+export const excludedVariantCount = excludedVariantStickers.length;
 export const edition = source.edition;
 
 export const stickerByCode = new Map(stickers.map((sticker) => [sticker.code.toUpperCase(), sticker]));
@@ -29,6 +33,10 @@ export const stickersByTeam = teams.map((team) => ({
 
 export function getSticker(code: string) {
   return stickerByCode.get(code.toUpperCase());
+}
+
+export function isAlbumSticker(sticker: Pick<Sticker, "code">) {
+  return !/s$/.test(sticker.code);
 }
 
 export function getLocalStickerImagePath(sticker: Sticker) {

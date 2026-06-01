@@ -16,6 +16,11 @@ type ExportPayload = {
     viewMode: StickerViewMode;
     language: LanguageCode;
   };
+  review: {
+    currentIndex: number;
+    completed: boolean;
+    updatedAt?: string;
+  };
 };
 
 type CollectionStore = {
@@ -26,6 +31,9 @@ type CollectionStore = {
   viewMode: StickerViewMode;
   selectedCodes: string[];
   recentCodes: string[];
+  reviewCurrentIndex: number;
+  reviewCompleted: boolean;
+  reviewUpdatedAt?: string;
   setOnboarded: (onboarded: boolean) => void;
   setTheme: (theme: ThemePreference) => void;
   setLanguage: (language: LanguageCode) => void;
@@ -41,6 +49,11 @@ type CollectionStore = {
   toggleSelected: (code: string) => void;
   clearSelection: () => void;
   selectMany: (codes: string[]) => void;
+  setReviewIndex: (index: number) => void;
+  markReviewSticker: (code: string, quantity: number, nextIndex: number) => void;
+  skipReviewSticker: (nextIndex: number) => void;
+  completeReview: () => void;
+  resetReview: () => void;
 };
 
 function cleanQuantity(quantity: number) {
@@ -78,6 +91,9 @@ export const useCollectionStore = create<CollectionStore>()(
       viewMode: "list",
       selectedCodes: [],
       recentCodes: [],
+      reviewCurrentIndex: 0,
+      reviewCompleted: false,
+      reviewUpdatedAt: undefined,
       setOnboarded: (onboarded) => set({ onboarded }),
       setTheme: (theme) => set({ theme }),
       setLanguage: (language) => set({ language }),
@@ -159,6 +175,7 @@ export const useCollectionStore = create<CollectionStore>()(
         const maybePayload = payload as {
           quantities?: unknown;
           settings?: { theme?: ThemePreference; viewMode?: StickerViewMode; language?: LanguageCode };
+          review?: { currentIndex?: number; completed?: boolean; updatedAt?: string };
         };
         if (!maybePayload.quantities || typeof maybePayload.quantities !== "object") {
           return { ok: false, errorKey: "settings.importMissingQuantitiesError" };
@@ -178,23 +195,45 @@ export const useCollectionStore = create<CollectionStore>()(
           onboarded: true,
           theme: maybePayload.settings?.theme ?? get().theme,
           viewMode: maybePayload.settings?.viewMode ?? get().viewMode,
-          language: maybePayload.settings?.language ?? get().language
+          language: maybePayload.settings?.language ?? get().language,
+          reviewCurrentIndex:
+            typeof maybePayload.review?.currentIndex === "number"
+              ? Math.max(0, Math.min(stickers.length, Math.floor(maybePayload.review.currentIndex)))
+              : get().reviewCurrentIndex,
+          reviewCompleted:
+            typeof maybePayload.review?.completed === "boolean"
+              ? maybePayload.review.completed
+              : get().reviewCompleted,
+          reviewUpdatedAt: maybePayload.review?.updatedAt ?? get().reviewUpdatedAt
         });
 
         return { ok: true };
       },
       exportPayload: () => {
-        const { quantities, theme, viewMode, language } = get();
+        const { quantities, theme, viewMode, language, reviewCurrentIndex, reviewCompleted, reviewUpdatedAt } = get();
         return {
           app: "StickerMate",
           version: 1,
           exportedAt: new Date().toISOString(),
           quantities,
           stats: getStats(quantities, stickers),
-          settings: { theme, viewMode, language }
+          settings: { theme, viewMode, language },
+          review: {
+            currentIndex: reviewCurrentIndex,
+            completed: reviewCompleted,
+            updatedAt: reviewUpdatedAt
+          }
         };
       },
-      resetCollection: () => set({ quantities: {}, selectedCodes: [], recentCodes: [] }),
+      resetCollection: () =>
+        set({
+          quantities: {},
+          selectedCodes: [],
+          recentCodes: [],
+          reviewCurrentIndex: 0,
+          reviewCompleted: false,
+          reviewUpdatedAt: undefined
+        }),
       toggleSelected: (code) =>
         set((state) => {
           const selected = new Set(state.selectedCodes);
@@ -203,7 +242,39 @@ export const useCollectionStore = create<CollectionStore>()(
           return { selectedCodes: Array.from(selected) };
         }),
       clearSelection: () => set({ selectedCodes: [] }),
-      selectMany: (codes) => set({ selectedCodes: Array.from(new Set(codes)) })
+      selectMany: (codes) => set({ selectedCodes: Array.from(new Set(codes)) }),
+      setReviewIndex: (index) =>
+        set({
+          reviewCurrentIndex: Math.max(0, Math.min(stickers.length, Math.floor(index))),
+          reviewCompleted: false,
+          reviewUpdatedAt: new Date().toISOString()
+        }),
+      markReviewSticker: (code, quantity, nextIndex) =>
+        set((state) => ({
+          quantities: withQuantity(state.quantities, code, () => quantity),
+          recentCodes: quantity > 0 ? mergeRecent(state.recentCodes, [code]) : state.recentCodes,
+          reviewCurrentIndex: Math.max(0, Math.min(stickers.length, Math.floor(nextIndex))),
+          reviewCompleted: nextIndex >= stickers.length,
+          reviewUpdatedAt: new Date().toISOString()
+        })),
+      skipReviewSticker: (nextIndex) =>
+        set({
+          reviewCurrentIndex: Math.max(0, Math.min(stickers.length, Math.floor(nextIndex))),
+          reviewCompleted: nextIndex >= stickers.length,
+          reviewUpdatedAt: new Date().toISOString()
+        }),
+      completeReview: () =>
+        set({
+          reviewCurrentIndex: stickers.length,
+          reviewCompleted: true,
+          reviewUpdatedAt: new Date().toISOString()
+        }),
+      resetReview: () =>
+        set({
+          reviewCurrentIndex: 0,
+          reviewCompleted: false,
+          reviewUpdatedAt: new Date().toISOString()
+        })
     }),
     {
       name: "stickermate-collection",
@@ -213,7 +284,10 @@ export const useCollectionStore = create<CollectionStore>()(
         theme: state.theme,
         language: state.language,
         viewMode: state.viewMode,
-        recentCodes: state.recentCodes
+        recentCodes: state.recentCodes,
+        reviewCurrentIndex: state.reviewCurrentIndex,
+        reviewCompleted: state.reviewCompleted,
+        reviewUpdatedAt: state.reviewUpdatedAt
       })
     }
   )

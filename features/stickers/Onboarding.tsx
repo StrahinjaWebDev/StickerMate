@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, ClipboardList, Keyboard, Zap } from "lucide-react";
+import { ArrowRight, ClipboardList, Keyboard, Layers3, Zap } from "lucide-react";
 import { ImportPreview } from "@/features/stickers/ImportPreview";
+import { QuickAlbumReview } from "@/features/stickers/QuickAlbumReview";
 import { useI18n } from "@/hooks/useI18n";
-import { formatPercent, getStats, stickers } from "@/lib/stickers";
+import { formatPercent, getStats, stickerCount, stickers } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { ImportSummary } from "@/types/sticker";
 
 export function Onboarding() {
-  const [mode, setMode] = useState<"welcome" | "import">("welcome");
+  const [mode, setMode] = useState<"welcome" | "import" | "review">("welcome");
   const [input, setInput] = useState("");
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const quickImport = useCollectionStore((state) => state.quickImport);
@@ -18,6 +19,10 @@ export function Onboarding() {
   const { t } = useI18n();
 
   const stats = getStats(quantities, stickers);
+
+  if (mode === "review") {
+    return <QuickAlbumReview />;
+  }
 
   if (mode === "import") {
     return (
@@ -81,7 +86,7 @@ export function Onboarding() {
       <div>
         <div className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm font-black text-pitch shadow-sm dark:border-white/10 dark:bg-neutral-900">
           <ClipboardList size={18} />
-          {t("onboarding.badge")}
+          {t("onboarding.badge", { count: stickerCount })}
         </div>
         <h1 className="mt-5 text-5xl font-black tracking-normal text-ink dark:text-white sm:text-6xl">
           {t("onboarding.title")}
@@ -89,26 +94,52 @@ export function Onboarding() {
         <p className="mt-4 max-w-xl text-lg leading-8 text-neutral-600 dark:text-neutral-300">
           {t("onboarding.body")}
         </p>
-        <div className="mt-7 grid max-w-xl gap-3 sm:grid-cols-3">
+        <p className="mt-6 text-sm font-black uppercase text-neutral-500 dark:text-neutral-400">
+          {t("onboarding.chooseStart")}
+        </p>
+        <div className="mt-3 grid max-w-2xl gap-3 sm:grid-cols-2">
           <button
             type="button"
-            className="flex min-h-14 items-center justify-center gap-2 rounded-lg bg-pitch px-4 font-black text-white shadow-lift"
+            className="flex min-h-24 items-start gap-3 rounded-lg bg-pitch p-4 text-left text-white shadow-lift"
+            onClick={() => setMode("review")}
+          >
+            <Layers3 className="mt-0.5 shrink-0" size={22} />
+            <span>
+              <span className="block font-black">{t("onboarding.quickReview")}</span>
+              <span className="mt-1 block text-sm font-semibold leading-5 text-white/85">
+                {t("onboarding.quickReviewBody")}
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="flex min-h-24 items-start gap-3 rounded-lg border border-line bg-white p-4 text-left text-ink shadow-sm dark:border-white/10 dark:bg-neutral-900 dark:text-white"
             onClick={() => setMode("import")}
           >
-            <Zap size={20} />
-            {t("onboarding.quickImport")}
+            <Zap className="mt-0.5 shrink-0 text-pitch" size={22} />
+            <span>
+              <span className="block font-black">{t("onboarding.bulkImport")}</span>
+              <span className="mt-1 block text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
+                {t("onboarding.bulkImportBody")}
+              </span>
+            </span>
           </button>
           <button
             type="button"
-            className="flex min-h-14 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 font-black text-ink shadow-sm dark:border-white/10 dark:bg-neutral-900 dark:text-white"
+            className="flex min-h-24 items-start gap-3 rounded-lg border border-line bg-white p-4 text-left text-ink shadow-sm dark:border-white/10 dark:bg-neutral-900 dark:text-white"
             onClick={() => setOnboarded(true)}
           >
-            <Keyboard size={20} />
-            {t("onboarding.manualSetup")}
+            <Keyboard className="mt-0.5 shrink-0 text-pitch" size={22} />
+            <span>
+              <span className="block font-black">{t("onboarding.manualSetup")}</span>
+              <span className="mt-1 block text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
+                {t("onboarding.manualSetupBody")}
+              </span>
+            </span>
           </button>
           <button
             type="button"
-            className="min-h-14 rounded-lg border border-line px-4 font-black text-neutral-700 dark:border-white/10 dark:text-neutral-300"
+            className="min-h-24 rounded-lg border border-line px-4 font-black text-neutral-700 dark:border-white/10 dark:text-neutral-300"
             onClick={() => setOnboarded(true)}
           >
             {t("onboarding.skip")}
