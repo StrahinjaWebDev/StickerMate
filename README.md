@@ -10,6 +10,7 @@ StickerMate keeps the experience closer to a polished consumer app than a spread
 
 - Quick Import for pasted sticker codes with automatic separator detection
 - Quick Album Review for one-card-at-a-time setup with saved progress
+- Camera/image scan workflow with editable OCR confirmation
 - Quantity-based collection tracking: missing, owned, and duplicates
 - Dashboard statistics with completion progress
 - Instant search by code, player/name, or team
@@ -19,7 +20,11 @@ StickerMate keeps the experience closer to a polished consumer app than a spread
 - Team pages with image card grids
 - Sticker detail pages with larger image preview
 - Duplicate page for trading preparation
+- Privacy-scoped trade QR generation
+- Friend QR import with immediate trade matching
+- Manual spending tracking for album, packs, bundles, and individual sticker purchases
 - Settings for theme, export, import, reset, and onboarding replay
+- Dismissible in-app help cards and a dedicated Help page
 - LocalStorage autosave for collection data, language, theme, view mode, and review progress
 - PWA-ready manifest and service worker
 - Optional local sticker image downloader
@@ -50,6 +55,7 @@ scripts/              Optional maintenance scripts
 stores/               Zustand stores
 types/                Shared TypeScript types
 locales/              Translation dictionaries
+services/             OCR, code validation, and trade QR helpers
 ```
 
 ## Installation
@@ -119,6 +125,21 @@ The review supports:
 - Team/section jumping
 - Completion summary with export backup
 
+## Camera / OCR Scanning
+
+The Scan screen supports mobile camera capture, image upload, and manual code entry. Images are previewed before saving. StickerMate tries browser-side OCR through a lazy-loaded recognition service and then asks the user to confirm detected codes before any collection data changes.
+
+The recognition layer lives in:
+
+```text
+services/stickerRecognitionService.ts
+services/stickerCodeService.ts
+```
+
+Detected codes are validated against the active 980-sticker album dataset. Codes that exist only in the full checklist as excluded `s` variants are shown separately and are not added to the main album collection.
+
+If OCR is unavailable or unclear, the screen stays usable through manual code confirmation. Saving a scan creates an entry history item with the localized camera scan note.
+
 ## Image System
 
 Sticker image metadata is generated automatically from each checklist code:
@@ -160,21 +181,61 @@ The UI reads text through a small typed translation helper in `lib/i18n.ts` and 
 
 To add another language, create a new dictionary file with the same keys and register it in `lib/i18n.ts`. Components should not need to change.
 
+## Help System
+
+StickerMate includes lightweight, dismissible help cards on the main product screens plus a dedicated Help page available from More. Help-card dismissals are stored in LocalStorage as part of the collection store, and Settings includes a "Show help again" action that restores all guide cards without changing collection data.
+
+Help text is fully localized through the same translation dictionaries as the rest of the UI. New pages can add their own guide card by using `components/GuideCard.tsx` with a stable guide key and translation keys.
+
 ## PWA Support
 
 StickerMate includes a web app manifest and service worker registration. The current PWA layer is intentionally simple: it supports installability and lightweight app-shell caching while collection data remains stored locally in the browser through LocalStorage.
 
 ## Trade System
 
-The Duplicates page lists all stickers with quantities above one and is the foundation for trading. The Trades page is prepared for future expansion with wishlists, friend comparisons, shareable duplicate lists, and collection sync.
+The Duplicates page lists all stickers with quantities above one and is the foundation for trading. StickerMate can generate a public trade QR profile containing only a display name, missing sticker codes, duplicate sticker codes, and a generated timestamp.
+
+Friend QR import validates the payload, stores or updates a friend profile locally, and immediately calculates possible trades:
+
+- I can give: my duplicate stickers that the friend is missing
+- Friend can give me: friend duplicate stickers that I am missing
+
+The QR payload intentionally excludes full collection data, settings, entry history, images, and other private data.
+
+## Spending Tracking
+
+StickerMate includes a local spending ledger for collectors who want to track how much money they personally spent on the album. Spending is deliberately manual: trades, QR imports, and friend comparisons never add money automatically.
+
+Each spending entry stores:
+
+```ts
+type SpendingEntry = {
+  id: string;
+  date: string;
+  amount: number;
+  currency: "RSD" | "EUR" | "USD" | "GBP";
+  category: "packs" | "album" | "bundle" | "individual" | "other";
+  packsCount?: number;
+  stickersCount?: number;
+  note?: string;
+  linkedEntryId?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+```
+
+The Spending page shows total spent in the selected default currency, entry count, packs bought, average pack price, cost per owned sticker, and editable purchase history. The Scan/manual entry flow also has an optional collapsed spending section for purchases entered at the same time as sticker codes.
+
+Backups include `spendingEntries` and `settings.defaultCurrency`. Old backups without spending data still import successfully.
 
 ## Roadmap
 
 - Cloud sync with user accounts
-- Friend lists and collection comparison
-- Shareable trade lists
+- Friend list polish and richer collection comparison
+- Shareable trade links
+- Spending charts and budget summaries
 - Multiple albums
-- Camera scanning and OCR-assisted entry
+- Camera scanning accuracy improvements
 - Statistics history
 - Push notifications and reminders
 
@@ -195,6 +256,7 @@ Screenshots can be added here once the visual design is finalized:
 - Collection Grid View
 - Team Page
 - Sticker Detail
+- Help Page
 - Settings
 
 ## Known Limitations
@@ -202,7 +264,7 @@ Screenshots can be added here once the visual design is finalized:
 - Collection data is local to the current browser/device unless exported manually.
 - Remote images depend on LastSticker availability.
 - The app does not currently verify whether every remote image exists before display.
-- Trade mode is a placeholder for future functionality.
+- QR trade matching is local-only and intentionally lightweight.
 
 ## License
 

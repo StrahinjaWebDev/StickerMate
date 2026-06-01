@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Copy } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { GuideCard } from "@/components/GuideCard";
 import { FilterBar } from "@/features/stickers/FilterBar";
 import { StickerList } from "@/features/stickers/StickerList";
 import { useI18n } from "@/hooks/useI18n";
@@ -33,6 +34,8 @@ export default function DuplicatesPage() {
           {t("duplicates.ready", { count: duplicates.length })}
         </p>
       </section>
+
+      <GuideCard guide="duplicates" titleKey="guide.duplicatesTitle" bodyKey="guide.duplicatesBody" />
 
       {duplicates.length === 0 ? (
         <EmptyState icon={Copy} title={t("empty.noDuplicates")} body={t("empty.noDuplicatesBody")} />

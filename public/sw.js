@@ -1,5 +1,5 @@
 const CACHE_NAME = "stickermate-v2";
-const APP_SHELL = ["/", "/duplicates", "/trades", "/settings", "/review", "/icon.svg"];
+const APP_SHELL = ["/", "/duplicates", "/trades", "/settings", "/review", "/scan", "/spending", "/trade-qr", "/friend-qr", "/help", "/more", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));

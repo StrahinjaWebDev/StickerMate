@@ -4,6 +4,7 @@ import { PointerEvent, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Download, ListRestart, RotateCcw, SkipForward, X } from "lucide-react";
 import { Button } from "@/components/ui/Primitives";
+import { GuideCard } from "@/components/GuideCard";
 import { ProgressBar } from "@/components/ProgressBar";
 import { StatsCards } from "@/features/stickers/StatsCards";
 import { StickerImage } from "@/features/stickers/StickerImage";
@@ -180,6 +181,8 @@ export function QuickAlbumReview() {
           <ProgressBar value={(currentIndex / stickers.length) * 100} />
         </div>
       </section>
+
+      <GuideCard guide="quickReview" titleKey="guide.quickReviewTitle" bodyKey="guide.quickReviewBody" />
 
       <section className="grid items-start gap-5 lg:grid-cols-[minmax(280px,380px)_1fr]">
         <div

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Handshake, Home, Settings, Sticker } from "lucide-react";
+import { BarChart3, Camera, Handshake, Home, MoreHorizontal, Sticker } from "lucide-react";
 import { clsx } from "clsx";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
@@ -10,9 +10,10 @@ import { useI18n } from "@/hooks/useI18n";
 
 const navItems = [
   { href: "/", labelKey: "nav.home" as const, icon: Home },
+  { href: "/scan", labelKey: "nav.scan" as const, icon: Camera },
   { href: "/duplicates", labelKey: "nav.duplicates" as const, icon: Sticker },
   { href: "/trades", labelKey: "nav.trades" as const, icon: Handshake },
-  { href: "/settings", labelKey: "nav.settings" as const, icon: Settings }
+  { href: "/more", labelKey: "nav.more" as const, icon: MoreHorizontal }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -66,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <ServiceWorkerRegister />
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-2 pb-[max(0.55rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur dark:border-white/10 dark:bg-neutral-950/95 lg:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+        <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href;

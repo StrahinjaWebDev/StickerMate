@@ -5,6 +5,7 @@ import { notFound, useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { ProgressBar } from "@/components/ProgressBar";
+import { GuideCard } from "@/components/GuideCard";
 import { BulkActions } from "@/features/stickers/BulkActions";
 import { FilterBar } from "@/features/stickers/FilterBar";
 import { StatsCards } from "@/features/stickers/StatsCards";
@@ -45,6 +46,8 @@ export default function TeamPage() {
       </section>
 
       <StatsCards stats={stats} />
+
+      <GuideCard guide="teams" titleKey="guide.teamsTitle" bodyKey="guide.teamsBody" />
 
       <section className="space-y-3">
         <FilterBar query={query} filter={filter} onQueryChange={setQuery} onFilterChange={setFilter} />

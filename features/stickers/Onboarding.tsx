@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, ClipboardList, Keyboard, Layers3, Zap } from "lucide-react";
+import { ArrowRight, ClipboardList, Keyboard, Layers3, RotateCcw, Zap } from "lucide-react";
 import { ImportPreview } from "@/features/stickers/ImportPreview";
 import { QuickAlbumReview } from "@/features/stickers/QuickAlbumReview";
 import { useI18n } from "@/hooks/useI18n";
@@ -10,18 +10,80 @@ import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { ImportSummary } from "@/types/sticker";
 
 export function Onboarding() {
-  const [mode, setMode] = useState<"welcome" | "import" | "review">("welcome");
+  const [mode, setMode] = useState<"welcome" | "import" | "review" | "reviewChoice">("welcome");
   const [input, setInput] = useState("");
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const quickImport = useCollectionStore((state) => state.quickImport);
   const quantities = useCollectionStore((state) => state.quantities);
+  const reviewCurrentIndex = useCollectionStore((state) => state.reviewCurrentIndex);
+  const reviewCompleted = useCollectionStore((state) => state.reviewCompleted);
   const setOnboarded = useCollectionStore((state) => state.setOnboarded);
+  const resetReview = useCollectionStore((state) => state.resetReview);
   const { t } = useI18n();
 
   const stats = getStats(quantities, stickers);
+  const hasReviewProgress = reviewCurrentIndex > 0 || reviewCompleted;
 
   if (mode === "review") {
     return <QuickAlbumReview />;
+  }
+
+  if (mode === "reviewChoice") {
+    return (
+      <section className="mx-auto max-w-3xl rounded-lg border border-line bg-white p-5 shadow-lift dark:border-white/10 dark:bg-neutral-900 sm:p-7">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-pitch text-white">
+            <Layers3 size={22} />
+          </span>
+          <div>
+            <h1 className="text-2xl font-black text-ink dark:text-white">{t("onboarding.reviewChoiceTitle")}</h1>
+            <p className="mt-1 text-sm leading-6 text-neutral-600 dark:text-neutral-400">
+              {t("onboarding.reviewChoiceBody")}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            className="flex min-h-24 items-start gap-3 rounded-lg border border-line bg-white p-4 text-left text-ink shadow-sm dark:border-white/10 dark:bg-neutral-950 dark:text-white"
+            onClick={() => setMode("review")}
+          >
+            <ArrowRight className="mt-0.5 shrink-0 text-pitch" size={22} />
+            <span>
+              <span className="block font-black">{t("onboarding.reviewContinue")}</span>
+              <span className="mt-1 block text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
+                {t("onboarding.reviewContinueBody", { current: reviewCurrentIndex + 1, total: stickers.length })}
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="flex min-h-24 items-start gap-3 rounded-lg bg-pitch p-4 text-left text-white shadow-lift"
+            onClick={() => {
+              resetReview();
+              setMode("review");
+            }}
+          >
+            <RotateCcw className="mt-0.5 shrink-0" size={22} />
+            <span>
+              <span className="block font-black">{t("onboarding.reviewRestart")}</span>
+              <span className="mt-1 block text-sm font-semibold leading-5 text-white/85">
+                {t("onboarding.reviewRestartBody")}
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className="mt-4 min-h-12 rounded-lg border border-line px-5 font-black text-ink dark:border-white/10 dark:text-white"
+          onClick={() => setMode("welcome")}
+        >
+          {t("common.back")}
+        </button>
+      </section>
+    );
   }
 
   if (mode === "import") {
@@ -101,7 +163,7 @@ export function Onboarding() {
           <button
             type="button"
             className="flex min-h-24 items-start gap-3 rounded-lg bg-pitch p-4 text-left text-white shadow-lift"
-            onClick={() => setMode("review")}
+            onClick={() => setMode(hasReviewProgress ? "reviewChoice" : "review")}
           >
             <Layers3 className="mt-0.5 shrink-0" size={22} />
             <span>
@@ -139,10 +201,16 @@ export function Onboarding() {
           </button>
           <button
             type="button"
-            className="min-h-24 rounded-lg border border-line px-4 font-black text-neutral-700 dark:border-white/10 dark:text-neutral-300"
+            className="flex min-h-24 items-start gap-3 rounded-lg border border-line px-4 py-4 text-left text-neutral-700 dark:border-white/10 dark:text-neutral-300"
             onClick={() => setOnboarded(true)}
           >
-            {t("onboarding.skip")}
+            <ArrowRight className="mt-0.5 shrink-0 text-neutral-500 dark:text-neutral-400" size={22} />
+            <span>
+              <span className="block font-black">{t("onboarding.skip")}</span>
+              <span className="mt-1 block text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
+                {t("onboarding.skipBody")}
+              </span>
+            </span>
           </button>
         </div>
       </div>

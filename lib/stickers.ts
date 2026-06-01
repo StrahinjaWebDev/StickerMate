@@ -21,6 +21,7 @@ export const excludedVariantCount = excludedVariantStickers.length;
 export const edition = source.edition;
 
 export const stickerByCode = new Map(stickers.map((sticker) => [sticker.code.toUpperCase(), sticker]));
+export const allStickerByCode = new Map(allStickers.map((sticker) => [normalizeStickerCode(sticker.code), sticker]));
 
 export const teams = Array.from(new Set(stickers.map((sticker) => sticker.team))).sort((a, b) =>
   a.localeCompare(b)
@@ -33,6 +34,10 @@ export const stickersByTeam = teams.map((team) => ({
 
 export function getSticker(code: string) {
   return stickerByCode.get(code.toUpperCase());
+}
+
+export function getAnySticker(code: string) {
+  return allStickerByCode.get(normalizeStickerCode(code));
 }
 
 export function isAlbumSticker(sticker: Pick<Sticker, "code">) {
@@ -112,6 +117,13 @@ export function parseStickerCodes(input: string) {
     .split(/[^A-Z0-9-]+/g)
     .map((code) => code.trim())
     .filter(Boolean);
+}
+
+export function normalizeStickerCode(code: string) {
+  const trimmed = code.trim();
+  const specialSuffix = /s$/.test(trimmed);
+  const upper = trimmed.toUpperCase();
+  return specialSuffix ? `${upper.slice(0, -1)}s` : upper;
 }
 
 export function formatPercent(value: number) {

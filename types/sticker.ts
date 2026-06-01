@@ -24,6 +24,23 @@ export type ThemePreference = "light" | "dark" | "system";
 
 export type LanguageCode = "sr" | "en";
 
+export type SpendingCurrency = "RSD" | "EUR" | "USD" | "GBP";
+
+export type SpendingCategory = "packs" | "album" | "bundle" | "individual" | "other";
+
+export type GuideKey =
+  | "dashboard"
+  | "collection"
+  | "quickReview"
+  | "teams"
+  | "duplicates"
+  | "trades"
+  | "spending"
+  | "scan"
+  | "tradeQr"
+  | "friendQr"
+  | "settings";
+
 export type CollectionStats = {
   total: number;
   owned: number;
@@ -41,4 +58,53 @@ export type ImportSummary = {
   newCodes: string[];
   duplicateCodes: string[];
   invalidCodes: string[];
+};
+
+export type EntryHistoryItem = {
+  id: string;
+  note: string;
+  codes: string[];
+  createdAt: string;
+};
+
+export type SpendingEntry = {
+  id: string;
+  date: string;
+  amount: number;
+  currency: SpendingCurrency;
+  category: SpendingCategory;
+  packsCount?: number;
+  stickersCount?: number;
+  note?: string;
+  linkedEntryId?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TradeFriend = {
+  id: string;
+  name: string;
+  missing: string[];
+  duplicates: string[];
+  notes?: string;
+  importedAt: string;
+};
+
+export type TradeProfilePayload = {
+  app: "StickerMate";
+  type: "trade-profile";
+  schemaVersion: 1;
+  name: string;
+  missing: string[];
+  duplicates: string[];
+  generatedAt: string;
+};
+
+export type RecognitionResult = {
+  detectedCodes: string[];
+  invalidCodes: string[];
+  excludedCodes: string[];
+  confidence?: number;
+  rawText?: string;
+  warnings?: string[];
 };
