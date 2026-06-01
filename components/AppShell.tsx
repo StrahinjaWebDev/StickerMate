@@ -1,0 +1,87 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { BarChart3, Handshake, Home, Settings, Sticker } from "lucide-react";
+import { clsx } from "clsx";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+
+const navItems = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/duplicates", label: "Dupes", icon: Sticker },
+  { href: "/trades", label: "Trades", icon: Handshake },
+  { href: "/settings", label: "Settings", icon: Settings }
+];
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  return (
+    <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-24 pt-3 sm:px-5 lg:pb-8">
+      <header className="sticky top-0 z-30 -mx-3 border-b border-line/70 bg-field/90 px-3 py-3 backdrop-blur dark:border-white/10 dark:bg-neutral-950/90 sm:-mx-5 sm:px-5">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+          <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="StickerMate home">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-pitch text-white shadow-lift">
+              <BarChart3 size={22} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-lg font-black leading-tight text-ink dark:text-white">StickerMate</span>
+              <span className="hidden text-sm text-neutral-600 dark:text-neutral-400 sm:block">
+                World Cup 2026 collection
+              </span>
+            </span>
+          </Link>
+
+          <nav className="hidden items-center gap-1 rounded-lg border border-line bg-white p-1 shadow-sm dark:border-white/10 dark:bg-neutral-900 lg:flex">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={clsx(
+                    "flex h-10 items-center gap-2 rounded-md px-4 text-sm font-semibold transition",
+                    active
+                      ? "bg-pitch text-white"
+                      : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  )}
+                >
+                  <Icon size={18} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      </header>
+
+      <main className="flex-1 py-4 sm:py-6">{children}</main>
+      <ServiceWorkerRegister />
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-2 pb-[max(0.55rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur dark:border-white/10 dark:bg-neutral-950/95 lg:hidden">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={clsx(
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg text-xs font-bold transition",
+                  active
+                    ? "bg-pitch text-white"
+                    : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                )}
+              >
+                <Icon size={20} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </div>
+  );
+}

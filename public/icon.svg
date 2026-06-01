@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="StickerMate">
+  <rect width="128" height="128" rx="26" fill="#156f5b"/>
+  <path d="M36 24h42l20 20v60H36z" fill="#f7f7f4"/>
+  <path d="M78 24v22h22" fill="#d7a73f"/>
+  <path d="M50 62h36M50 78h28" stroke="#171717" stroke-width="8" stroke-linecap="round"/>
+</svg>
