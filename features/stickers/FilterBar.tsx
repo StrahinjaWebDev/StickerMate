@@ -2,13 +2,14 @@
 
 import { Search } from "lucide-react";
 import { clsx } from "clsx";
+import { useI18n } from "@/hooks/useI18n";
 import type { StickerFilter } from "@/types/sticker";
 
-const filters: Array<{ value: StickerFilter; label: string }> = [
-  { value: "all", label: "All" },
-  { value: "owned", label: "Owned" },
-  { value: "missing", label: "Missing" },
-  { value: "duplicates", label: "Duplicates" }
+const filters: Array<{ value: StickerFilter; labelKey: "filters.all" | "filters.owned" | "filters.missing" | "filters.duplicates" }> = [
+  { value: "all", labelKey: "filters.all" },
+  { value: "owned", labelKey: "filters.owned" },
+  { value: "missing", labelKey: "filters.missing" },
+  { value: "duplicates", labelKey: "filters.duplicates" }
 ];
 
 export function FilterBar({
@@ -22,6 +23,8 @@ export function FilterBar({
   onQueryChange: (query: string) => void;
   onFilterChange: (filter: StickerFilter) => void;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-3">
       <label className="relative block">
@@ -34,12 +37,12 @@ export function FilterBar({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           className="h-12 w-full rounded-lg border-line bg-white pl-11 pr-4 text-base font-semibold shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-900 dark:text-white"
-          placeholder="Search code, player, team..."
-          aria-label="Search stickers"
+          placeholder={t("search.placeholder")}
+          aria-label={t("search.label")}
         />
       </label>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar" role="tablist" aria-label="Sticker filters">
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar" role="tablist" aria-label={t("filters.label")}>
         {filters.map((item) => (
           <button
             key={item.value}
@@ -54,7 +57,7 @@ export function FilterBar({
             )}
             onClick={() => onFilterChange(item.value)}
           >
-            {item.label}
+            {t(item.labelKey)}
           </button>
         ))}
       </div>

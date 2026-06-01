@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Minus, Plus } from "lucide-react";
 import { clsx } from "clsx";
 import { StickerImage } from "@/features/stickers/StickerImage";
+import { useI18n } from "@/hooks/useI18n";
 import type { Sticker } from "@/types/sticker";
 
 export function StickerCard({
@@ -17,7 +18,8 @@ export function StickerCard({
   onIncrement: () => void;
   onDecrement: () => void;
 }) {
-  const status = quantity === 0 ? "Nedostaje" : quantity === 1 ? "Imam" : `x${quantity}`;
+  const { t } = useI18n();
+  const status = quantity === 0 ? t("status.missingCard") : quantity === 1 ? t("status.ownedCard") : `x${quantity}`;
 
   return (
     <article
@@ -60,7 +62,7 @@ export function StickerCard({
           type="button"
           className="grid h-10 place-items-center rounded-md border border-line bg-field text-neutral-700 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-200"
           onClick={onDecrement}
-          aria-label={`Decrease ${sticker.code}`}
+          aria-label={t("sticker.decrease", { code: sticker.code })}
         >
           <Minus size={17} />
         </button>
@@ -69,7 +71,7 @@ export function StickerCard({
           type="button"
           className="grid h-10 place-items-center rounded-md bg-pitch text-white"
           onClick={onIncrement}
-          aria-label={`Increase ${sticker.code}`}
+          aria-label={t("sticker.increase", { code: sticker.code })}
         >
           <Plus size={17} />
         </button>

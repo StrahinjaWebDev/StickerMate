@@ -1,25 +1,29 @@
 "use client";
 
 import { Check, Copy, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { useI18n } from "@/hooks/useI18n";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export function BulkActions() {
   const selectedCodes = useCollectionStore((state) => state.selectedCodes);
   const markMany = useCollectionStore((state) => state.markMany);
   const clearSelection = useCollectionStore((state) => state.clearSelection);
+  const { t } = useI18n();
 
   if (selectedCodes.length === 0) return null;
 
   return (
     <div className="sticky top-[73px] z-20 rounded-lg border border-line bg-white p-2 shadow-lift dark:border-white/10 dark:bg-neutral-900">
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-        <span className="shrink-0 px-2 text-sm font-black text-ink dark:text-white">{selectedCodes.length} selected</span>
-        <Action label="Owned" icon={<Check size={18} />} onClick={() => markMany(selectedCodes, 1)} />
-        <Action label="Missing" icon={<X size={18} />} onClick={() => markMany(selectedCodes, 0)} />
-        <Action label="Duplicate" icon={<Copy size={18} />} onClick={() => markMany(selectedCodes, 2)} />
+        <span className="shrink-0 px-2 text-sm font-black text-ink dark:text-white">
+          {t("bulk.selected", { count: selectedCodes.length })}
+        </span>
+        <Action label={t("bulk.owned")} icon={<Check size={18} />} onClick={() => markMany(selectedCodes, 1)} />
+        <Action label={t("bulk.missing")} icon={<X size={18} />} onClick={() => markMany(selectedCodes, 0)} />
+        <Action label={t("bulk.duplicate")} icon={<Copy size={18} />} onClick={() => markMany(selectedCodes, 2)} />
         <Action label="+1" icon={<Plus size={18} />} onClick={() => markMany(selectedCodes, "increment")} />
         <Action label="-1" icon={<Minus size={18} />} onClick={() => markMany(selectedCodes, "decrement")} />
-        <Action label="Reset" icon={<RotateCcw size={18} />} onClick={clearSelection} subtle />
+        <Action label={t("bulk.reset")} icon={<RotateCcw size={18} />} onClick={clearSelection} subtle />
       </div>
     </div>
   );

@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { useI18n } from "@/hooks/useI18n";
 import { getStats, stickersByTeam } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export function TeamStrip() {
   const quantities = useCollectionStore((state) => state.quantities);
+  const { t } = useI18n();
   const teams = useMemo(
     () =>
       stickersByTeam.map((group) => ({
@@ -17,7 +19,7 @@ export function TeamStrip() {
   );
 
   return (
-    <section aria-label="Teams" className="-mx-3 overflow-x-auto px-3 pb-1 no-scrollbar sm:-mx-5 sm:px-5">
+    <section aria-label={t("teams.label")} className="-mx-3 overflow-x-auto px-3 pb-1 no-scrollbar sm:-mx-5 sm:px-5">
       <div className="flex gap-2">
         {teams.map(({ team, stats }) => (
           <Link
@@ -30,7 +32,7 @@ export function TeamStrip() {
               <div className="h-full rounded-full bg-pitch" style={{ width: `${stats.completion}%` }} />
             </div>
             <p className="mt-2 text-xs font-bold text-neutral-500 dark:text-neutral-400">
-              {stats.owned}/{stats.total} collected
+              {t("teams.collected", { owned: stats.owned, total: stats.total })}
             </p>
           </Link>
         ))}

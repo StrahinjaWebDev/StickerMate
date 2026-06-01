@@ -8,6 +8,7 @@ import { filterStickers } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { PaintMode } from "@/features/stickers/StickerRow";
 import { StickerRow } from "@/features/stickers/StickerRow";
+import { useI18n } from "@/hooks/useI18n";
 import type { Sticker, StickerFilter } from "@/types/sticker";
 
 export function StickerList({
@@ -31,6 +32,7 @@ export function StickerList({
   const setQuantity = useCollectionStore((state) => state.setQuantity);
   const toggleSelected = useCollectionStore((state) => state.toggleSelected);
   const selectedCodes = useCollectionStore((state) => state.selectedCodes);
+  const { t } = useI18n();
 
   const filtered = useMemo(() => filterStickers(list, quantities, filter, query), [filter, list, quantities, query]);
   const selected = useMemo(() => new Set(selectedCodes), [selectedCodes]);
@@ -38,7 +40,7 @@ export function StickerList({
   const virtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 134,
+    estimateSize: () => 146,
     overscan: 10
   });
 
@@ -78,7 +80,7 @@ export function StickerList({
   );
 
   if (filtered.length === 0) {
-    return <EmptyState icon={ClipboardX} title="No stickers found" body="Try another search or switch filters." />;
+    return <EmptyState icon={ClipboardX} title={t("empty.noStickers")} body={t("empty.noStickersBody")} />;
   }
 
   return (
@@ -107,7 +109,6 @@ export function StickerList({
                 selected={selected.has(sticker.code)}
                 onIncrement={() => increment(sticker.code)}
                 onDecrement={() => decrement(sticker.code)}
-                onSetQuantity={(nextQuantity) => setQuantity(sticker.code, nextQuantity)}
                 onToggleSelected={() => toggleSelected(sticker.code)}
                 onPaintStart={startPaint}
               />

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ArrowRight, ClipboardList, Keyboard, Zap } from "lucide-react";
+import { ImportPreview } from "@/features/stickers/ImportPreview";
+import { useI18n } from "@/hooks/useI18n";
 import { formatPercent, getStats, stickers } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { ImportSummary } from "@/types/sticker";
@@ -13,6 +15,7 @@ export function Onboarding() {
   const quickImport = useCollectionStore((state) => state.quickImport);
   const quantities = useCollectionStore((state) => state.quantities);
   const setOnboarded = useCollectionStore((state) => state.setOnboarded);
+  const { t } = useI18n();
 
   const stats = getStats(quantities, stickers);
 
@@ -24,9 +27,9 @@ export function Onboarding() {
             <Zap size={22} />
           </span>
           <div>
-            <h1 className="text-2xl font-black text-ink dark:text-white">Quick Import</h1>
+            <h1 className="text-2xl font-black text-ink dark:text-white">{t("onboarding.importTitle")}</h1>
             <p className="mt-1 text-sm leading-6 text-neutral-600 dark:text-neutral-400">
-              Paste sticker codes separated by spaces, commas, tabs, or new lines.
+              {t("onboarding.importBody")}
             </p>
           </div>
         </div>
@@ -36,16 +39,19 @@ export function Onboarding() {
           onChange={(event) => setInput(event.target.value)}
           className="mt-5 min-h-56 w-full rounded-lg border-line bg-field text-base font-semibold uppercase text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
           placeholder={"BRA1\nBRA2\nARG10\nPOR15"}
-          aria-label="Sticker codes"
+          aria-label={t("onboarding.codesLabel")}
         />
 
         {summary ? (
-          <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-            <SummaryItem label="Imported" value={summary.imported} />
-            <SummaryItem label="Duplicates" value={summary.duplicates} />
-            <SummaryItem label="Invalid" value={summary.invalid} />
-            <SummaryItem label="Progress" value={formatPercent(stats.completion)} />
-          </div>
+          <>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+              <SummaryItem label={t("summary.imported")} value={summary.imported} />
+              <SummaryItem label={t("summary.duplicates")} value={summary.duplicates} />
+              <SummaryItem label={t("summary.invalid")} value={summary.invalid} />
+              <SummaryItem label={t("summary.progress")} value={formatPercent(stats.completion)} />
+            </div>
+            <ImportPreview summary={summary} />
+          </>
         ) : null}
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
@@ -55,7 +61,7 @@ export function Onboarding() {
             disabled={!input.trim()}
             onClick={() => setSummary(quickImport(input))}
           >
-            Import Codes
+            {t("onboarding.importCodes")}
             <ArrowRight size={19} />
           </button>
           <button
@@ -63,7 +69,7 @@ export function Onboarding() {
             className="min-h-12 rounded-lg border border-line px-5 font-black text-ink dark:border-white/10 dark:text-white"
             onClick={() => setOnboarded(true)}
           >
-            Continue to Dashboard
+            {t("onboarding.continue")}
           </button>
         </div>
       </section>
@@ -75,14 +81,13 @@ export function Onboarding() {
       <div>
         <div className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm font-black text-pitch shadow-sm dark:border-white/10 dark:bg-neutral-900">
           <ClipboardList size={18} />
-          1034 stickers, zero spreadsheet energy
+          {t("onboarding.badge")}
         </div>
         <h1 className="mt-5 text-5xl font-black tracking-normal text-ink dark:text-white sm:text-6xl">
-          StickerMate
+          {t("onboarding.title")}
         </h1>
         <p className="mt-4 max-w-xl text-lg leading-8 text-neutral-600 dark:text-neutral-300">
-          Track your FIFA World Cup 2026 collection. Keep owned stickers, missing stickers and duplicates tidy in
-          seconds.
+          {t("onboarding.body")}
         </p>
         <div className="mt-7 grid max-w-xl gap-3 sm:grid-cols-3">
           <button
@@ -91,7 +96,7 @@ export function Onboarding() {
             onClick={() => setMode("import")}
           >
             <Zap size={20} />
-            Quick Import
+            {t("onboarding.quickImport")}
           </button>
           <button
             type="button"
@@ -99,26 +104,26 @@ export function Onboarding() {
             onClick={() => setOnboarded(true)}
           >
             <Keyboard size={20} />
-            Manual Setup
+            {t("onboarding.manualSetup")}
           </button>
           <button
             type="button"
             className="min-h-14 rounded-lg border border-line px-4 font-black text-neutral-700 dark:border-white/10 dark:text-neutral-300"
             onClick={() => setOnboarded(true)}
           >
-            Skip For Now
+            {t("onboarding.skip")}
           </button>
         </div>
       </div>
 
       <div className="rounded-lg border border-line bg-white p-5 shadow-lift dark:border-white/10 dark:bg-neutral-900">
         <div className="rounded-lg bg-field p-4 dark:bg-neutral-950">
-          <p className="text-sm font-black text-neutral-500 dark:text-neutral-400">Fast entry preview</p>
+          <p className="text-sm font-black text-neutral-500 dark:text-neutral-400">{t("onboarding.preview")}</p>
           <div className="mt-4 space-y-2 font-mono text-sm font-bold">
             {["BRA1", "BRA2", "BRA3", "ARG1", "POR15"].map((code) => (
               <div key={code} className="flex items-center justify-between rounded-md bg-white px-3 py-3 dark:bg-neutral-900">
                 <span>{code}</span>
-                <span className="rounded-md bg-pitch px-2 py-1 text-xs text-white">owned</span>
+                <span className="rounded-md bg-pitch px-2 py-1 text-xs text-white">{t("status.ownedCard")}</span>
               </div>
             ))}
           </div>

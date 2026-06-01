@@ -5,6 +5,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { ClipboardX } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { StickerCard } from "@/features/stickers/StickerCard";
+import { useI18n } from "@/hooks/useI18n";
 import { filterStickers } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { Sticker, StickerFilter } from "@/types/sticker";
@@ -25,6 +26,7 @@ export function StickerGrid({
   const quantities = useCollectionStore((state) => state.quantities);
   const increment = useCollectionStore((state) => state.increment);
   const decrement = useCollectionStore((state) => state.decrement);
+  const { t } = useI18n();
 
   const filtered = useMemo(() => filterStickers(list, quantities, filter, query), [filter, list, quantities, query]);
   const columns = width >= 1080 ? 5 : width >= 820 ? 4 : width >= 560 ? 3 : 2;
@@ -48,7 +50,7 @@ export function StickerGrid({
   });
 
   if (filtered.length === 0) {
-    return <EmptyState icon={ClipboardX} title="No stickers found" body="Try another search or switch filters." />;
+    return <EmptyState icon={ClipboardX} title={t("empty.noStickers")} body={t("empty.noStickersBody")} />;
   }
 
   return (

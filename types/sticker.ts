@@ -22,6 +22,8 @@ export type StickerViewMode = "list" | "grid";
 
 export type ThemePreference = "light" | "dark" | "system";
 
+export type LanguageCode = "sr" | "en";
+
 export type CollectionStats = {
   total: number;
   owned: number;

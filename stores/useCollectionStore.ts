@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { getStats, parseStickerCodes, stickerByCode, stickers } from "@/lib/stickers";
-import type { ImportSummary, StickerViewMode, ThemePreference } from "@/types/sticker";
+import type { ImportSummary, LanguageCode, StickerViewMode, ThemePreference } from "@/types/sticker";
 
 type ExportPayload = {
   app: "StickerMate";
@@ -14,6 +14,7 @@ type ExportPayload = {
   settings: {
     theme: ThemePreference;
     viewMode: StickerViewMode;
+    language: LanguageCode;
   };
 };
 
@@ -21,18 +22,20 @@ type CollectionStore = {
   quantities: Record<string, number>;
   onboarded: boolean;
   theme: ThemePreference;
+  language: LanguageCode;
   viewMode: StickerViewMode;
   selectedCodes: string[];
   recentCodes: string[];
   setOnboarded: (onboarded: boolean) => void;
   setTheme: (theme: ThemePreference) => void;
+  setLanguage: (language: LanguageCode) => void;
   setViewMode: (viewMode: StickerViewMode) => void;
   setQuantity: (code: string, quantity: number) => void;
   increment: (code: string) => void;
   decrement: (code: string) => void;
   markMany: (codes: string[], quantity: number | "increment" | "decrement") => void;
   quickImport: (input: string) => ImportSummary;
-  importPayload: (payload: unknown) => { ok: true } | { ok: false; error: string };
+  importPayload: (payload: unknown) => { ok: true } | { ok: false; errorKey: "settings.importInvalidError" | "settings.importMissingQuantitiesError" };
   exportPayload: () => ExportPayload;
   resetCollection: () => void;
   toggleSelected: (code: string) => void;
@@ -71,11 +74,13 @@ export const useCollectionStore = create<CollectionStore>()(
       quantities: {},
       onboarded: false,
       theme: "system",
+      language: "sr",
       viewMode: "list",
       selectedCodes: [],
       recentCodes: [],
       setOnboarded: (onboarded) => set({ onboarded }),
       setTheme: (theme) => set({ theme }),
+      setLanguage: (language) => set({ language }),
       setViewMode: (viewMode) => set({ viewMode }),
       setQuantity: (code, quantity) =>
         set((state) => ({
@@ -148,15 +153,15 @@ export const useCollectionStore = create<CollectionStore>()(
       },
       importPayload: (payload) => {
         if (!payload || typeof payload !== "object") {
-          return { ok: false, error: "That file is not a StickerMate export." };
+          return { ok: false, errorKey: "settings.importInvalidError" };
         }
 
         const maybePayload = payload as {
           quantities?: unknown;
-          settings?: { theme?: ThemePreference; viewMode?: StickerViewMode };
+          settings?: { theme?: ThemePreference; viewMode?: StickerViewMode; language?: LanguageCode };
         };
         if (!maybePayload.quantities || typeof maybePayload.quantities !== "object") {
-          return { ok: false, error: "The export is missing sticker quantities." };
+          return { ok: false, errorKey: "settings.importMissingQuantitiesError" };
         }
 
         const quantities: Record<string, number> = {};
@@ -172,20 +177,21 @@ export const useCollectionStore = create<CollectionStore>()(
           quantities,
           onboarded: true,
           theme: maybePayload.settings?.theme ?? get().theme,
-          viewMode: maybePayload.settings?.viewMode ?? get().viewMode
+          viewMode: maybePayload.settings?.viewMode ?? get().viewMode,
+          language: maybePayload.settings?.language ?? get().language
         });
 
         return { ok: true };
       },
       exportPayload: () => {
-        const { quantities, theme, viewMode } = get();
+        const { quantities, theme, viewMode, language } = get();
         return {
           app: "StickerMate",
           version: 1,
           exportedAt: new Date().toISOString(),
           quantities,
           stats: getStats(quantities, stickers),
-          settings: { theme, viewMode }
+          settings: { theme, viewMode, language }
         };
       },
       resetCollection: () => set({ quantities: {}, selectedCodes: [], recentCodes: [] }),
@@ -205,6 +211,7 @@ export const useCollectionStore = create<CollectionStore>()(
         quantities: state.quantities,
         onboarded: state.onboarded,
         theme: state.theme,
+        language: state.language,
         viewMode: state.viewMode,
         recentCodes: state.recentCodes
       })

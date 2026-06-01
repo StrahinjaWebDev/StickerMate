@@ -1,11 +1,16 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useMemo, useState } from "react";
 import { clsx } from "clsx";
+import localImageManifest from "@/public/stickers/manifest.json";
 import { getLocalStickerImagePath } from "@/lib/stickers";
+import { useI18n } from "@/hooks/useI18n";
 import type { Sticker } from "@/types/sticker";
 
 type ImagePhase = "local" | "remote" | "placeholder";
+const localImages = new Set(localImageManifest as string[]);
 
 export function isSpecialSticker(sticker: Sticker) {
   return /s$/i.test(sticker.code);
@@ -26,7 +31,9 @@ export function StickerImage({
   showTextPlaceholder?: boolean;
   sizes?: string;
 }) {
-  const [phase, setPhase] = useState<ImagePhase>("local");
+  const { t } = useI18n();
+  const hasLocalImage = localImages.has(sticker.imageCode ?? sticker.code.toLowerCase());
+  const [phase, setPhase] = useState<ImagePhase>(() => (hasLocalImage ? "local" : "remote"));
   const src = useMemo(() => {
     if (phase === "local") return getLocalStickerImagePath(sticker);
     if (phase === "remote") return sticker.imageUrl;
@@ -52,7 +59,7 @@ export function StickerImage({
           decoding="async"
           sizes={sizes}
           className={clsx("h-full w-full object-cover", missing && "grayscale", imageClassName)}
-          onError={() => setPhase((current) => (current === "local" ? "remote" : "placeholder"))}
+          onError={() => setPhase((current) => (current === "local" && sticker.imageUrl ? "remote" : "placeholder"))}
         />
       ) : (
         <StickerPlaceholder sticker={sticker} showText={showTextPlaceholder} />
@@ -62,7 +69,7 @@ export function StickerImage({
       ) : null}
       {isSpecialSticker(sticker) ? (
         <span className="absolute right-1 top-1 rounded bg-gold px-1.5 py-0.5 text-[10px] font-black text-ink">
-          special
+          {t("status.special")}
         </span>
       ) : null}
     </div>

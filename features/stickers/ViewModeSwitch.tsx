@@ -2,6 +2,7 @@
 
 import { Grid2X2, List } from "lucide-react";
 import { clsx } from "clsx";
+import { useI18n } from "@/hooks/useI18n";
 import type { StickerViewMode } from "@/types/sticker";
 
 export function ViewModeSwitch({
@@ -11,13 +12,14 @@ export function ViewModeSwitch({
   value: StickerViewMode;
   onChange: (value: StickerViewMode) => void;
 }) {
+  const { t } = useI18n();
   const options = [
-    { value: "list" as const, label: "List View", icon: List },
-    { value: "grid" as const, label: "Grid View", icon: Grid2X2 }
+    { value: "list" as const, labelKey: "view.list" as const, icon: List },
+    { value: "grid" as const, labelKey: "view.grid" as const, icon: Grid2X2 }
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-lg bg-neutral-200/70 p-1 dark:bg-neutral-900" aria-label="View mode">
+    <div className="grid grid-cols-2 gap-1 rounded-lg bg-neutral-200/70 p-1 dark:bg-neutral-900" aria-label={t("view.label")}>
       {options.map((option) => {
         const Icon = option.icon;
         return (
@@ -33,7 +35,7 @@ export function ViewModeSwitch({
             onClick={() => onChange(option.value)}
           >
             <Icon size={18} />
-            {option.label}
+            {t(option.labelKey)}
           </button>
         );
       })}

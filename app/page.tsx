@@ -6,9 +6,13 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { BulkActions } from "@/features/stickers/BulkActions";
 import { FilterBar } from "@/features/stickers/FilterBar";
 import { Onboarding } from "@/features/stickers/Onboarding";
+import { RecentStickers } from "@/features/stickers/RecentStickers";
 import { StatsCards } from "@/features/stickers/StatsCards";
+import { StickerGrid } from "@/features/stickers/StickerGrid";
 import { StickerList } from "@/features/stickers/StickerList";
 import { TeamStrip } from "@/features/stickers/TeamStrip";
+import { ViewModeSwitch } from "@/features/stickers/ViewModeSwitch";
+import { useI18n } from "@/hooks/useI18n";
 import { getStats, stickers } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { StickerFilter } from "@/types/sticker";
@@ -16,6 +20,9 @@ import type { StickerFilter } from "@/types/sticker";
 export default function HomePage() {
   const onboarded = useCollectionStore((state) => state.onboarded);
   const quantities = useCollectionStore((state) => state.quantities);
+  const viewMode = useCollectionStore((state) => state.viewMode);
+  const setViewMode = useCollectionStore((state) => state.setViewMode);
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StickerFilter>("all");
 
@@ -28,14 +35,14 @@ export default function HomePage() {
       <section className="rounded-lg border border-line bg-white p-4 shadow-lift dark:border-white/10 dark:bg-neutral-900 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">Dashboard</h1>
+            <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("dashboard.title")}</h1>
             <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-              {stats.owned} / {stats.total} collected, {stats.missing} remaining
+              {t("dashboard.collectedLine", { owned: stats.owned, total: stats.total, missing: stats.missing })}
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-field px-3 py-2 text-sm font-black text-coral dark:bg-neutral-950">
             <CircleOff size={18} />
-            {stats.missing} missing
+            {t("dashboard.missingCount", { count: stats.missing })}
           </div>
         </div>
         <div className="mt-5">
@@ -44,12 +51,18 @@ export default function HomePage() {
       </section>
 
       <StatsCards stats={stats} />
+      <RecentStickers />
       <TeamStrip />
 
       <section className="space-y-3">
         <FilterBar query={query} filter={filter} onQueryChange={setQuery} onFilterChange={setFilter} />
+        <ViewModeSwitch value={viewMode} onChange={setViewMode} />
         <BulkActions />
-        <StickerList list={stickers} query={query} filter={filter} />
+        {viewMode === "list" ? (
+          <StickerList list={stickers} query={query} filter={filter} />
+        ) : (
+          <StickerGrid list={stickers} query={query} filter={filter} />
+        )}
       </section>
     </div>
   );
