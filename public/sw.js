@@ -1,5 +1,5 @@
-const CACHE_NAME = "stickermate-v3";
-const APP_SHELL = ["/", "/collection", "/fill", "/duplicates", "/trades", "/settings", "/review", "/spending", "/teams", "/trade-qr", "/friend-qr", "/help", "/about", "/more", "/icon.svg", "/opengraph-image"];
+const CACHE_NAME = "stickermate-v4";
+const APP_SHELL = ["/icon.svg", "/manifest.webmanifest", "/opengraph-image"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -22,7 +22,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (event.request.mode === "navigate") {
-    event.respondWith(networkFirst(event.request, "/"));
+    event.respondWith(fetch(event.request));
     return;
   }
 
@@ -35,21 +35,6 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(cacheFirst(event.request));
   }
 });
-
-async function networkFirst(request, fallbackUrl) {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    return caches.match(fallbackUrl);
-  }
-}
 
 async function cacheFirst(request) {
   const cached = await caches.match(request);

@@ -9,7 +9,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { StatsCards } from "@/features/stickers/StatsCards";
 import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
-import { formatPercent, getQuantity, getStats, stickers, stickersByTeam } from "@/lib/stickers";
+import { formatPercent, getDuplicateCount, getQuantity, getStats, stickers, stickersByTeam } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export function QuickAlbumReview() {
@@ -31,6 +31,9 @@ export function QuickAlbumReview() {
   const safeIndex = Math.min(currentIndex, stickers.length - 1);
   const sticker = stickers[safeIndex];
   const quantity = sticker ? getQuantity(quantities, sticker.code) : 0;
+  const duplicateCount = sticker ? getDuplicateCount(quantities, sticker.code) : 0;
+  const duplicateCountLabel =
+    duplicateCount === 0 ? t("review.noDuplicates") : t("review.duplicateCount", { count: duplicateCount });
   const isComplete = reviewCompleted || currentIndex >= stickers.length;
 
   useEffect(() => {
@@ -56,6 +59,16 @@ export function QuickAlbumReview() {
   function mark(quantityValue: number) {
     if (!sticker) return;
     markReviewSticker(sticker.code, quantityValue, currentIndex + 1);
+  }
+
+  function markDuplicate() {
+    if (!sticker) return;
+    markReviewSticker(sticker.code, quantity > 0 ? quantity + 1 : 2, currentIndex + 1);
+  }
+
+  function confirmRestartReview() {
+    if (!window.confirm(t("review.restartConfirm"))) return;
+    resetReview();
   }
 
   function goBack() {
@@ -97,6 +110,14 @@ export function QuickAlbumReview() {
         event.preventDefault();
         goBack();
       }
+      if (event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        markDuplicate();
+      }
+      if (event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        skip();
+      }
     }
 
     window.addEventListener("keydown", onKeyDown);
@@ -122,7 +143,7 @@ export function QuickAlbumReview() {
               <ArrowRight size={18} />
               {t("review.goDashboard")}
             </Button>
-            <Button onClick={resetReview}>
+            <Button onClick={confirmRestartReview}>
               <RotateCcw size={18} />
               {t("review.reviewAgain")}
             </Button>
@@ -229,12 +250,12 @@ export function QuickAlbumReview() {
                 {t("review.owned")}
               </Button>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <Button className="min-h-11 px-2 text-sm" onClick={goBack} disabled={currentIndex === 0}>
                 <ArrowLeft size={16} />
                 {t("review.back")}
               </Button>
-              <Button className="min-h-11 px-2 text-sm" onClick={() => mark(Math.max(2, quantity))}>
+              <Button className="min-h-11 px-2 text-sm" onClick={markDuplicate}>
                 <RotateCcw size={16} />
                 {t("review.duplicate")}
               </Button>
@@ -242,8 +263,15 @@ export function QuickAlbumReview() {
                 <SkipForward size={16} />
                 {t("review.skip")}
               </Button>
+              <Button className="min-h-11 px-2 text-sm" onClick={completeReview}>
+                <Check size={16} />
+                {t("review.finish")}
+              </Button>
             </div>
             <p className="text-center text-xs font-bold text-neutral-500 dark:text-neutral-400">{t("review.shortcuts")}</p>
+            <p className="rounded-lg bg-field p-2 text-center text-xs font-black text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300">
+              {duplicateCountLabel}
+            </p>
           </div>
         </div>
       </section>
@@ -256,6 +284,10 @@ export function QuickAlbumReview() {
         <Button className="min-h-12 text-base" tone="primary" onClick={() => mark(1)}>
           <Check size={20} />
           {t("review.owned")}
+        </Button>
+        <Button className="col-span-2 min-h-11 text-sm" onClick={markDuplicate}>
+          <RotateCcw size={18} />
+          {t("review.duplicate")} · {duplicateCountLabel}
         </Button>
       </div>
     </div>

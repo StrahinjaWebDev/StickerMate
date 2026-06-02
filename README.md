@@ -130,7 +130,7 @@ Quick Album Fill is the recommended first-run workflow. It presents one standard
 The review supports:
 
 - Large tap targets for mobile use
-- Keyboard shortcuts for fast desktop entry
+- Keyboard shortcuts for fast desktop entry: left arrow for Missing, right arrow or Space for Owned, `D` for Duplicate, Backspace for Back, and `S` for Skip
 - Swipe gestures on the sticker image
 - Team/section jumping
 - Completion summary with export backup
@@ -194,7 +194,13 @@ Help text is fully localized through the same translation dictionaries as the re
 
 ## PWA Support
 
-StickerMate includes a web app manifest and service worker registration. The current PWA layer is intentionally simple: it supports installability and lightweight app-shell caching while collection data remains stored locally in the browser through LocalStorage.
+StickerMate includes a web app manifest and a production-only service worker registration. The service worker caches stable public assets such as icons and sticker images, but it does not cache Next.js route HTML or `_next/static` CSS/JS chunks. This avoids stale deployments where old HTML points at removed JavaScript or CSS files.
+
+In development, the app unregisters local StickerMate service workers and clears StickerMate caches so localhost does not get stuck with stale chunks. If local styling ever looks stale during development, stop the dev server, delete `.next`, hard refresh the browser, and run `npm run dev` again.
+
+## Guest Profiles
+
+Guest mode is local-only and works without Supabase. StickerMate creates `Guest 1` / `Gost 1` by default, and users can add, switch, rename, or delete guest profiles from Account/Nalog. Each guest profile stores its own quantities, trades, spending entries, settings, onboarding/help state, and Quick Album Fill review progress in LocalStorage.
 
 ## Optional Supabase Cloud Sync
 
