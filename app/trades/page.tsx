@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import { Check, Copy, MessageCircle, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Check, CheckCircle2, Copy, History, MessageCircle, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { GuideCard } from "@/components/GuideCard";
 import { useI18n } from "@/hooks/useI18n";
@@ -117,9 +118,15 @@ export default function TradesPage() {
         <Card>
           <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.myDuplicates")}</h2>
           {tradable.length === 0 ? (
-            <p className="mt-3 rounded-lg bg-field p-3 text-sm font-bold text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300">
-              {t("trades.noDuplicates")}
-            </p>
+            <div className="mt-3">
+              <EmptyState
+                icon={Copy}
+                title={t("trades.noDuplicates")}
+                body={t("trades.noDuplicatesBody")}
+                actionLabel={t("trades.noDuplicatesAction")}
+                actionHref="/fill"
+              />
+            </div>
           ) : (
             <div className="mt-3 space-y-2">
               {tradable.slice(0, 8).map((sticker) => (
@@ -144,13 +151,27 @@ export default function TradesPage() {
 
         <Card>
           <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.missingList")}</h2>
-          <p className="mt-3 max-h-44 overflow-auto break-words rounded-lg bg-field p-3 font-mono text-xs font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-            {missingCodes.slice(0, 160).join(", ") || "-"}
-          </p>
-          <Button className="mt-3 w-full" onClick={() => navigator.clipboard.writeText(missingCodes.join(", "))}>
-            <Copy size={18} />
-            {t("trades.copyMissing")}
-          </Button>
+          {missingCodes.length === 0 ? (
+            <div className="mt-3">
+              <EmptyState
+                icon={CheckCircle2}
+                title={t("trades.noMissing")}
+                body={t("trades.noMissingBody")}
+                actionLabel={t("trades.noMissingAction")}
+                actionHref="/collection"
+              />
+            </div>
+          ) : (
+            <>
+              <p className="mt-3 max-h-44 overflow-auto break-words rounded-lg bg-field p-3 font-mono text-xs font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+                {missingCodes.slice(0, 160).join(", ")}
+              </p>
+              <Button className="mt-3 w-full" onClick={() => navigator.clipboard.writeText(missingCodes.join(", "))}>
+                <Copy size={18} />
+                {t("trades.copyMissing")}
+              </Button>
+            </>
+          )}
         </Card>
       </section>
 
@@ -215,9 +236,15 @@ export default function TradesPage() {
       <Card>
         <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.history")}</h2>
         {tradeHistory.length === 0 ? (
-          <p className="mt-3 rounded-lg bg-field p-3 text-sm font-bold text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300">
-            {t("trades.noHistory")}
-          </p>
+          <div className="mt-3">
+            <EmptyState
+              icon={History}
+              title={t("trades.noHistory")}
+              body={t("trades.noHistoryBody")}
+              actionLabel={t("trades.noHistoryAction")}
+              onAction={() => setFormOpen(true)}
+            />
+          </div>
         ) : (
           <div className="mt-3 space-y-2">
             {tradeHistory.map((trade) => (

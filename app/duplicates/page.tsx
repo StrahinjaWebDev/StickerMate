@@ -45,7 +45,13 @@ export default function DuplicatesPage() {
       <GuideCard guide="duplicates" titleKey="guide.duplicatesTitle" bodyKey="guide.duplicatesBody" />
 
       {duplicates.length === 0 ? (
-        <EmptyState icon={Copy} title={t("empty.noDuplicates")} body={t("empty.noDuplicatesBody")} />
+        <EmptyState
+          icon={Copy}
+          title={t("empty.noDuplicates")}
+          body={t("empty.noDuplicatesBody")}
+          actionLabel={t("empty.noDuplicatesAction")}
+          actionHref="/fill"
+        />
       ) : (
         <section className="space-y-3">
           <FilterBar query={query} filter="duplicates" onQueryChange={setQuery} onFilterChange={() => undefined} />

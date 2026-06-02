@@ -1,5 +1,5 @@
-const CACHE_NAME = "stickermate-v2";
-const APP_SHELL = ["/", "/collection", "/fill", "/duplicates", "/trades", "/settings", "/review", "/spending", "/teams", "/trade-qr", "/friend-qr", "/help", "/more", "/icon.svg"];
+const CACHE_NAME = "stickermate-v3";
+const APP_SHELL = ["/", "/collection", "/fill", "/duplicates", "/trades", "/settings", "/review", "/spending", "/teams", "/trade-qr", "/friend-qr", "/help", "/about", "/more", "/icon.svg", "/opengraph-image"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -31,7 +31,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/stickers/") || url.pathname === "/icon.svg" || url.pathname === "/manifest.webmanifest") {
+  if (url.pathname.startsWith("/stickers/") || url.pathname === "/icon.svg" || url.pathname === "/manifest.webmanifest" || url.pathname === "/opengraph-image") {
     event.respondWith(cacheFirst(event.request));
   }
 });

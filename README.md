@@ -6,6 +6,12 @@ StickerMate is a fast, mobile-first web app for tracking the 980 standard-album 
 
 StickerMate keeps the experience closer to a polished consumer app than a spreadsheet. Users can paste large batches of sticker codes, mark quantities directly from the collection, browse visual sticker cards, and keep everything saved locally on the device.
 
+## Disclaimer
+
+StickerMate is an unofficial fan-made collection tracker. It is not affiliated with, endorsed by, or connected to Panini, FIFA, LastSticker or World Cup 2026.
+
+Sticker images and checklist data are used only for personal tracking and reference inside the app.
+
 ## Features
 
 - New Entry for pasted sticker codes with automatic separator detection

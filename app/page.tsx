@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { ArrowRight, CircleOff, Layers3, Shield, Sticker, Wallet } from "lucide-react";
 import { ProgressBar } from "@/components/ProgressBar";
 import { GuideCard } from "@/components/GuideCard";
+import { ShareAppButton } from "@/components/ShareAppButton";
 import { Onboarding } from "@/features/stickers/Onboarding";
 import { RecentStickers } from "@/features/stickers/RecentStickers";
 import { StatsCards } from "@/features/stickers/StatsCards";
@@ -49,9 +50,12 @@ export default function HomePage() {
               {t("dashboard.collectedLine", { owned: stats.owned, total: stats.total, missing: stats.missing })}
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-lg bg-field px-3 py-2 text-sm font-black text-coral dark:bg-neutral-950">
-            <CircleOff size={18} />
-            {t("dashboard.missingCount", { count: stats.missing })}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <ShareAppButton className="min-h-10 px-3 text-sm" />
+            <div className="flex items-center gap-2 rounded-lg bg-field px-3 py-2 text-sm font-black text-coral dark:bg-neutral-950">
+              <CircleOff size={18} />
+              {t("dashboard.missingCount", { count: stats.missing })}
+            </div>
           </div>
         </div>
         <div className="mt-5">

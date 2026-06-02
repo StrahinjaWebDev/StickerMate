@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { ProgressBar } from "@/components/ProgressBar";
 import { Card } from "@/components/ui/Primitives";
 import { useI18n } from "@/hooks/useI18n";
@@ -45,31 +46,41 @@ export default function TeamsPage() {
         />
       </label>
 
-      <section className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {teams.map(({ team, stats }) => (
-          <Link
-            key={team}
-            href={`/team/${encodeURIComponent(team)}`}
-            className="min-w-0 rounded-lg border border-line bg-white p-4 shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:hover:bg-neutral-800"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <h2 className="min-w-0 truncate text-lg font-black text-ink dark:text-white">
-                <span className="mr-2">{getTeamIcon(team)}</span>
-                {team}
-              </h2>
-              <span className="shrink-0 text-sm font-black text-pitch">
-                {stats.owned}/{stats.total}
-              </span>
-            </div>
-            <div className="mt-3">
-              <ProgressBar value={stats.completion} />
-            </div>
-            <p className="mt-2 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-              {t("team.summary", { owned: stats.owned, missing: stats.missing, duplicates: stats.duplicates })}
-            </p>
-          </Link>
-        ))}
-      </section>
+      {teams.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title={t("teams.emptyTitle")}
+          body={t("teams.emptyBody")}
+          actionLabel={t("teams.emptyAction")}
+          onAction={() => setQuery("")}
+        />
+      ) : (
+        <section className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {teams.map(({ team, stats }) => (
+            <Link
+              key={team}
+              href={`/team/${encodeURIComponent(team)}`}
+              className="min-w-0 rounded-lg border border-line bg-white p-4 shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="min-w-0 truncate text-lg font-black text-ink dark:text-white">
+                  <span className="mr-2">{getTeamIcon(team)}</span>
+                  {team}
+                </h2>
+                <span className="shrink-0 text-sm font-black text-pitch">
+                  {stats.owned}/{stats.total}
+                </span>
+              </div>
+              <div className="mt-3">
+                <ProgressBar value={stats.completion} />
+              </div>
+              <p className="mt-2 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+                {t("team.summary", { owned: stats.owned, missing: stats.missing, duplicates: stats.duplicates })}
+              </p>
+            </Link>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 import { Copy, ImageUp, QrCode, Save } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Button, Card } from "@/components/ui/Primitives";
 import { GuideCard } from "@/components/GuideCard";
 import { useI18n } from "@/hooks/useI18n";
@@ -130,14 +131,28 @@ export default function FriendQrPage() {
       {friend && match ? (
         <Card>
           <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.possible")}</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <MatchList title={t("trades.iCanGive")} codes={match.iCanGive} countText={t("trades.friendGetsCount", { count: match.iCanGive.length })} />
-            <MatchList title={t("trades.friendCanGive")} codes={match.friendCanGive} countText={t("trades.iGetCount", { count: match.friendCanGive.length })} />
-          </div>
-          <Button className="mt-4" onClick={copyWhatsApp}>
-            <Copy size={18} />
-            {t("trades.copyWhatsApp")}
-          </Button>
+          {match.iCanGive.length === 0 && match.friendCanGive.length === 0 ? (
+            <div className="mt-4">
+              <EmptyState
+                icon={QrCode}
+                title={t("trades.noMatch")}
+                body={t("trades.noMatchBody")}
+                actionLabel={t("trades.noMatchAction")}
+                actionHref="/trades"
+              />
+            </div>
+          ) : (
+            <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <MatchList title={t("trades.iCanGive")} codes={match.iCanGive} countText={t("trades.friendGetsCount", { count: match.iCanGive.length })} />
+                <MatchList title={t("trades.friendCanGive")} codes={match.friendCanGive} countText={t("trades.iGetCount", { count: match.friendCanGive.length })} />
+              </div>
+              <Button className="mt-4" onClick={copyWhatsApp}>
+                <Copy size={18} />
+                {t("trades.copyWhatsApp")}
+              </Button>
+            </>
+          )}
         </Card>
       ) : null}
     </div>
@@ -156,9 +171,7 @@ function MatchList({ title, codes, countText }: { title: string; codes: string[]
               {code}
             </span>
           ))
-        ) : (
-          <span className="text-sm font-semibold text-neutral-500">{codes.length === 0 ? "-" : ""}</span>
-        )}
+        ) : null}
       </div>
     </div>
   );

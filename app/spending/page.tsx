@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Pencil, Plus, Save, Trash2, Wallet, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EmptyState } from "@/components/EmptyState";
 import { GuideCard } from "@/components/GuideCard";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { useI18n } from "@/hooks/useI18n";
@@ -297,9 +298,15 @@ export default function SpendingPage() {
       <Card>
         <h2 className="text-xl font-black text-ink dark:text-white">{t("spending.history")}</h2>
         {sortedEntries.length === 0 ? (
-          <p className="mt-3 rounded-lg bg-field p-4 text-sm font-bold text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300">
-            {t("spending.empty")}
-          </p>
+          <div className="mt-3">
+            <EmptyState
+              icon={Wallet}
+              title={t("spending.empty")}
+              body={t("spending.emptyBody")}
+              actionLabel={t("spending.emptyAction")}
+              onAction={startAdd}
+            />
+          </div>
         ) : (
           <div className="mt-4 space-y-3">
             {sortedEntries.map((entry) => (
