@@ -234,6 +234,18 @@ Do not commit `.env.local`. Google Client ID and Google Client Secret are config
 
 First login never deletes local data automatically. If cloud data and local data both exist, the Settings account card asks whether to save local data online, load cloud data, or merge both.
 
+### Google Auth Troubleshooting
+
+If Google opens correctly but Supabase redirects back with `Unable to exchange external code`, the app has reached the provider flow but Supabase could not exchange Google's OAuth response. Check these items:
+
+- Google Client Secret mismatch: regenerate the secret in Google Cloud and paste the current value into Supabase Authentication -> Providers -> Google.
+- Missing Supabase callback URL: Google OAuth Authorized redirect URIs must include the exact Supabase callback URL, for example `https://<project-ref>.supabase.co/auth/v1/callback`.
+- Google OAuth testing mode: if the consent screen is in testing, add the Google account as a test user.
+- Wrong Supabase URL configuration: Supabase Site URL should match production, and Redirect URLs should include local and production app URLs such as `http://localhost:3000/**` and `https://your-app.vercel.app/**`.
+- Stale Vercel environment: after changing `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, or `NEXT_PUBLIC_SITE_URL`, redeploy the Vercel app.
+
+Do not place the Google Client Secret, Supabase service-role key, or any private OAuth credentials in frontend code or committed files.
+
 ## Trade System
 
 The Duplicates page lists all stickers with quantities above one and is the foundation for trading. StickerMate can generate a public trade QR profile containing only a display name, missing sticker codes, duplicate sticker codes, and a generated timestamp.

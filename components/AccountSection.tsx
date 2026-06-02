@@ -34,6 +34,7 @@ export function AccountSection() {
   const [message, setMessage] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [mergePrompt, setMergePrompt] = useState<MergePrompt | null>(null);
+  const [authError, setAuthError] = useState(false);
 
   const runBackgroundSync = useCallback(
     async (client: SupabaseClient, currentUser: User) => {
@@ -107,6 +108,27 @@ export function AccountSection() {
   }, [prepareCloudState, supabase]);
 
   useEffect(() => {
+    const url = new URL(window.location.href);
+    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+    const authStatus = url.searchParams.get("auth");
+    const hasAuthError = authStatus === "error" || hashParams.has("error");
+
+    if (hasAuthError) {
+      setAuthError(true);
+    } else if (authStatus === "not-configured") {
+      setMessage(t("account.notConfigured"));
+    } else if (authStatus === "success") {
+      setMessage(t("account.authSuccess"));
+    }
+
+    if (authStatus || hashParams.has("error")) {
+      url.searchParams.delete("auth");
+      url.hash = "";
+      window.history.replaceState(null, "", url.toString());
+    }
+  }, [t]);
+
+  useEffect(() => {
     if (!supabase || !user || mergePrompt) return;
 
     let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -124,6 +146,9 @@ export function AccountSection() {
   }, [mergePrompt, runBackgroundSync, supabase, user]);
 
   async function signInWithGoogle() {
+    setAuthError(false);
+    setMessage(null);
+
     if (!supabase) {
       setStatus("warning");
       setMessage(t("account.notConfigured"));
@@ -193,6 +218,18 @@ export function AccountSection() {
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-black text-ink dark:text-white">{t("account.title")}</h2>
+          {authError ? (
+            <div
+              role="alert"
+              className="mt-3 rounded-lg border border-coral/25 bg-coral/10 p-3 text-sm font-bold text-coral dark:border-coral/40 dark:bg-coral/15"
+            >
+              <p>{t("account.googleAuthFailed")}</p>
+              <Button className="mt-3 w-full sm:w-auto" tone="primary" onClick={signInWithGoogle}>
+                <Cloud size={18} />
+                {t("account.retryGoogle")}
+              </Button>
+            </div>
+          ) : null}
           {!user ? (
             <div className="mt-2 space-y-3">
               <div>
