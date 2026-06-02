@@ -11,6 +11,8 @@
     "download:images": "tsx scripts/download-sticker-images.ts"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.107.0",
     "@tanstack/react-virtual": "^3.13.12",
     "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",

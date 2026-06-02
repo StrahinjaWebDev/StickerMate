@@ -24,7 +24,7 @@ export type ThemePreference = "light" | "dark" | "system";
 
 export type LanguageCode = "sr" | "en";
 
-export type SpendingCurrency = "RSD" | "EUR" | "USD" | "GBP";
+export type SpendingCurrency = "RSD" | "EUR";
 
 export type SpendingCategory = "packs" | "album" | "bundle" | "individual" | "other";
 

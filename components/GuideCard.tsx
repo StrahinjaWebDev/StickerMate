@@ -26,26 +26,31 @@ export function GuideCard({
   if (dismissed) return null;
 
   return (
-    <section className="rounded-lg border border-pitch/20 bg-pitch/10 p-3 shadow-sm dark:border-pitch/30 dark:bg-pitch/15 sm:p-4">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-pitch shadow-sm dark:bg-neutral-900">
-          <Info size={18} />
+    <section className="rounded-lg border border-pitch/20 bg-pitch/10 px-3 py-2 shadow-sm dark:border-pitch/30 dark:bg-pitch/15">
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white text-pitch shadow-sm dark:bg-neutral-900">
+          <Info size={15} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-black text-ink dark:text-white">{t(titleKey)}</h2>
-          <p className="mt-1 text-sm font-semibold leading-6 text-neutral-700 dark:text-neutral-300">{t(bodyKey)}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button className="min-h-10 px-3 text-sm" onClick={() => dismissGuide(guide)}>
-              <X size={16} />
-              {t("guide.gotIt")}
-            </Button>
-            <Link
-              href={helpHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg px-3 text-sm font-black text-pitch hover:bg-white/60 dark:hover:bg-neutral-900"
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="truncate text-xs font-black text-ink dark:text-white">{t(titleKey)}</h2>
+              <p className="mt-0.5 text-xs font-semibold leading-5 text-neutral-700 dark:text-neutral-300">{t(bodyKey)}</p>
+            </div>
+            <Button
+              className="min-h-8 shrink-0 px-2 text-xs"
+              onClick={() => dismissGuide(guide)}
+              aria-label={t("guide.gotIt")}
             >
-              {t("guide.more")}
-            </Link>
+              <X size={14} />
+            </Button>
           </div>
+          <Link
+            href={helpHref}
+            className="mt-1 inline-flex min-h-7 items-center rounded-md px-1.5 text-xs font-black text-pitch hover:bg-white/60 dark:hover:bg-neutral-900"
+          >
+            {t("guide.more")}
+          </Link>
         </div>
       </div>
     </section>

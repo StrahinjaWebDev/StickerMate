@@ -1,8 +1,9 @@
 import type { LanguageCode, SpendingCurrency, SpendingEntry } from "@/types/sticker";
 
-export const spendingCurrencies: SpendingCurrency[] = ["RSD", "EUR", "USD", "GBP"];
+export const spendingCurrencies: SpendingCurrency[] = ["RSD"];
 export const defaultPackPriceRsd = 150;
 export const defaultStickersPerPack = 7;
+export const rsdPerEur = 117;
 
 export function calculatePackSpending(packsCount: number, packPrice = defaultPackPriceRsd) {
   return Math.max(0, Math.floor(packsCount)) * packPrice;
@@ -12,35 +13,44 @@ export function calculatePackStickers(packsCount: number, stickersPerPack = defa
   return Math.max(0, Math.floor(packsCount)) * stickersPerPack;
 }
 
-export function formatMoney(amount: number, currency: SpendingCurrency, language: LanguageCode) {
-  const locale = language === "sr" ? "sr-RS" : "en-US";
-  const hasDecimals = Math.abs(amount % 1) > 0;
-  const formatted = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: hasDecimals ? 2 : 0,
-    maximumFractionDigits: hasDecimals ? 2 : 0
-  }).format(amount);
-
-  return `${formatted} ${currency}`;
+export function convertRsdToEur(amountRsd: number) {
+  return amountRsd / rsdPerEur;
 }
 
-export function getSpendingStats(
-  entries: SpendingEntry[],
-  currency: SpendingCurrency,
-  ownedStickerCount: number
-) {
-  const currencyEntries = entries.filter((entry) => entry.currency === currency);
-  const totalSpent = currencyEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const totalPacks = currencyEntries.reduce((sum, entry) => sum + (entry.packsCount ?? 0), 0);
-  const totalStickers = currencyEntries.reduce((sum, entry) => sum + (entry.stickersCount ?? 0), 0);
+export function formatMoney(amountRsd: number, language: LanguageCode) {
+  if (language === "en") {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(convertRsdToEur(amountRsd));
+  }
+
+  const formatted = new Intl.NumberFormat("sr-RS", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(Math.round(amountRsd));
+
+  return `${formatted} RSD`;
+}
+
+export function getEntryAmountRsd(entry: SpendingEntry) {
+  if (entry.currency === "EUR") return entry.amount * rsdPerEur;
+  return entry.amount;
+}
+
+export function getSpendingStats(entries: SpendingEntry[], ownedStickerCount: number) {
+  const totalSpentRsd = entries.reduce((sum, entry) => sum + getEntryAmountRsd(entry), 0);
+  const totalPacks = entries.reduce((sum, entry) => sum + (entry.packsCount ?? 0), 0);
+  const totalStickers = entries.reduce((sum, entry) => sum + (entry.stickersCount ?? 0), 0);
 
   return {
-    currency,
-    totalSpent,
+    totalSpentRsd,
     entryCount: entries.length,
-    currencyEntryCount: currencyEntries.length,
     totalPacks,
     totalStickers,
-    averagePackPrice: totalPacks > 0 ? totalSpent / totalPacks : 0,
-    costPerOwnedSticker: ownedStickerCount > 0 ? totalSpent / ownedStickerCount : 0
+    averagePackPriceRsd: totalPacks > 0 ? totalSpentRsd / totalPacks : 0,
+    costPerOwnedStickerRsd: ownedStickerCount > 0 ? totalSpentRsd / ownedStickerCount : 0
   };
 }

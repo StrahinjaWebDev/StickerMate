@@ -19,6 +19,9 @@ export default function AboutPage() {
             <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
               {t("about.body")}
             </p>
+            <p className="mt-2 text-xs font-bold leading-5 text-neutral-500 dark:text-neutral-400">
+              {t("app.copyright")} {t("app.owner")}
+            </p>
           </div>
         </div>
       </Card>

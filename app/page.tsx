@@ -19,15 +19,14 @@ export default function HomePage() {
   const onboarded = useCollectionStore((state) => state.onboarded);
   const quantities = useCollectionStore((state) => state.quantities);
   const spendingEntries = useCollectionStore((state) => state.spendingEntries);
-  const defaultCurrency = useCollectionStore((state) => state.defaultCurrency);
   const reviewCurrentIndex = useCollectionStore((state) => state.reviewCurrentIndex);
   const reviewCompleted = useCollectionStore((state) => state.reviewCompleted);
   const { language, t } = useI18n();
 
   const stats = useMemo(() => getStats(quantities, stickers), [quantities]);
   const spendingStats = useMemo(
-    () => getSpendingStats(spendingEntries, defaultCurrency, stats.owned),
-    [defaultCurrency, spendingEntries, stats.owned]
+    () => getSpendingStats(spendingEntries, stats.owned),
+    [spendingEntries, stats.owned]
   );
   const teamPreview = useMemo(
     () =>
@@ -82,14 +81,14 @@ export default function HomePage() {
             <span className="block font-black">{t("spending.spent")}</span>
             <span className="mt-0.5 block text-sm font-semibold text-neutral-600 dark:text-neutral-300">
               {t("spending.costPerSticker")}:{" "}
-              {spendingStats.costPerOwnedSticker
-                ? formatMoney(spendingStats.costPerOwnedSticker, defaultCurrency, language)
+              {spendingStats.costPerOwnedStickerRsd
+                ? formatMoney(spendingStats.costPerOwnedStickerRsd, language)
                 : "-"}
             </span>
           </span>
         </span>
         <span className="text-2xl font-black text-ink dark:text-white">
-          {formatMoney(spendingStats.totalSpent, defaultCurrency, language)}
+          {formatMoney(spendingStats.totalSpentRsd, language)}
         </span>
       </Link>
       {!reviewCompleted && reviewCurrentIndex > 0 ? (

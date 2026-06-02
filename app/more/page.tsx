@@ -57,6 +57,11 @@ export default function MorePage() {
           );
         })}
       </section>
+
+      <footer className="rounded-lg border border-line bg-white p-3 text-center text-xs font-bold leading-5 text-neutral-500 shadow-sm dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-400">
+        <p>{t("app.copyright")}</p>
+        <p>{t("app.owner")}</p>
+      </footer>
     </div>
   );
 }

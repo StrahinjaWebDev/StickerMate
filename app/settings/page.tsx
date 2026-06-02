@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { HelpCircle, Layers3, Moon, RotateCcw, Sun, Wand2 } from "lucide-react";
 import { clsx } from "clsx";
+import { AccountSection } from "@/components/AccountSection";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { GuideCard } from "@/components/GuideCard";
 import { Button, Card } from "@/components/ui/Primitives";
@@ -67,6 +68,8 @@ export default function SettingsPage() {
 
       <GuideCard guide="settings" titleKey="guide.settingsTitle" bodyKey="guide.settingsBody" />
 
+      <AccountSection />
+
       <Card>
         <h2 className="text-lg font-black text-ink dark:text-white">{t("settings.appearance")}</h2>
         <p className="mt-4 text-sm font-black text-neutral-500 dark:text-neutral-400">{t("settings.theme")}</p>
@@ -120,7 +123,10 @@ export default function SettingsPage() {
           </label>
         </div>
         <p className="mt-3 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-          {t("spending.packFormula", { stickers: stickersPerPack, price: formatMoney(packPriceRsd, "RSD", language) })}
+          {t("spending.packFormula", { stickers: stickersPerPack, price: formatMoney(packPriceRsd, language) })}
+          <span className="mt-1 block text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+            {t("spending.baseRsdNote", { price: packPriceRsd })}
+          </span>
         </p>
       </Card>
 
@@ -143,6 +149,21 @@ export default function SettingsPage() {
         </div>
         <p className="mt-4 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
           {t("settings.albumScopeNote")}
+        </p>
+      </Card>
+
+      <Card>
+        <h2 className="text-lg font-black text-ink dark:text-white">{t("about.title")}</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
+          {t("about.unofficial")} {t("about.affiliation")}
+        </p>
+        <p className="mt-3 rounded-lg bg-field p-3 text-sm font-semibold leading-6 text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300">
+          {t("app.storageNotice")}
+        </p>
+        <p className="mt-3 text-xs font-bold leading-5 text-neutral-500 dark:text-neutral-400">
+          {t("app.copyright")}
+          <br />
+          {t("app.owner")}
         </p>
       </Card>
 

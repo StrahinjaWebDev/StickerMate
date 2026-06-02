@@ -26,7 +26,7 @@ export function FilterBar({
   const { t } = useI18n();
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <label className="relative block">
         <Search
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"
@@ -36,7 +36,7 @@ export function FilterBar({
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          className="h-12 w-full rounded-lg border-line bg-white pl-11 pr-4 text-base font-semibold shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-900 dark:text-white"
+          className="h-11 w-full rounded-lg border-line bg-white pl-10 pr-4 text-sm font-semibold shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-900 dark:text-white"
           placeholder={t("search.placeholder")}
           aria-label={t("search.label")}
         />
@@ -50,7 +50,7 @@ export function FilterBar({
             role="tab"
             aria-selected={filter === item.value}
             className={clsx(
-              "min-h-11 shrink-0 rounded-lg px-4 text-sm font-black transition",
+              "min-h-10 shrink-0 rounded-lg px-3 text-sm font-black transition",
               filter === item.value
                 ? "bg-pitch text-white"
                 : "border border-line bg-white text-neutral-700 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300"

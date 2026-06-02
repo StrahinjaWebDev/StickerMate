@@ -2,6 +2,8 @@
 
 StickerMate is a fast, mobile-first web app for tracking the 980 standard-album stickers in a FIFA World Cup 2026 collection. It is designed for quick collection entry, duplicate management, team-by-team browsing, and offline-first personal use.
 
+© 2026 StickerMate. All rights reserved. Made and maintained by Strahinja Vujinovic.
+
 ## Overview
 
 StickerMate keeps the experience closer to a polished consumer app than a spreadsheet. Users can paste large batches of sticker codes, mark quantities directly from the collection, browse visual sticker cards, and keep everything saved locally on the device.
@@ -194,6 +196,44 @@ Help text is fully localized through the same translation dictionaries as the re
 
 StickerMate includes a web app manifest and service worker registration. The current PWA layer is intentionally simple: it supports installability and lightweight app-shell caching while collection data remains stored locally in the browser through LocalStorage.
 
+## Optional Supabase Cloud Sync
+
+StickerMate is local-first. Login is optional, and the app continues to work fully without Supabase using LocalStorage on the current browser/device.
+
+When Supabase is configured, Google login can be used for online backup and sync. Supabase stores only user-specific data:
+
+- Sticker quantities
+- App settings, onboarding state and dismissed help cards
+- Trade history
+- Spending entries
+- Sync timestamps
+
+The 980-sticker album checklist, sticker metadata and sticker images remain static/local in the app. They are not stored in Supabase.
+
+Create a local environment file from `.env.example`:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+NEXT_PUBLIC_SITE_URL=
+```
+
+Do not commit `.env.local`. Google Client ID and Google Client Secret are configured in the Supabase Dashboard under Authentication -> Providers -> Google. Never put the Google Client Secret in source code or in `NEXT_PUBLIC_*` variables.
+
+### Supabase Setup
+
+1. Create a Supabase project.
+2. Add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `NEXT_PUBLIC_SITE_URL` locally and in Vercel.
+3. Enable Google provider in Supabase Authentication.
+4. Add the Google Client ID and Secret in the Supabase Dashboard.
+5. Add the Supabase callback URL to Google OAuth Authorized redirect URIs.
+6. Add local and production app URLs in Supabase Auth URL configuration.
+7. Run `supabase/migrations/001_stickermate_cloud_sync.sql` in the Supabase SQL Editor.
+8. Deploy to Vercel with the same public Supabase environment variables.
+9. If Google OAuth consent is in testing mode, add every allowed Google account as a test user.
+
+First login never deletes local data automatically. If cloud data and local data both exist, the Settings account card asks whether to save local data online, load cloud data, or merge both.
+
 ## Trade System
 
 The Duplicates page lists all stickers with quantities above one and is the foundation for trading. StickerMate can generate a public trade QR profile containing only a display name, missing sticker codes, duplicate sticker codes, and a generated timestamp.
@@ -209,6 +249,8 @@ The QR payload intentionally excludes full collection data, settings, entry hist
 
 StickerMate includes a local spending ledger for collectors who want to track how much money they personally spent on the album. Spending is deliberately manual: trades, QR imports, and friend comparisons never add money automatically.
 
+Spending is stored internally in Serbian dinars. Serbian UI displays RSD, while English UI displays an EUR equivalent using the fixed app rate `1 EUR = 117 RSD`. There are no live exchange-rate calls.
+
 Each spending entry stores:
 
 ```ts
@@ -216,7 +258,7 @@ type SpendingEntry = {
   id: string;
   date: string;
   amount: number;
-  currency: "RSD" | "EUR" | "USD" | "GBP";
+  currency: "RSD";
   category: "packs" | "album" | "bundle" | "individual" | "other";
   packsCount?: number;
   stickersCount?: number;
@@ -235,7 +277,7 @@ Default pack calculation:
 1 pack = 7 stickers = 150 RSD
 ```
 
-Backups include `spendingEntries` and `settings.defaultCurrency`. Old backups without spending data still import successfully.
+Backups include `spendingEntries`, pack settings, and language/theme preferences. Old backups without spending data still import successfully.
 
 ## Roadmap
 

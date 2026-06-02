@@ -8,10 +8,10 @@ import { GuideCard } from "@/components/GuideCard";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { useI18n } from "@/hooks/useI18n";
 import type { TranslationKey } from "@/lib/i18n";
-import { calculatePackSpending, calculatePackStickers, getSpendingStats, formatMoney, spendingCurrencies } from "@/lib/spending";
+import { calculatePackSpending, calculatePackStickers, getEntryAmountRsd, getSpendingStats, formatMoney } from "@/lib/spending";
 import { getStats, stickers } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
-import type { SpendingCategory, SpendingCurrency, SpendingEntry } from "@/types/sticker";
+import type { SpendingCategory, SpendingEntry } from "@/types/sticker";
 
 const categories: SpendingCategory[] = ["packs", "album", "bundle", "individual", "other"];
 
@@ -21,7 +21,6 @@ function categoryKey(category: SpendingCategory) {
 
 type SpendingFormState = {
   amount: string;
-  currency: SpendingCurrency;
   category: SpendingCategory;
   date: string;
   packsCount: string;
@@ -33,10 +32,9 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function emptyForm(currency: SpendingCurrency): SpendingFormState {
+function emptyForm(): SpendingFormState {
   return {
     amount: "",
-    currency,
     category: "packs",
     date: today(),
     packsCount: "",
@@ -47,8 +45,7 @@ function emptyForm(currency: SpendingCurrency): SpendingFormState {
 
 function formFromEntry(entry: SpendingEntry): SpendingFormState {
   return {
-    amount: String(entry.amount),
-    currency: entry.currency,
+    amount: String(getEntryAmountRsd(entry)),
     category: entry.category,
     date: entry.date,
     packsCount: entry.packsCount ? String(entry.packsCount) : "",
@@ -61,7 +58,6 @@ export default function SpendingPage() {
   const { language, t } = useI18n();
   const quantities = useCollectionStore((state) => state.quantities);
   const spendingEntries = useCollectionStore((state) => state.spendingEntries);
-  const defaultCurrency = useCollectionStore((state) => state.defaultCurrency);
   const packPriceRsd = useCollectionStore((state) => state.packPriceRsd);
   const stickersPerPack = useCollectionStore((state) => state.stickersPerPack);
   const addSpendingEntry = useCollectionStore((state) => state.addSpendingEntry);
@@ -71,12 +67,12 @@ export default function SpendingPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<SpendingFormState>(() => emptyForm(defaultCurrency));
+  const [form, setForm] = useState<SpendingFormState>(() => emptyForm());
 
   const collectionStats = useMemo(() => getStats(quantities, stickers), [quantities]);
   const spendingStats = useMemo(
-    () => getSpendingStats(spendingEntries, defaultCurrency, collectionStats.owned),
-    [collectionStats.owned, defaultCurrency, spendingEntries]
+    () => getSpendingStats(spendingEntries, collectionStats.owned),
+    [collectionStats.owned, spendingEntries]
   );
 
   const sortedEntries = useMemo(
@@ -93,7 +89,7 @@ export default function SpendingPage() {
   }
 
   function resetForm() {
-    setForm(emptyForm(defaultCurrency));
+    setForm(emptyForm());
     setEditingId(null);
     setError(null);
   }
@@ -127,7 +123,7 @@ export default function SpendingPage() {
 
     const payload = {
       amount,
-      currency: manualAmount > 0 ? form.currency : "RSD",
+      currency: "RSD" as const,
       category: form.category,
       date: form.date,
       packsCount,
@@ -174,18 +170,18 @@ export default function SpendingPage() {
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 sm:gap-3" aria-label={t("spending.statsLabel")}>
         <SpendingMetric
           label={t("spending.totalSpent")}
-          value={formatMoney(spendingStats.totalSpent, defaultCurrency, language)}
+          value={formatMoney(spendingStats.totalSpentRsd, language)}
         />
         <SpendingMetric label={t("spending.entries")} value={spendingStats.entryCount} />
         <SpendingMetric label={t("spending.packsBought")} value={spendingStats.totalPacks || "-"} />
         <SpendingMetric label={t("spending.stickersFromPacks")} value={spendingStats.totalStickers || "-"} />
         <SpendingMetric
           label={t("spending.averagePackPrice")}
-          value={spendingStats.averagePackPrice ? formatMoney(spendingStats.averagePackPrice, defaultCurrency, language) : "-"}
+          value={spendingStats.averagePackPriceRsd ? formatMoney(spendingStats.averagePackPriceRsd, language) : "-"}
         />
         <SpendingMetric
           label={t("spending.costPerSticker")}
-          value={spendingStats.costPerOwnedSticker ? formatMoney(spendingStats.costPerOwnedSticker, defaultCurrency, language) : "-"}
+          value={spendingStats.costPerOwnedStickerRsd ? formatMoney(spendingStats.costPerOwnedStickerRsd, language) : "-"}
         />
       </section>
 
@@ -217,21 +213,13 @@ export default function SpendingPage() {
                 type="number"
               />
               <span className="mt-1 block text-xs font-bold text-neutral-500 dark:text-neutral-400">
-                {t("spending.packFormula", { stickers: stickersPerPack, price: formatMoney(packPriceRsd, "RSD", language) })}
+                {t("spending.packFormula", { stickers: stickersPerPack, price: formatMoney(packPriceRsd, language) })}
               </span>
             </FormField>
-            <FormField label={t("spending.currency")}>
-              <select
-                value={form.currency}
-                onChange={(event) => updateForm("currency", event.target.value as SpendingCurrency)}
-                className="w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-              >
-                {spendingCurrencies.map((currency) => (
-                  <option key={currency} value={currency}>
-                    {currency}
-                  </option>
-                ))}
-              </select>
+            <FormField label={t("spending.autoCalculation")}>
+              <div className="rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+                {t("spending.total")}: {formatMoney(calculatePackSpending(Number(form.packsCount) || 0, packPriceRsd), language)}
+              </div>
             </FormField>
             <FormField label={t("spending.category")}>
               <select
@@ -318,7 +306,7 @@ export default function SpendingPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-lg font-black text-ink dark:text-white">
-                        {formatMoney(entry.amount, entry.currency, language)}
+                        {formatMoney(getEntryAmountRsd(entry), language)}
                       </p>
                       <Badge>{t(categoryKey(entry.category))}</Badge>
                       {entry.linkedEntryId ? <Badge tone="success">{t("spending.linkedEntry")}</Badge> : null}

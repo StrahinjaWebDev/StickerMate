@@ -139,107 +139,125 @@ export function QuickAlbumReview() {
 
   if (!sticker) return null;
 
+  const progressValue = (currentIndex / stickers.length) * 100;
+  const statsLine = `${t("stats.owned")}: ${stats.owned} / ${t("stats.missing")}: ${stats.missing} / ${t("stats.duplicates")}: ${stats.duplicates}`;
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
-      <section className="rounded-lg border border-line bg-white p-4 shadow-lift dark:border-white/10 dark:bg-neutral-900 sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-black uppercase text-pitch">{t("review.title")}</p>
-            <h1 className="mt-1 text-2xl font-black text-ink dark:text-white sm:text-3xl">
+    <div className="mx-auto max-w-3xl space-y-3 pb-28 lg:max-w-5xl">
+      <section className="rounded-lg border border-line bg-white p-3 shadow-lift dark:border-white/10 dark:bg-neutral-900">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase text-pitch">{t("review.title")}</p>
+            <h1 className="mt-0.5 text-2xl font-black text-ink dark:text-white">
               {t("review.progress", { current: currentIndex + 1, total: stickers.length })}
             </h1>
-            <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t("review.shortcuts")}</p>
+            <p className="mt-1 text-xs font-bold text-neutral-500 dark:text-neutral-400">
+              {t("progress.complete", { percent: formatPercent(stats.completion) })}
+            </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-[minmax(180px,1fr)_auto] lg:min-w-[420px]">
-            <label className="sr-only" htmlFor="review-team">
-              {t("review.jumpTeam")}
-            </label>
-            <select
-              id="review-team"
-              value={sticker.team}
-              onChange={(event) => {
-                const team = stickersByTeam.find((entry) => entry.team === event.target.value);
-                const firstSticker = team?.stickers[0];
-                if (!firstSticker) return;
-                setReviewIndex(stickers.findIndex((item) => item.code === firstSticker.code));
-              }}
-              className="min-h-12 rounded-lg border border-line bg-field px-3 text-sm font-black text-ink dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-            >
-              {stickersByTeam.map((entry) => (
-                <option key={entry.team} value={entry.team}>
-                  {entry.team}
-                </option>
-              ))}
-            </select>
-            <Button onClick={finishLater}>
-              <ListRestart size={18} />
-              {t("review.continueLater")}
-            </Button>
-          </div>
+          <Button className="min-h-10 shrink-0 px-3 text-sm" onClick={finishLater}>
+            <ListRestart size={16} />
+            {t("review.continueLater")}
+          </Button>
         </div>
-        <div className="mt-5">
-          <ProgressBar value={(currentIndex / stickers.length) * 100} />
+        <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(180px,1fr)_auto]">
+          <label className="sr-only" htmlFor="review-team">
+            {t("review.jumpTeam")}
+          </label>
+          <select
+            id="review-team"
+            value={sticker.team}
+            onChange={(event) => {
+              const team = stickersByTeam.find((entry) => entry.team === event.target.value);
+              const firstSticker = team?.stickers[0];
+              if (!firstSticker) return;
+              setReviewIndex(stickers.findIndex((item) => item.code === firstSticker.code));
+            }}
+            className="min-h-11 rounded-lg border border-line bg-field px-3 text-sm font-black text-ink dark:border-white/10 dark:bg-neutral-950 dark:text-white"
+          >
+            {stickersByTeam.map((entry) => (
+              <option key={entry.team} value={entry.team}>
+                {entry.team}
+              </option>
+            ))}
+          </select>
+          <p className="rounded-lg bg-field px-3 py-2 text-xs font-black text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300">
+            {statsLine}
+          </p>
+        </div>
+        <div className="mt-3">
+          <ProgressBar value={progressValue} />
         </div>
       </section>
 
       <GuideCard guide="quickReview" titleKey="guide.quickReviewTitle" bodyKey="guide.quickReviewBody" />
 
-      <section className="grid items-start gap-5 lg:grid-cols-[minmax(280px,380px)_1fr]">
-        <div
-          className="rounded-lg border border-line bg-white p-3 shadow-sm dark:border-white/10 dark:bg-neutral-900"
-          onPointerDown={handlePointerDown}
-          onPointerUp={handlePointerUp}
-        >
-          <StickerImage
-            sticker={sticker}
-            quantity={quantity}
-            className="aspect-[3/4] w-full"
-            sizes="(max-width: 1024px) 92vw, 380px"
-          />
-        </div>
+      <section
+        className="rounded-lg border border-line bg-white p-3 shadow-sm dark:border-white/10 dark:bg-neutral-900"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+      >
+        <div className="grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
+          <div className="mx-auto w-full max-w-[230px] sm:max-w-[260px] lg:max-w-none">
+            <StickerImage
+              sticker={sticker}
+              quantity={quantity}
+              className="aspect-[3/4] w-full max-h-[310px]"
+              sizes="(max-width: 1024px) 70vw, 260px"
+            />
+          </div>
 
-        <div className="space-y-4">
-          <section className="rounded-lg border border-line bg-white p-5 shadow-sm dark:border-white/10 dark:bg-neutral-900">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-3">
+            <div className="flex min-w-0 items-start justify-between gap-3 rounded-lg bg-field p-3 dark:bg-neutral-950">
               <div className="min-w-0">
                 <p className="text-sm font-black text-pitch">{sticker.code}</p>
-                <h2 className="mt-1 text-3xl font-black text-ink dark:text-white">{sticker.name}</h2>
-                <p className="mt-1 text-sm font-bold text-neutral-500 dark:text-neutral-400">{sticker.team}</p>
+                <h2 className="mt-0.5 line-clamp-2 text-2xl font-black leading-7 text-ink dark:text-white">{sticker.name}</h2>
+                <p className="mt-1 line-clamp-1 text-sm font-bold text-neutral-500 dark:text-neutral-400">{sticker.team}</p>
               </div>
-              <span className="rounded-lg bg-field px-3 py-2 text-sm font-black text-ink dark:bg-neutral-950 dark:text-white">
-                {t("sticker.quantity")}: {quantity}
+              <span className="shrink-0 rounded-lg bg-white px-3 py-2 text-sm font-black text-ink shadow-sm dark:bg-neutral-900 dark:text-white">
+                {quantity}
               </span>
             </div>
 
-            <div className="mt-6 grid gap-2 sm:grid-cols-2">
-              <Button className="min-h-16 text-base" tone="danger" onClick={() => mark(0)}>
-                <X size={21} />
+            <div className="hidden gap-2 lg:grid lg:grid-cols-2">
+              <Button className="min-h-14 text-base" tone="danger" onClick={() => mark(0)}>
+                <X size={20} />
                 {t("review.missing")}
               </Button>
-              <Button className="min-h-16 text-base" tone="primary" onClick={() => mark(1)}>
-                <Check size={21} />
+              <Button className="min-h-14 text-base" tone="primary" onClick={() => mark(1)}>
+                <Check size={20} />
                 {t("review.owned")}
               </Button>
             </div>
-            <div className="mt-2 grid gap-2 sm:grid-cols-3">
-              <Button onClick={goBack} disabled={currentIndex === 0}>
-                <ArrowLeft size={18} />
+            <div className="grid grid-cols-3 gap-2">
+              <Button className="min-h-11 px-2 text-sm" onClick={goBack} disabled={currentIndex === 0}>
+                <ArrowLeft size={16} />
                 {t("review.back")}
               </Button>
-              <Button onClick={() => mark(Math.max(2, quantity))}>
-                <RotateCcw size={18} />
+              <Button className="min-h-11 px-2 text-sm" onClick={() => mark(Math.max(2, quantity))}>
+                <RotateCcw size={16} />
                 {t("review.duplicate")}
               </Button>
-              <Button onClick={skip}>
-                <SkipForward size={18} />
+              <Button className="min-h-11 px-2 text-sm" onClick={skip}>
+                <SkipForward size={16} />
                 {t("review.skip")}
               </Button>
             </div>
-          </section>
-
-          <StatsCards stats={stats} />
+            <p className="text-center text-xs font-bold text-neutral-500 dark:text-neutral-400">{t("review.shortcuts")}</p>
+          </div>
         </div>
       </section>
+
+      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 grid grid-cols-2 gap-2 rounded-lg border border-line bg-white/95 p-2 shadow-lift backdrop-blur dark:border-white/10 dark:bg-neutral-900/95 lg:hidden">
+        <Button className="min-h-12 text-base" tone="danger" onClick={() => mark(0)}>
+          <X size={20} />
+          {t("review.missing")}
+        </Button>
+        <Button className="min-h-12 text-base" tone="primary" onClick={() => mark(1)}>
+          <Check size={20} />
+          {t("review.owned")}
+        </Button>
+      </div>
     </div>
   );
 }

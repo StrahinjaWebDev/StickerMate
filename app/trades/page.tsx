@@ -5,6 +5,7 @@ import { Check, CheckCircle2, Copy, History, MessageCircle, Plus, RotateCcw, Tra
 import { EmptyState } from "@/components/EmptyState";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { GuideCard } from "@/components/GuideCard";
+import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
 import type { TranslationKey } from "@/lib/i18n";
 import { getDuplicateCount, getMissingCodes, getTradableCount, parseStickerCodes, stickers } from "@/lib/stickers";
@@ -32,6 +33,8 @@ export default function TradesPage() {
   const [note, setNote] = useState("");
   const [applyToCollection, setApplyToCollection] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAllMissing, setShowAllMissing] = useState(false);
+  const [showFullMessage, setShowFullMessage] = useState(false);
 
   const tradable = useMemo(
     () => stickers.filter((sticker) => getTradableCount(quantities, sticker.code) > 0),
@@ -42,6 +45,7 @@ export default function TradesPage() {
     () => tradable.map((sticker) => `${sticker.code} x${getDuplicateCount(quantities, sticker.code)}`),
     [quantities, tradable]
   );
+  const visibleMissingCodes = showAllMissing ? missingCodes : missingCodes.slice(0, 36);
 
   const whatsAppMessage = useMemo(() => {
     const missingLine = missingCodes.slice(0, 120).join(", ") || "-";
@@ -50,6 +54,8 @@ export default function TradesPage() {
     if (messageType === "duplicates") return t("trades.messageDuplicates", { duplicates: duplicateLine });
     return t("trades.messageBoth", { missing: missingLine, duplicates: duplicateLine });
   }, [duplicateLines, messageType, missingCodes, t]);
+  const whatsAppPreview =
+    showFullMessage || whatsAppMessage.length <= 360 ? whatsAppMessage : `${whatsAppMessage.slice(0, 360).trim()}...`;
 
   async function copyMessage() {
     await navigator.clipboard.writeText(whatsAppMessage);
@@ -130,9 +136,16 @@ export default function TradesPage() {
           ) : (
             <div className="mt-3 space-y-2">
               {tradable.slice(0, 8).map((sticker) => (
-                <div key={sticker.code} className="flex min-w-0 items-center justify-between gap-3 rounded-lg bg-field p-3 dark:bg-neutral-950">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-ink dark:text-white">{sticker.code} · {sticker.name}</p>
+                <div key={sticker.code} className="flex min-w-0 items-center justify-between gap-3 rounded-lg bg-field p-2 dark:bg-neutral-950">
+                  <StickerImage
+                    sticker={sticker}
+                    quantity={quantities[sticker.code] ?? 0}
+                    className="h-14 w-10 shrink-0"
+                    showTextPlaceholder={false}
+                    sizes="40px"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black text-ink dark:text-white">{sticker.code} - {sticker.name}</p>
                     <p className="truncate text-xs font-bold text-neutral-500 dark:text-neutral-400">
                       <span className="mr-1">{getTeamIcon(sticker.team)}</span>{sticker.team}
                     </p>
@@ -164,12 +177,24 @@ export default function TradesPage() {
           ) : (
             <>
               <p className="mt-3 max-h-44 overflow-auto break-words rounded-lg bg-field p-3 font-mono text-xs font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-                {missingCodes.slice(0, 160).join(", ")}
+                {visibleMissingCodes.join(", ")}
               </p>
-              <Button className="mt-3 w-full" onClick={() => navigator.clipboard.writeText(missingCodes.join(", "))}>
-                <Copy size={18} />
-                {t("trades.copyMissing")}
-              </Button>
+              {missingCodes.length > visibleMissingCodes.length ? (
+                <p className="mt-2 text-xs font-bold text-neutral-500 dark:text-neutral-400">
+                  {t("trades.missingPreview", { shown: visibleMissingCodes.length, total: missingCodes.length })}
+                </p>
+              ) : null}
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {missingCodes.length > 36 ? (
+                  <Button onClick={() => setShowAllMissing((current) => !current)}>
+                    {showAllMissing ? t("trades.showLess") : t("trades.showAll")}
+                  </Button>
+                ) : null}
+                <Button onClick={() => navigator.clipboard.writeText(missingCodes.join(", "))}>
+                  <Copy size={18} />
+                  {t("trades.copyFullMissing")}
+                </Button>
+              </div>
             </>
           )}
         </Card>
@@ -189,9 +214,18 @@ export default function TradesPage() {
             </button>
           ))}
         </div>
-        <pre className="mt-3 whitespace-pre-wrap break-words rounded-lg bg-field p-3 text-sm font-semibold leading-6 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-          {whatsAppMessage}
+        <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-field p-3 text-sm font-semibold leading-6 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+          {whatsAppPreview}
         </pre>
+        {whatsAppMessage !== whatsAppPreview ? (
+          <Button className="mt-2 min-h-10 px-3 text-sm" onClick={() => setShowFullMessage(true)}>
+            {t("trades.showFullMessage")}
+          </Button>
+        ) : showFullMessage ? (
+          <Button className="mt-2 min-h-10 px-3 text-sm" onClick={() => setShowFullMessage(false)}>
+            {t("trades.showLess")}
+          </Button>
+        ) : null}
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           <Button onClick={copyMessage}><Copy size={18} />{copied ? t("common.copied") : t("trades.copyMessage")}</Button>
           <Button onClick={shareMessage}><MessageCircle size={18} />{t("common.share")}</Button>

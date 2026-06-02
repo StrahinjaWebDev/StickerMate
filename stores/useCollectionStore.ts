@@ -131,7 +131,7 @@ function cleanOptionalCount(value: unknown) {
 }
 
 function isSpendingCurrency(value: unknown): value is SpendingCurrency {
-  return value === "RSD" || value === "EUR" || value === "USD" || value === "GBP";
+  return value === "RSD" || value === "EUR";
 }
 
 function isSpendingCategory(value: unknown): value is SpendingCategory {
