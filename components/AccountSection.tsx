@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Cloud, LogOut, Pencil, Plus, RefreshCw, Trash2, UserCircle, Users } from "lucide-react";
+import { Cloud, LogOut, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { clsx } from "clsx";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { Button, Card } from "@/components/ui/Primitives";
 import {
@@ -36,6 +37,58 @@ type MergePrompt = {
   reason: "cloud-empty" | "both-have-data";
 };
 
+type ProfileInfo = {
+  displayName: string | null;
+  email: string;
+  avatarUrl: string | null;
+  initials: string;
+};
+
+function getMetadataString(user: User, key: "full_name" | "name" | "avatar_url" | "picture") {
+  const value = user.user_metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getInitials(name: string | null, email: string) {
+  const source = name ?? email;
+  const parts = source
+    .replace(/@.*/, "")
+    .split(/[\s._-]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return (parts[0]?.slice(0, 2) || "U").toUpperCase();
+}
+
+function getSafeAvatarUrl(value: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function getProfileInfo(user: User): ProfileInfo {
+  const email = user.email ?? "";
+  const displayName = getMetadataString(user, "full_name") ?? getMetadataString(user, "name");
+  const avatarUrl = getSafeAvatarUrl(getMetadataString(user, "avatar_url") ?? getMetadataString(user, "picture"));
+
+  return {
+    displayName,
+    email,
+    avatarUrl,
+    initials: getInitials(displayName, email)
+  };
+}
+
+function getGuestInitials(name: string) {
+  const match = /(\d+)/.exec(name);
+  return match ? `G${match[1]}` : getInitials(name, "guest");
+}
+
 export function AccountSection() {
   const { language, t } = useI18n();
   const supabase = useMemo(() => createClient(), []);
@@ -50,6 +103,7 @@ export function AccountSection() {
   const preparedUserIdRef = useRef<string | null>(null);
 
   const activeGuest = guestState?.profiles.find((profile) => profile.id === guestState.activeId);
+  const profileInfo = user ? getProfileInfo(user) : null;
 
   const setSyncFailure = useCallback(
     (error: unknown) => {
@@ -291,55 +345,66 @@ export function AccountSection() {
     setGuestState(deleteGuestProfile(activeGuest.id, language));
   }
 
+  const guestName = activeGuest ? formatGuestProfileName(activeGuest.name, language) : formatGuestProfileName("Guest 1", language);
+  const statusLabel =
+    status === "syncing"
+      ? t("account.syncing")
+      : status === "synced"
+        ? t("account.savedOnline")
+        : status === "disabled_missing_tables"
+          ? t("account.cloudStatusNotReady")
+          : status === "failed"
+            ? t("account.cloudStatusFailed")
+            : user
+              ? t("account.cloudStatusIdle")
+              : t("account.localOnly");
+  const statusTone =
+    status === "synced" ? "success" : status === "syncing" ? "syncing" : status === "failed" ? "failed" : status === "disabled_missing_tables" ? "warning" : "neutral";
+
   return (
     <Card>
-      <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-pitch text-white">
-          <UserCircle size={21} />
-        </span>
-        <div className="min-w-0 flex-1">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-black text-ink dark:text-white">{t("account.title")}</h2>
-          {authError ? (
-            <div
-              role="alert"
-              className="mt-3 rounded-lg border border-coral/25 bg-coral/10 p-3 text-sm font-bold text-coral dark:border-coral/40 dark:bg-coral/15"
-            >
-              <p>{t("account.googleAuthFailed")}</p>
-              <Button className="mt-3 w-full sm:w-auto" tone="primary" onClick={signInWithGoogle}>
-                <Cloud size={18} />
-                {t("account.retryGoogle")}
-              </Button>
-            </div>
-          ) : null}
-          {!user ? (
-            <div className="mt-2 space-y-3">
-              <div>
-                <p className="text-sm font-black text-ink dark:text-white">{t("account.guestMode")}</p>
-                <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
-                  {t("account.guestSignedOut")}
-                </p>
-                <p className="text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
-                  {t("account.guestRisk")}
-                </p>
+          <StatusPill label={statusLabel} tone={statusTone} />
+        </div>
+
+        {authError ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-coral/25 bg-coral/10 p-3 text-sm font-bold text-coral dark:border-coral/40 dark:bg-coral/15"
+          >
+            <p>{t("account.googleAuthFailed")}</p>
+            <Button className="mt-3 w-full sm:w-auto" tone="primary" onClick={signInWithGoogle}>
+              <Cloud size={18} />
+              {t("account.retryGoogle")}
+            </Button>
+          </div>
+        ) : null}
+
+        {!user ? (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
+              <div className="flex min-w-0 items-center gap-3">
+                <FallbackAvatar initials={getGuestInitials(guestName)} localOnly />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("account.guestMode")}</p>
+                  <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">
+                    {t("account.currentProfile", { name: guestName })}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
+                    {t("account.guestBody")}
+                  </p>
+                </div>
               </div>
+
               {guestState && activeGuest ? (
-                <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
-                  <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-pitch shadow-sm dark:bg-neutral-900">
-                      <Users size={18} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">
-                        {t("account.switchGuest")}
-                      </p>
-                      <p className="mt-1 break-words text-sm font-black text-ink dark:text-white">
-                        {formatGuestProfileName(activeGuest.name, language)}
-                      </p>
-                    </div>
-                  </div>
+                <div className="mt-4 space-y-3">
                   {guestState.profiles.length > 1 ? (
-                    <label className="mt-3 block">
-                      <span className="sr-only">{t("account.switchGuest")}</span>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">
+                        {t("account.switchGuest")}
+                      </span>
                       <select
                         value={guestState.activeId}
                         onChange={(event) => handleSwitchGuest(event.target.value)}
@@ -353,7 +418,7 @@ export function AccountSection() {
                       </select>
                     </label>
                   ) : null}
-                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <div className="grid gap-2 sm:grid-cols-3">
                     <Button onClick={handleAddGuest}>
                       <Plus size={18} />
                       {t("account.addGuest")}
@@ -369,98 +434,194 @@ export function AccountSection() {
                   </div>
                 </div>
               ) : null}
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button tone="primary" onClick={signInWithGoogle}>
-                  <Cloud size={18} />
-                  {t("account.signInGoogle")}
-                </Button>
-                <Button onClick={signInWithGoogle}>
-                  <Cloud size={18} />
-                  {t("account.saveOnline")}
-                </Button>
+            </div>
+
+            <div className="rounded-lg border border-line p-3 dark:border-white/10">
+              <p className="text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
+                {t("account.guestSignedOut")}
+              </p>
+              <Button className="mt-3 w-full" tone="primary" onClick={signInWithGoogle}>
+                <Cloud size={18} />
+                {t("account.signInGoogle")}
+              </Button>
+            </div>
+          </div>
+        ) : profileInfo ? (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
+              <div className="flex min-w-0 items-center gap-3">
+                <ProfileAvatar avatarUrl={profileInfo.avatarUrl} initials={profileInfo.initials} alt={profileInfo.displayName ?? profileInfo.email} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("account.signedInAs")}</p>
+                  {profileInfo.displayName ? (
+                    <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">{profileInfo.displayName}</p>
+                  ) : null}
+                  <p className={clsx("break-words text-sm font-bold text-neutral-600 dark:text-neutral-300", profileInfo.displayName && "mt-1")}>
+                    {profileInfo.email}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <InfoRow label={t("account.cloudSaveStatus")} value={statusLabel} />
+                <InfoRow label={t("account.lastSynced")} value={lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "-"} />
               </div>
             </div>
-          ) : (
-            <div className="mt-2 space-y-3">
-              <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
-                <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("account.signedInAs")}</p>
-                <p className="mt-1 break-words text-sm font-black text-ink dark:text-white">{user.email}</p>
-                <p className="mt-2 text-xs font-bold text-neutral-500 dark:text-neutral-400">
-                  {t("account.lastSynced")}: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "-"}
+
+            {mergePrompt ? (
+              <div className="rounded-lg border border-pitch/20 bg-pitch/10 p-3 dark:border-pitch/30 dark:bg-pitch/15">
+                <p className="text-sm font-black text-ink dark:text-white">
+                  {mergePrompt.reason === "cloud-empty" ? t("account.cloudEmptyTitle") : t("account.mergeTitle")}
                 </p>
-              </div>
-
-              {mergePrompt ? (
-                <div className="rounded-lg border border-pitch/20 bg-pitch/10 p-3 dark:border-pitch/30 dark:bg-pitch/15">
-                  <p className="text-sm font-black text-ink dark:text-white">
-                    {mergePrompt.reason === "cloud-empty" ? t("account.cloudEmptyTitle") : t("account.mergeTitle")}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-neutral-700 dark:text-neutral-300">
-                    {mergePrompt.reason === "cloud-empty" ? t("account.cloudEmptyBody") : t("account.mergeBody")}
-                  </p>
-                  <div className="mt-3 grid gap-2">
-                    <Button tone="primary" onClick={() => resolveMerge("local")}>
-                      {t("account.mergeLocal")}
-                    </Button>
-                    {mergePrompt.cloud ? (
-                      <>
-                        <Button onClick={() => resolveMerge("cloud")}>{t("account.mergeCloud")}</Button>
-                        <Button onClick={() => resolveMerge("merge")}>{t("account.mergeBoth")}</Button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-
-              {status === "disabled_missing_tables" ? (
-                <div
-                  role="alert"
-                  className="rounded-lg border border-gold/40 bg-gold/15 p-3 text-sm font-bold text-yellow-800 dark:text-gold"
-                >
-                  <p>{t("account.cloudNotReady")}</p>
-                  <Button className="mt-3 w-full sm:w-auto" onClick={handleSyncNow}>
-                    <RefreshCw size={18} />
-                    {t("account.retrySync")}
+                <p className="mt-1 text-sm font-semibold leading-6 text-neutral-700 dark:text-neutral-300">
+                  {mergePrompt.reason === "cloud-empty" ? t("account.cloudEmptyBody") : t("account.mergeBody")}
+                </p>
+                <div className="mt-3 grid gap-2">
+                  <Button tone="primary" onClick={() => resolveMerge("local")}>
+                    {t("account.mergeLocal")}
                   </Button>
+                  {mergePrompt.cloud ? (
+                    <>
+                      <Button onClick={() => resolveMerge("cloud")}>{t("account.mergeCloud")}</Button>
+                      <Button onClick={() => resolveMerge("merge")}>{t("account.mergeBoth")}</Button>
+                    </>
+                  ) : null}
                 </div>
-              ) : null}
-
-              {status === "failed" ? (
-                <div
-                  role="alert"
-                  className="rounded-lg border border-coral/25 bg-coral/10 p-3 text-sm font-bold text-coral dark:border-coral/40 dark:bg-coral/15"
-                >
-                  <p>{t("account.syncWarning")}</p>
-                  <Button className="mt-3 w-full sm:w-auto" onClick={handleSyncNow}>
-                    <RefreshCw size={18} />
-                    {t("account.retrySync")}
-                  </Button>
-                </div>
-              ) : null}
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button
-                  tone="primary"
-                  onClick={handleSyncNow}
-                  disabled={status === "syncing" || Boolean(mergePrompt) || status === "disabled_missing_tables"}
-                >
-                  <RefreshCw size={18} />
-                  {status === "syncing" ? t("account.syncing") : t("account.syncNow")}
-                </Button>
-                <Button onClick={signOut}>
-                  <LogOut size={18} />
-                  {t("account.signOut")}
-                </Button>
               </div>
+            ) : null}
+
+            {status === "disabled_missing_tables" ? (
+              <AccountWarning tone="warning" message={t("account.cloudNotReady")} actionLabel={t("account.retrySync")} onAction={handleSyncNow} />
+            ) : null}
+
+            {status === "failed" ? (
+              <AccountWarning tone="danger" message={t("account.syncWarning")} actionLabel={t("account.retrySync")} onAction={handleSyncNow} />
+            ) : null}
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button
+                tone="primary"
+                onClick={handleSyncNow}
+                disabled={status === "syncing" || Boolean(mergePrompt) || status === "disabled_missing_tables"}
+              >
+                <RefreshCw size={18} />
+                {status === "syncing" ? t("account.syncing") : t("account.syncNow")}
+              </Button>
+              <Button tone="danger" onClick={signOut}>
+                <LogOut size={18} />
+                {t("account.signOut")}
+              </Button>
             </div>
-          )}
-          {message && status !== "disabled_missing_tables" && status !== "failed" ? (
-            <p className="mt-3 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-              {message}
-            </p>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
+
+        {message && status !== "disabled_missing_tables" && status !== "failed" ? (
+          <p className="rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+            {message}
+          </p>
+        ) : null}
       </div>
     </Card>
+  );
+}
+
+function ProfileAvatar({
+  avatarUrl,
+  initials,
+  alt
+}: {
+  avatarUrl: string | null;
+  initials: string;
+  alt: string;
+}) {
+  return (
+    <span
+      className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-pitch text-sm font-black text-white shadow-sm ring-2 ring-white dark:ring-neutral-900"
+      aria-label={alt}
+      role="img"
+    >
+      <span className="relative z-0">{initials}</span>
+      {avatarUrl ? (
+        <span
+          className="absolute inset-0 z-10 bg-cover bg-center"
+          style={{ backgroundImage: `url("${avatarUrl}")` }}
+          aria-hidden="true"
+        />
+      ) : null}
+    </span>
+  );
+}
+
+function FallbackAvatar({ initials, localOnly = false }: { initials: string; localOnly?: boolean }) {
+  return (
+    <span
+      className={clsx(
+        "grid h-14 w-14 shrink-0 place-items-center rounded-full text-base font-black shadow-sm ring-2 ring-white dark:ring-neutral-900",
+        localOnly ? "bg-gold/20 text-yellow-800 dark:text-gold" : "bg-pitch text-white"
+      )}
+      aria-hidden="true"
+    >
+      {initials}
+    </span>
+  );
+}
+
+function StatusPill({
+  label,
+  tone
+}: {
+  label: string;
+  tone: "neutral" | "success" | "syncing" | "warning" | "failed";
+}) {
+  return (
+    <span
+      className={clsx(
+        "shrink-0 rounded-md px-2.5 py-1 text-xs font-black",
+        tone === "neutral" && "bg-field text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300",
+        tone === "success" && "bg-pitch/10 text-pitch",
+        tone === "syncing" && "bg-gold/15 text-yellow-800 dark:text-gold",
+        tone === "warning" && "bg-gold/15 text-yellow-800 dark:text-gold",
+        tone === "failed" && "bg-coral/10 text-coral"
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-white p-3 dark:bg-neutral-900">
+      <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{label}</p>
+      <p className="mt-1 break-words text-sm font-black text-ink dark:text-white">{value}</p>
+    </div>
+  );
+}
+
+function AccountWarning({
+  tone,
+  message,
+  actionLabel,
+  onAction
+}: {
+  tone: "warning" | "danger";
+  message: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className={clsx(
+        "rounded-lg border p-3 text-sm font-bold",
+        tone === "warning" && "border-gold/40 bg-gold/15 text-yellow-800 dark:text-gold",
+        tone === "danger" && "border-coral/25 bg-coral/10 text-coral dark:border-coral/40 dark:bg-coral/15"
+      )}
+    >
+      <p>{message}</p>
+      <Button className="mt-3 w-full sm:w-auto" onClick={onAction}>
+        <RefreshCw size={18} />
+        {actionLabel}
+      </Button>
+    </div>
   );
 }
