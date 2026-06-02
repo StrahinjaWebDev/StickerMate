@@ -7,7 +7,7 @@ import { GuideCard } from "@/components/GuideCard";
 import { FilterBar } from "@/features/stickers/FilterBar";
 import { StickerList } from "@/features/stickers/StickerList";
 import { useI18n } from "@/hooks/useI18n";
-import { stickers } from "@/lib/stickers";
+import { getDuplicateCount, stickers } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export default function DuplicatesPage() {
@@ -25,13 +25,20 @@ export default function DuplicatesPage() {
         }),
     [quantities]
   );
+  const duplicateCopies = useMemo(
+    () => duplicates.reduce((sum, sticker) => sum + getDuplicateCount(quantities, sticker.code), 0),
+    [duplicates, quantities]
+  );
 
   return (
     <div className="space-y-5">
       <section className="rounded-lg border border-line bg-white p-4 shadow-lift dark:border-white/10 dark:bg-neutral-900 sm:p-5">
         <h1 className="text-3xl font-black text-ink dark:text-white">{t("duplicates.title")}</h1>
         <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-          {t("duplicates.ready", { count: duplicates.length })}
+          {t("duplicates.body")}
+        </p>
+        <p className="mt-2 text-sm font-black text-pitch">
+          {t("duplicates.ready", { count: duplicateCopies })}
         </p>
       </section>
 

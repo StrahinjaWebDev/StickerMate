@@ -52,6 +52,22 @@ export function getQuantity(quantities: Record<string, number>, code: string) {
   return Math.max(0, quantities[code] ?? 0);
 }
 
+export function getDuplicateCount(quantities: Record<string, number>, code: string) {
+  return Math.max(getQuantity(quantities, code) - 1, 0);
+}
+
+export function getTradableCount(quantities: Record<string, number>, code: string) {
+  return getDuplicateCount(quantities, code);
+}
+
+export function getMissingCodes(quantities: Record<string, number>, list: Sticker[] = stickers) {
+  return list.filter((sticker) => getQuantity(quantities, sticker.code) === 0).map((sticker) => sticker.code);
+}
+
+export function getTradableDuplicateCodes(quantities: Record<string, number>, list: Sticker[] = stickers) {
+  return list.filter((sticker) => getTradableCount(quantities, sticker.code) > 0).map((sticker) => sticker.code);
+}
+
 export function getStats(quantities: Record<string, number>, list: Sticker[] = stickers): CollectionStats {
   let owned = 0;
   let duplicateStickers = 0;

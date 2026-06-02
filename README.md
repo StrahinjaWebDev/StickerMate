@@ -8,10 +8,12 @@ StickerMate keeps the experience closer to a polished consumer app than a spread
 
 ## Features
 
-- Quick Import for pasted sticker codes with automatic separator detection
-- Quick Album Review for one-card-at-a-time setup with saved progress
-- Camera/image scan workflow with editable OCR confirmation
+- New Entry for pasted sticker codes with automatic separator detection
+- Quick Album Fill for one-card-at-a-time setup with saved progress
+- Fill screen with New Entry for multi-code paste and optional pack spending
 - Quantity-based collection tracking: missing, owned, and duplicates
+- Dedicated Collection screen with search, filters, list view, and grid view
+- Teams/Reprezentacije page with progress and compact team icons
 - Dashboard statistics with completion progress
 - Instant search by code, player/name, or team
 - All, owned, missing, and duplicate filters
@@ -23,7 +25,7 @@ StickerMate keeps the experience closer to a polished consumer app than a spread
 - Privacy-scoped trade QR generation
 - Friend QR import with immediate trade matching
 - Manual spending tracking for album, packs, bundles, and individual sticker purchases
-- Settings for theme, export, import, reset, and onboarding replay
+- Settings for theme, pack defaults, reset, and onboarding replay
 - Dismissible in-app help cards and a dedicated Help page
 - LocalStorage autosave for collection data, language, theme, view mode, and review progress
 - PWA-ready manifest and service worker
@@ -55,7 +57,7 @@ scripts/              Optional maintenance scripts
 stores/               Zustand stores
 types/                Shared TypeScript types
 locales/              Translation dictionaries
-services/             OCR, code validation, and trade QR helpers
+services/             Code validation and trade QR helpers
 ```
 
 ## Installation
@@ -103,9 +105,9 @@ type Sticker = {
 };
 ```
 
-## Sticker Import System
+## New Entry System
 
-Quick Import accepts codes separated by spaces, commas, tabs, or new lines. It validates against the checklist, increments quantities, identifies duplicates, and reports invalid codes without crashing the flow.
+New Entry accepts codes separated by spaces, commas, tabs, or new lines. It validates against the checklist, increments quantities, identifies duplicates, and reports invalid codes without crashing the flow.
 
 Example:
 
@@ -113,9 +115,9 @@ Example:
 BRA1 BRA2 BRA2 ARG1 POR15
 ```
 
-## Quick Album Review
+## Quick Album Fill
 
-Quick Album Review is the recommended first-run workflow. It presents one standard-album sticker at a time and lets the user mark it as missing, owned, or duplicate. Progress is persisted in LocalStorage, so the review can be paused and resumed later from the dashboard or Settings.
+Quick Album Fill is the recommended first-run workflow. It presents one standard-album sticker at a time and lets the user mark it as missing, owned, or duplicate. Progress is persisted in LocalStorage, so the flow can be paused and resumed later from the dashboard, Fill, or Settings.
 
 The review supports:
 
@@ -125,20 +127,15 @@ The review supports:
 - Team/section jumping
 - Completion summary with export backup
 
-## Camera / OCR Scanning
+## Fill And New Entry
 
-The Scan screen supports mobile camera capture, image upload, and manual code entry. Images are previewed before saving. StickerMate tries browser-side OCR through a lazy-loaded recognition service and then asks the user to confirm detected codes before any collection data changes.
+The Fill screen is the main place for updating the album. It offers:
 
-The recognition layer lives in:
+- Quick Album Fill
+- New Entry for codes from newly opened stickers
+- Manual Edit through the Collection page
 
-```text
-services/stickerRecognitionService.ts
-services/stickerCodeService.ts
-```
-
-Detected codes are validated against the active 980-sticker album dataset. Codes that exist only in the full checklist as excluded `s` variants are shown separately and are not added to the main album collection.
-
-If OCR is unavailable or unclear, the screen stays usable through manual code confirmation. Saving a scan creates an entry history item with the localized camera scan note.
+New Entry accepts multiple sticker codes separated by spaces, commas, tabs, or new lines. It validates against the active 980-sticker album dataset and can optionally create a linked spending entry for opened packs.
 
 ## Image System
 
@@ -168,7 +165,7 @@ Sticker images are external assets from LastSticker/Panini-related sources. Use 
 
 ## Multi-Language Support
 
-StickerMate ships with Serbian as the default language and English as an alternate language. The language switcher is available from the header on every page and also appears in Settings.
+StickerMate ships with Serbian as the default language and English as an alternate language. The language switcher is available from the header on every page.
 
 Translations live in:
 
@@ -224,7 +221,13 @@ type SpendingEntry = {
 };
 ```
 
-The Spending page shows total spent in the selected default currency, entry count, packs bought, average pack price, cost per owned sticker, and editable purchase history. The Scan/manual entry flow also has an optional collapsed spending section for purchases entered at the same time as sticker codes.
+The Spending page shows total spent, packs bought, stickers from packs, average pack price, cost per owned sticker, and editable purchase history. New Entry also has an optional collapsed pack-spending section.
+
+Default pack calculation:
+
+```text
+1 pack = 7 stickers = 150 RSD
+```
 
 Backups include `spendingEntries` and `settings.defaultCurrency`. Old backups without spending data still import successfully.
 
@@ -235,7 +238,6 @@ Backups include `spendingEntries` and `settings.defaultCurrency`. Old backups wi
 - Shareable trade links
 - Spending charts and budget summaries
 - Multiple albums
-- Camera scanning accuracy improvements
 - Statistics history
 - Push notifications and reminders
 

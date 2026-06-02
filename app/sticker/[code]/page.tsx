@@ -5,7 +5,8 @@ import { notFound, useParams } from "next/navigation";
 import { ArrowLeft, Check, Copy, ExternalLink, Minus, Plus, X } from "lucide-react";
 import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
-import { getSticker } from "@/lib/stickers";
+import { getDuplicateCount, getSticker } from "@/lib/stickers";
+import { getTeamIcon } from "@/lib/teamIcons";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export default function StickerDetailPage() {
@@ -20,7 +21,13 @@ export default function StickerDetailPage() {
 
   if (!sticker) notFound();
 
-  const status = quantity === 0 ? t("status.missing") : quantity === 1 ? t("status.owned") : t("status.duplicate");
+  const duplicateCount = getDuplicateCount({ [sticker.code]: quantity }, sticker.code);
+  const status =
+    quantity === 0
+      ? t("status.missing")
+      : quantity === 1
+        ? t("status.owned")
+        : t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount });
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -55,7 +62,10 @@ export default function StickerDetailPage() {
             <div>
               <p className="text-sm font-black uppercase text-pitch">{sticker.code}</p>
               <h1 className="mt-2 text-4xl font-black text-ink dark:text-white">{sticker.name}</h1>
-              <p className="mt-2 text-base font-semibold text-neutral-600 dark:text-neutral-400">{sticker.team}</p>
+              <p className="mt-2 text-base font-semibold text-neutral-600 dark:text-neutral-400">
+                <span className="mr-2">{getTeamIcon(sticker.team)}</span>
+                {sticker.team}
+              </p>
             </div>
             <span className="rounded-lg bg-field px-3 py-2 text-sm font-black text-ink dark:bg-neutral-950 dark:text-white">
               {status}
@@ -74,6 +84,11 @@ export default function StickerDetailPage() {
             <div className="text-center">
               <p className="text-sm font-bold text-neutral-500 dark:text-neutral-400">{t("sticker.quantity")}</p>
               <p className="text-4xl font-black text-ink dark:text-white">{quantity}</p>
+              {quantity > 1 ? (
+                <p className="mt-1 text-sm font-bold text-neutral-500 dark:text-neutral-400">
+                  {t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount })}
+                </p>
+              ) : null}
             </div>
             <button
               type="button"

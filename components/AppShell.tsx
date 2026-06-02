@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Camera, Handshake, Home, MoreHorizontal, Sticker } from "lucide-react";
+import { BarChart3, Handshake, Home, Layers3, MoreHorizontal, Sticker } from "lucide-react";
 import { clsx } from "clsx";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
@@ -10,11 +10,17 @@ import { useI18n } from "@/hooks/useI18n";
 
 const navItems = [
   { href: "/", labelKey: "nav.home" as const, icon: Home },
-  { href: "/scan", labelKey: "nav.scan" as const, icon: Camera },
-  { href: "/duplicates", labelKey: "nav.duplicates" as const, icon: Sticker },
+  { href: "/collection", labelKey: "nav.collection" as const, icon: Sticker },
+  { href: "/fill", labelKey: "nav.fill" as const, icon: Layers3 },
   { href: "/trades", labelKey: "nav.trades" as const, icon: Handshake },
   { href: "/more", labelKey: "nav.more" as const, icon: MoreHorizontal }
 ];
+
+function isActivePath(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  if (href === "/fill") return pathname === "/fill" || pathname === "/review";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -41,13 +47,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <nav className="hidden items-center gap-1 rounded-lg border border-line bg-white p-1 shadow-sm dark:border-white/10 dark:bg-neutral-900 lg:flex">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const active = pathname === item.href;
+                const active = isActivePath(pathname, item.href);
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={clsx(
-                      "flex h-10 items-center gap-2 rounded-md px-4 text-sm font-semibold transition",
+                      "flex h-10 items-center gap-2 rounded-md px-4 text-sm font-semibold transition active:scale-[0.98]",
                       active
                         ? "bg-pitch text-white"
                         : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
@@ -70,13 +76,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.href;
+            const active = isActivePath(pathname, item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={(event) => {
+                  if (active) {
+                    event.preventDefault();
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }}
                 className={clsx(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg text-xs font-bold transition",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg text-xs font-bold transition active:scale-95",
                   active
                     ? "bg-pitch text-white"
                     : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900"

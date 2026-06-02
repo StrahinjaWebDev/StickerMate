@@ -1,6 +1,16 @@
 import type { LanguageCode, SpendingCurrency, SpendingEntry } from "@/types/sticker";
 
 export const spendingCurrencies: SpendingCurrency[] = ["RSD", "EUR", "USD", "GBP"];
+export const defaultPackPriceRsd = 150;
+export const defaultStickersPerPack = 7;
+
+export function calculatePackSpending(packsCount: number, packPrice = defaultPackPriceRsd) {
+  return Math.max(0, Math.floor(packsCount)) * packPrice;
+}
+
+export function calculatePackStickers(packsCount: number, stickersPerPack = defaultStickersPerPack) {
+  return Math.max(0, Math.floor(packsCount)) * stickersPerPack;
+}
 
 export function formatMoney(amount: number, currency: SpendingCurrency, language: LanguageCode) {
   const locale = language === "sr" ? "sr-RS" : "en-US";

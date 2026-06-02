@@ -5,6 +5,8 @@ import { Check, Copy, Minus, Plus, X } from "lucide-react";
 import { clsx } from "clsx";
 import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
+import { getDuplicateCount } from "@/lib/stickers";
+import { getTeamIcon } from "@/lib/teamIcons";
 import type { Sticker } from "@/types/sticker";
 
 export type PaintMode = "owned" | "missing" | "duplicate";
@@ -27,12 +29,13 @@ export function StickerRow({
   onPaintStart: (mode: PaintMode, code: string) => void;
 }) {
   const { t } = useI18n();
+  const duplicateCount = getDuplicateCount({ [sticker.code]: quantity }, sticker.code);
   const status =
     quantity === 0
       ? t("status.missing")
       : quantity === 1
         ? t("status.owned")
-        : t("status.total", { count: quantity });
+        : t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount });
 
   return (
     <div
@@ -85,7 +88,11 @@ export function StickerRow({
           </span>
         </div>
         <p className="mt-1 truncate text-sm font-black text-ink dark:text-white">{sticker.name}</p>
-        <p className="truncate text-xs font-bold text-neutral-500 dark:text-neutral-400">{sticker.team}</p>
+        <p className="truncate text-xs font-bold text-neutral-500 dark:text-neutral-400">
+          <span className="mr-1">{getTeamIcon(sticker.team)}</span>
+          {sticker.team}
+          {quantity > 1 ? ` · ${t("status.totalOwned", { count: quantity })}` : ""}
+        </p>
       </Link>
 
       <div className="flex items-center gap-1">

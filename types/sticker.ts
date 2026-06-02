@@ -81,6 +81,18 @@ export type SpendingEntry = {
   updatedAt: string;
 };
 
+export type TradeHistoryItem = {
+  id: string;
+  date: string;
+  friendName: string;
+  stickersGiven: string[];
+  stickersReceived: string[];
+  note?: string;
+  appliedToCollection: boolean;
+  undoneAt?: string;
+  createdAt: string;
+};
+
 export type TradeFriend = {
   id: string;
   name: string;

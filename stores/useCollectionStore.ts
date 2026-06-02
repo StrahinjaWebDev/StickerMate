@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { getStats, parseStickerCodes, stickerByCode, stickers } from "@/lib/stickers";
+import { getStats, stickerByCode, stickers } from "@/lib/stickers";
 import type {
   EntryHistoryItem,
   GuideKey,
@@ -13,7 +13,8 @@ import type {
   SpendingEntry,
   StickerViewMode,
   ThemePreference,
-  TradeFriend
+  TradeFriend,
+  TradeHistoryItem
 } from "@/types/sticker";
 
 type SpendingInput = {
@@ -27,6 +28,15 @@ type SpendingInput = {
   linkedEntryId?: string;
 };
 
+type TradeInput = {
+  date: string;
+  friendName: string;
+  stickersGiven: string[];
+  stickersReceived: string[];
+  note?: string;
+  appliedToCollection: boolean;
+};
+
 type ExportPayload = {
   app: "StickerMate";
   version: 2;
@@ -38,8 +48,11 @@ type ExportPayload = {
     viewMode: StickerViewMode;
     language: LanguageCode;
     defaultCurrency: SpendingCurrency;
+    packPriceRsd: number;
+    stickersPerPack: number;
   };
   spendingEntries: SpendingEntry[];
+  tradeHistory: TradeHistoryItem[];
   review: {
     currentIndex: number;
     completed: boolean;
@@ -58,8 +71,11 @@ type CollectionStore = {
   entryHistory: EntryHistoryItem[];
   friends: TradeFriend[];
   tradeDisplayName: string;
+  tradeHistory: TradeHistoryItem[];
   spendingEntries: SpendingEntry[];
   defaultCurrency: SpendingCurrency;
+  packPriceRsd: number;
+  stickersPerPack: number;
   dismissedGuides: Partial<Record<GuideKey, true>>;
   reviewCurrentIndex: number;
   reviewCompleted: boolean;
@@ -72,7 +88,6 @@ type CollectionStore = {
   increment: (code: string) => void;
   decrement: (code: string) => void;
   markMany: (codes: string[], quantity: number | "increment" | "decrement") => void;
-  quickImport: (input: string) => ImportSummary;
   addConfirmedCodes: (codes: string[], note: string, spending?: Omit<SpendingInput, "linkedEntryId">) => ImportSummary;
   importPayload: (payload: unknown) => { ok: true } | { ok: false; errorKey: "settings.importInvalidError" | "settings.importMissingQuantitiesError" };
   exportPayload: () => ExportPayload;
@@ -83,9 +98,13 @@ type CollectionStore = {
   setTradeDisplayName: (name: string) => void;
   upsertFriend: (friend: Omit<TradeFriend, "id" | "importedAt">, mode: "update" | "create") => TradeFriend;
   setDefaultCurrency: (currency: SpendingCurrency) => void;
+  setPackSettings: (settings: { packPriceRsd: number; stickersPerPack: number }) => void;
   addSpendingEntry: (entry: SpendingInput) => SpendingEntry;
   updateSpendingEntry: (id: string, entry: SpendingInput) => void;
   deleteSpendingEntry: (id: string) => void;
+  addTradeHistory: (trade: TradeInput) => TradeHistoryItem;
+  deleteTradeHistory: (id: string) => void;
+  undoTradeHistory: (id: string) => void;
   dismissGuide: (guide: GuideKey) => void;
   resetGuides: () => void;
   setReviewIndex: (index: number) => void;
@@ -180,6 +199,41 @@ function sanitizeSpendingEntries(entries: unknown): SpendingEntry[] {
     .filter((entry): entry is SpendingEntry => Boolean(entry));
 }
 
+function sanitizeTradeHistory(entries: unknown): TradeHistoryItem[] {
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .map((entry): TradeHistoryItem | null => {
+      if (!entry || typeof entry !== "object") return null;
+      const maybeEntry = entry as Partial<TradeHistoryItem>;
+      if (
+        typeof maybeEntry.id !== "string" ||
+        typeof maybeEntry.date !== "string" ||
+        typeof maybeEntry.friendName !== "string" ||
+        !Array.isArray(maybeEntry.stickersGiven) ||
+        !Array.isArray(maybeEntry.stickersReceived)
+      ) {
+        return null;
+      }
+
+      const normalized: TradeHistoryItem = {
+        id: maybeEntry.id,
+        date: maybeEntry.date,
+        friendName: maybeEntry.friendName,
+        stickersGiven: uniqueValidCodes(maybeEntry.stickersGiven),
+        stickersReceived: uniqueValidCodes(maybeEntry.stickersReceived),
+        appliedToCollection: Boolean(maybeEntry.appliedToCollection),
+        createdAt: typeof maybeEntry.createdAt === "string" ? maybeEntry.createdAt : new Date().toISOString()
+      };
+
+      if (typeof maybeEntry.note === "string" && maybeEntry.note.trim()) normalized.note = maybeEntry.note.trim();
+      if (typeof maybeEntry.undoneAt === "string") normalized.undoneAt = maybeEntry.undoneAt;
+
+      return normalized;
+    })
+    .filter((entry): entry is TradeHistoryItem => Boolean(entry));
+}
+
 function withQuantity(
   quantities: Record<string, number>,
   code: string,
@@ -204,6 +258,33 @@ function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function uniqueValidCodes(codes: string[]) {
+  return Array.from(new Set(codes.map((code) => code.trim().toUpperCase()).filter((code) => stickerByCode.has(code))));
+}
+
+function applyTradeQuantities(
+  quantities: Record<string, number>,
+  stickersGiven: string[],
+  stickersReceived: string[],
+  reverse = false
+) {
+  let next = quantities;
+  const given = uniqueValidCodes(stickersGiven);
+  const received = uniqueValidCodes(stickersReceived);
+  const decrementCodes = reverse ? received : given;
+  const incrementCodes = reverse ? given : received;
+
+  for (const code of decrementCodes) {
+    next = withQuantity(next, code, (quantity) => Math.max(0, quantity - 1));
+  }
+
+  for (const code of incrementCodes) {
+    next = withQuantity(next, code, (quantity) => quantity + 1);
+  }
+
+  return next;
+}
+
 export const useCollectionStore = create<CollectionStore>()(
   persist(
     (set, get) => ({
@@ -217,8 +298,11 @@ export const useCollectionStore = create<CollectionStore>()(
       entryHistory: [],
       friends: [],
       tradeDisplayName: "",
+      tradeHistory: [],
       spendingEntries: [],
       defaultCurrency: "RSD",
+      packPriceRsd: 150,
+      stickersPerPack: 7,
       dismissedGuides: {},
       reviewCurrentIndex: 0,
       reviewCompleted: false,
@@ -255,47 +339,6 @@ export const useCollectionStore = create<CollectionStore>()(
               quantity === 0 || quantity === "decrement" ? state.recentCodes : mergeRecent(state.recentCodes, codes)
           };
         }),
-      quickImport: (input) => {
-        const tokens = parseStickerCodes(input);
-        const seen = new Set<string>();
-        const newCodes = new Set<string>();
-        const duplicateCodes = new Set<string>();
-        const invalidCodes: string[] = [];
-        let imported = 0;
-        let invalid = 0;
-        let duplicates = 0;
-
-        set((state) => {
-          let next = state.quantities;
-          for (const token of tokens) {
-            if (!stickerByCode.has(token)) {
-              invalid += 1;
-              invalidCodes.push(token);
-              continue;
-            }
-            imported += 1;
-            const previousQuantity = next[token] ?? 0;
-            if (previousQuantity === 0 && !seen.has(token)) newCodes.add(token);
-            if (seen.has(token) || previousQuantity > 0) {
-              duplicates += 1;
-              duplicateCodes.add(token);
-            }
-            seen.add(token);
-            next = withQuantity(next, token, (quantity) => quantity + 1);
-          }
-          return { quantities: next, recentCodes: mergeRecent(state.recentCodes, Array.from(seen)) };
-        });
-
-        return {
-          imported,
-          duplicates,
-          invalid,
-          uniqueImported: seen.size,
-          newCodes: Array.from(newCodes),
-          duplicateCodes: Array.from(duplicateCodes),
-          invalidCodes
-        };
-      },
       addConfirmedCodes: (codes, note, spending) => {
         const seen = new Set<string>();
         const newCodes = new Set<string>();
@@ -374,8 +417,11 @@ export const useCollectionStore = create<CollectionStore>()(
             viewMode?: StickerViewMode;
             language?: LanguageCode;
             defaultCurrency?: SpendingCurrency;
+            packPriceRsd?: number;
+            stickersPerPack?: number;
           };
           spendingEntries?: unknown;
+          tradeHistory?: unknown;
           review?: { currentIndex?: number; completed?: boolean; updatedAt?: string };
         };
         if (!maybePayload.quantities || typeof maybePayload.quantities !== "object") {
@@ -403,6 +449,17 @@ export const useCollectionStore = create<CollectionStore>()(
           spendingEntries: Array.isArray(maybePayload.spendingEntries)
             ? sanitizeSpendingEntries(maybePayload.spendingEntries)
             : get().spendingEntries,
+          tradeHistory: Array.isArray(maybePayload.tradeHistory)
+            ? sanitizeTradeHistory(maybePayload.tradeHistory)
+            : get().tradeHistory,
+          packPriceRsd:
+            typeof maybePayload.settings?.packPriceRsd === "number" && maybePayload.settings.packPriceRsd > 0
+              ? Math.round(maybePayload.settings.packPriceRsd * 100) / 100
+              : get().packPriceRsd,
+          stickersPerPack:
+            typeof maybePayload.settings?.stickersPerPack === "number" && maybePayload.settings.stickersPerPack > 0
+              ? Math.floor(maybePayload.settings.stickersPerPack)
+              : get().stickersPerPack,
           reviewCurrentIndex:
             typeof maybePayload.review?.currentIndex === "number"
               ? Math.max(0, Math.min(stickers.length, Math.floor(maybePayload.review.currentIndex)))
@@ -423,7 +480,10 @@ export const useCollectionStore = create<CollectionStore>()(
           viewMode,
           language,
           defaultCurrency,
+          packPriceRsd,
+          stickersPerPack,
           spendingEntries,
+          tradeHistory,
           reviewCurrentIndex,
           reviewCompleted,
           reviewUpdatedAt
@@ -434,8 +494,9 @@ export const useCollectionStore = create<CollectionStore>()(
           exportedAt: new Date().toISOString(),
           quantities,
           stats: getStats(quantities, stickers),
-          settings: { theme, viewMode, language, defaultCurrency },
+          settings: { theme, viewMode, language, defaultCurrency, packPriceRsd, stickersPerPack },
           spendingEntries,
+          tradeHistory,
           review: {
             currentIndex: reviewCurrentIndex,
             completed: reviewCompleted,
@@ -448,6 +509,16 @@ export const useCollectionStore = create<CollectionStore>()(
           quantities: {},
           selectedCodes: [],
           recentCodes: [],
+          entryHistory: [],
+          friends: [],
+          tradeDisplayName: "",
+          tradeHistory: [],
+          spendingEntries: [],
+          defaultCurrency: "RSD",
+          packPriceRsd: 150,
+          stickersPerPack: 7,
+          viewMode: "list",
+          dismissedGuides: {},
           reviewCurrentIndex: 0,
           reviewCompleted: false,
           reviewUpdatedAt: undefined
@@ -481,6 +552,11 @@ export const useCollectionStore = create<CollectionStore>()(
         return nextFriend;
       },
       setDefaultCurrency: (currency) => set({ defaultCurrency: currency }),
+      setPackSettings: ({ packPriceRsd, stickersPerPack }) =>
+        set({
+          packPriceRsd: Math.max(1, Math.round(packPriceRsd * 100) / 100),
+          stickersPerPack: Math.max(1, Math.floor(stickersPerPack))
+        }),
       addSpendingEntry: (entry) => {
         const nextEntry = buildSpendingEntry(entry);
         set((state) => ({ spendingEntries: [nextEntry, ...state.spendingEntries] }));
@@ -496,6 +572,45 @@ export const useCollectionStore = create<CollectionStore>()(
         set((state) => ({
           spendingEntries: state.spendingEntries.filter((entry) => entry.id !== id)
         })),
+      addTradeHistory: (trade) => {
+        const given = uniqueValidCodes(trade.stickersGiven);
+        const received = uniqueValidCodes(trade.stickersReceived);
+        const tradeItem: TradeHistoryItem = {
+          id: createId("trade"),
+          date: trade.date,
+          friendName: trade.friendName.trim() || "Friend",
+          stickersGiven: given,
+          stickersReceived: received,
+          note: trade.note?.trim() || undefined,
+          appliedToCollection: trade.appliedToCollection,
+          createdAt: new Date().toISOString()
+        };
+
+        set((state) => ({
+          quantities: trade.appliedToCollection
+            ? applyTradeQuantities(state.quantities, given, received)
+            : state.quantities,
+          recentCodes: trade.appliedToCollection ? mergeRecent(state.recentCodes, received) : state.recentCodes,
+          tradeHistory: [tradeItem, ...state.tradeHistory]
+        }));
+
+        return tradeItem;
+      },
+      deleteTradeHistory: (id) =>
+        set((state) => ({
+          tradeHistory: state.tradeHistory.filter((trade) => trade.id !== id)
+        })),
+      undoTradeHistory: (id) =>
+        set((state) => {
+          const trade = state.tradeHistory.find((item) => item.id === id);
+          if (!trade || !trade.appliedToCollection || trade.undoneAt) return state;
+          return {
+            quantities: applyTradeQuantities(state.quantities, trade.stickersGiven, trade.stickersReceived, true),
+            tradeHistory: state.tradeHistory.map((item) =>
+              item.id === id ? { ...item, undoneAt: new Date().toISOString() } : item
+            )
+          };
+        }),
       dismissGuide: (guide) =>
         set((state) => ({
           dismissedGuides: { ...state.dismissedGuides, [guide]: true }
@@ -546,8 +661,11 @@ export const useCollectionStore = create<CollectionStore>()(
         entryHistory: state.entryHistory,
         friends: state.friends,
         tradeDisplayName: state.tradeDisplayName,
+        tradeHistory: state.tradeHistory,
         spendingEntries: state.spendingEntries,
         defaultCurrency: state.defaultCurrency,
+        packPriceRsd: state.packPriceRsd,
+        stickersPerPack: state.stickersPerPack,
         dismissedGuides: state.dismissedGuides,
         reviewCurrentIndex: state.reviewCurrentIndex,
         reviewCompleted: state.reviewCompleted,

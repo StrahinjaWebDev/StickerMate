@@ -7,7 +7,7 @@ import { GuideCard } from "@/components/GuideCard";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { useI18n } from "@/hooks/useI18n";
 import type { TranslationKey } from "@/lib/i18n";
-import { getSpendingStats, formatMoney, spendingCurrencies } from "@/lib/spending";
+import { calculatePackSpending, calculatePackStickers, getSpendingStats, formatMoney, spendingCurrencies } from "@/lib/spending";
 import { getStats, stickers } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { SpendingCategory, SpendingCurrency, SpendingEntry } from "@/types/sticker";
@@ -61,6 +61,8 @@ export default function SpendingPage() {
   const quantities = useCollectionStore((state) => state.quantities);
   const spendingEntries = useCollectionStore((state) => state.spendingEntries);
   const defaultCurrency = useCollectionStore((state) => state.defaultCurrency);
+  const packPriceRsd = useCollectionStore((state) => state.packPriceRsd);
+  const stickersPerPack = useCollectionStore((state) => state.stickersPerPack);
   const addSpendingEntry = useCollectionStore((state) => state.addSpendingEntry);
   const updateSpendingEntry = useCollectionStore((state) => state.updateSpendingEntry);
   const deleteSpendingEntry = useCollectionStore((state) => state.deleteSpendingEntry);
@@ -109,7 +111,9 @@ export default function SpendingPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const amount = Number(form.amount);
+    const packsCount = form.packsCount ? Math.max(0, Math.floor(Number(form.packsCount))) : 0;
+    const manualAmount = form.amount ? Number(form.amount) : 0;
+    const amount = manualAmount > 0 ? manualAmount : form.category === "packs" ? calculatePackSpending(packsCount, packPriceRsd) : 0;
     if (!Number.isFinite(amount) || amount <= 0) {
       setError(t("spending.amountError"));
       return;
@@ -122,11 +126,11 @@ export default function SpendingPage() {
 
     const payload = {
       amount,
-      currency: form.currency,
+      currency: manualAmount > 0 ? form.currency : "RSD",
       category: form.category,
       date: form.date,
-      packsCount: form.packsCount ? Number(form.packsCount) : undefined,
-      stickersCount: form.stickersCount ? Number(form.stickersCount) : undefined,
+      packsCount,
+      stickersCount: form.stickersCount ? Number(form.stickersCount) : packsCount ? calculatePackStickers(packsCount, stickersPerPack) : undefined,
       note: form.note
     };
 
@@ -166,13 +170,14 @@ export default function SpendingPage() {
 
       <GuideCard guide="spending" titleKey="guide.spendingTitle" bodyKey="guide.spendingBody" />
 
-      <section className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3" aria-label={t("spending.statsLabel")}>
+      <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 sm:gap-3" aria-label={t("spending.statsLabel")}>
         <SpendingMetric
           label={t("spending.totalSpent")}
           value={formatMoney(spendingStats.totalSpent, defaultCurrency, language)}
         />
         <SpendingMetric label={t("spending.entries")} value={spendingStats.entryCount} />
         <SpendingMetric label={t("spending.packsBought")} value={spendingStats.totalPacks || "-"} />
+        <SpendingMetric label={t("spending.stickersFromPacks")} value={spendingStats.totalStickers || "-"} />
         <SpendingMetric
           label={t("spending.averagePackPrice")}
           value={spendingStats.averagePackPrice ? formatMoney(spendingStats.averagePackPrice, defaultCurrency, language) : "-"}
@@ -201,16 +206,18 @@ export default function SpendingPage() {
             </Button>
           </div>
           <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
-            <FormField label={t("spending.amount")}>
+            <FormField label={t("spending.packsOptional")}>
               <input
-                value={form.amount}
-                onChange={(event) => updateForm("amount", event.target.value)}
+                value={form.packsCount}
+                onChange={(event) => updateForm("packsCount", event.target.value)}
                 className="w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-                inputMode="decimal"
+                inputMode="numeric"
                 min="0"
-                step="0.01"
                 type="number"
               />
+              <span className="mt-1 block text-xs font-bold text-neutral-500 dark:text-neutral-400">
+                {t("spending.packFormula", { stickers: stickersPerPack, price: formatMoney(packPriceRsd, "RSD", language) })}
+              </span>
             </FormField>
             <FormField label={t("spending.currency")}>
               <select
@@ -246,13 +253,14 @@ export default function SpendingPage() {
                 type="date"
               />
             </FormField>
-            <FormField label={t("spending.packsOptional")}>
+            <FormField label={t("spending.amountOverride")}>
               <input
-                value={form.packsCount}
-                onChange={(event) => updateForm("packsCount", event.target.value)}
+                value={form.amount}
+                onChange={(event) => updateForm("amount", event.target.value)}
                 className="w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-                inputMode="numeric"
+                inputMode="decimal"
                 min="0"
+                step="0.01"
                 type="number"
               />
             </FormField>
