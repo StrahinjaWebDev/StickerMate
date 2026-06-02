@@ -17,7 +17,7 @@ export function LanguageSwitcher() {
           key={item.code}
           type="button"
           className={clsx(
-            "flex min-h-9 items-center gap-1 rounded-md px-2 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pitch",
+            "flex min-h-10 items-center gap-1 rounded-md px-2 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pitch",
             language === item.code
               ? "bg-pitch text-white"
               : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"

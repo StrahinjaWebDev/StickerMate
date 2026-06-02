@@ -276,18 +276,18 @@ export function QuickAlbumReview() {
         </div>
       </section>
 
-      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 grid grid-cols-2 gap-2 rounded-lg border border-line bg-white/95 p-2 shadow-lift backdrop-blur dark:border-white/10 dark:bg-neutral-900/95 lg:hidden">
-        <Button className="min-h-12 text-base" tone="danger" onClick={() => mark(0)}>
+      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 grid grid-cols-3 gap-1.5 rounded-lg border border-line bg-white/95 p-2 shadow-lift backdrop-blur dark:border-white/10 dark:bg-neutral-900/95 lg:hidden">
+        <Button className="min-h-12 px-2 text-sm" tone="danger" onClick={() => mark(0)}>
           <X size={20} />
           {t("review.missing")}
         </Button>
-        <Button className="min-h-12 text-base" tone="primary" onClick={() => mark(1)}>
+        <Button className="min-h-12 px-2 text-sm" tone="primary" onClick={() => mark(1)}>
           <Check size={20} />
           {t("review.owned")}
         </Button>
-        <Button className="col-span-2 min-h-11 text-sm" onClick={markDuplicate}>
+        <Button className="min-h-12 px-2 text-sm" onClick={markDuplicate}>
           <RotateCcw size={18} />
-          {t("review.duplicate")} · {duplicateCountLabel}
+          {t("review.duplicate")}
         </Button>
       </div>
     </div>

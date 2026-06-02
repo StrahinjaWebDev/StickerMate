@@ -64,7 +64,6 @@ export function StickerCard({
           <p className="truncate text-xs font-semibold text-neutral-500 dark:text-neutral-400">
             <span className="mr-1">{getTeamIcon(sticker.team)}</span>
             {sticker.team}
-            {quantity > 1 ? ` · ${t("status.totalOwned", { count: quantity })}` : ""}
           </p>
         </div>
       </Link>

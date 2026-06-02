@@ -41,14 +41,14 @@ export function StickerRow({
     <div
       data-sticker-code={sticker.code}
       className={clsx(
-        "grid min-h-[132px] grid-cols-[40px_58px_minmax(0,1fr)_104px] gap-2 rounded-lg border bg-white p-3 shadow-sm dark:bg-neutral-900 sm:min-h-[96px] sm:grid-cols-[40px_56px_minmax(0,1fr)_104px]",
+        "grid min-h-[148px] grid-cols-[44px_58px_minmax(0,1fr)] gap-2 rounded-lg border bg-white p-3 shadow-sm dark:bg-neutral-900 sm:min-h-[104px] sm:grid-cols-[44px_56px_minmax(0,1fr)_112px]",
         selected ? "border-pitch ring-2 ring-pitch/20" : "border-line dark:border-white/10"
       )}
     >
       <button
         type="button"
         className={clsx(
-          "grid h-10 w-10 shrink-0 place-items-center rounded-lg border text-sm font-black",
+          "grid h-11 w-11 shrink-0 place-items-center rounded-lg border text-sm font-black",
           selected
             ? "border-pitch bg-pitch text-white"
             : "border-line bg-field text-neutral-700 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-300"
@@ -95,25 +95,24 @@ export function StickerRow({
         <p className="line-clamp-1 text-xs font-bold text-neutral-500 dark:text-neutral-400">
           <span className="mr-1">{getTeamIcon(sticker.team)}</span>
           {sticker.team}
-          {quantity > 1 ? ` - ${t("status.totalOwned", { count: quantity })}` : ""}
         </p>
       </Link>
 
-      <div className="flex w-[104px] shrink-0 items-start justify-end gap-1">
+      <div className="col-start-3 row-start-2 flex w-full shrink-0 items-center justify-start gap-1 sm:col-start-4 sm:row-start-1 sm:w-[112px] sm:items-start sm:justify-end">
         <button
           type="button"
-          className="grid h-10 w-8 place-items-center rounded-lg border border-line bg-field text-neutral-700 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-200"
+          className="grid h-11 w-10 place-items-center rounded-lg border border-line bg-field text-neutral-700 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-200"
           onClick={onDecrement}
           aria-label={t("sticker.decrease", { code: sticker.code })}
         >
           <Minus size={17} />
         </button>
-        <span className="grid h-10 w-7 place-items-center text-base font-black text-ink dark:text-white">
+        <span className="grid h-11 w-7 place-items-center text-base font-black text-ink dark:text-white">
           {quantity}
         </span>
         <button
           type="button"
-          className="grid h-10 w-8 place-items-center rounded-lg bg-pitch text-white"
+          className="grid h-11 w-10 place-items-center rounded-lg bg-pitch text-white"
           onClick={onIncrement}
           aria-label={t("sticker.increase", { code: sticker.code })}
         >
@@ -121,7 +120,7 @@ export function StickerRow({
         </button>
       </div>
 
-      <div className="col-span-4 flex gap-1 sm:col-span-2 sm:col-start-3">
+      <div className="col-span-3 flex gap-1 sm:col-span-2 sm:col-start-3">
         <PaintButton label={t("bulk.owned")} icon={<Check size={15} />} onPointerDown={() => onPaintStart("owned", sticker.code)} />
         <PaintButton label={t("bulk.missing")} icon={<X size={15} />} onPointerDown={() => onPaintStart("missing", sticker.code)} />
         <PaintButton label={t("bulk.duplicate")} icon={<Copy size={15} />} onPointerDown={() => onPaintStart("duplicate", sticker.code)} />
@@ -142,8 +141,9 @@ function PaintButton({
   return (
     <button
       type="button"
-      className="flex h-10 flex-1 items-center justify-center gap-1 rounded-md bg-neutral-100 px-1 text-[11px] font-black text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+      className="flex h-11 flex-1 items-center justify-center gap-1 rounded-md bg-neutral-100 px-1 text-[11px] font-black text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
       onPointerDown={onPointerDown}
+      aria-label={label}
     >
       {icon}
       <span className="truncate">{label}</span>

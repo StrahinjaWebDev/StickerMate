@@ -38,7 +38,7 @@ export function GuideCard({
               <p className="mt-0.5 text-xs font-semibold leading-5 text-neutral-700 dark:text-neutral-300">{t(bodyKey)}</p>
             </div>
             <Button
-              className="min-h-8 shrink-0 px-2 text-xs"
+              className="min-h-9 shrink-0 px-2 text-xs"
               onClick={() => dismissGuide(guide)}
               aria-label={t("guide.gotIt")}
             >
@@ -47,7 +47,7 @@ export function GuideCard({
           </div>
           <Link
             href={helpHref}
-            className="mt-1 inline-flex min-h-7 items-center rounded-md px-1.5 text-xs font-black text-pitch hover:bg-white/60 dark:hover:bg-neutral-900"
+            className="mt-1 inline-flex min-h-9 items-center rounded-md px-2 text-xs font-black text-pitch hover:bg-white/60 dark:hover:bg-neutral-900"
           >
             {t("guide.more")}
           </Link>

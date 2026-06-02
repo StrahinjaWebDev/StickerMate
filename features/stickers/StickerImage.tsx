@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { clsx } from "clsx";
 import localImageManifest from "@/public/stickers/manifest.json";
 import { getLocalStickerImagePath } from "@/lib/stickers";
@@ -34,11 +34,26 @@ export function StickerImage({
   const { t } = useI18n();
   const hasLocalImage = localImages.has(sticker.imageCode ?? sticker.code.toLowerCase());
   const [phase, setPhase] = useState<ImagePhase>(() => (hasLocalImage ? "local" : "remote"));
+  const [imageLoaded, setImageLoaded] = useState(false);
   const src = useMemo(() => {
     if (phase === "local") return getLocalStickerImagePath(sticker);
     if (phase === "remote") return sticker.imageUrl;
     return undefined;
   }, [phase, sticker]);
+
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [src]);
+
+  useEffect(() => {
+    if (phase !== "remote" || imageLoaded) return undefined;
+
+    const timeout = window.setTimeout(() => {
+      setPhase((current) => (current === "remote" ? "placeholder" : current));
+    }, 2500);
+
+    return () => window.clearTimeout(timeout);
+  }, [imageLoaded, phase, src]);
 
   const missing = quantity === 0;
 
@@ -59,7 +74,11 @@ export function StickerImage({
           decoding="async"
           sizes={sizes}
           className={clsx("h-full w-full object-cover", missing && "grayscale", imageClassName)}
-          onError={() => setPhase((current) => (current === "local" && sticker.imageUrl ? "remote" : "placeholder"))}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => {
+            setImageLoaded(false);
+            setPhase((current) => (current === "local" && sticker.imageUrl ? "remote" : "placeholder"));
+          }}
         />
       ) : (
         <StickerPlaceholder sticker={sticker} showText={showTextPlaceholder} />
