@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.12",
+    "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
     "jsqr": "^1.4.0",
     "lucide-react": "^0.511.0",
