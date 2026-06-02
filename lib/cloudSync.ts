@@ -18,7 +18,9 @@ import type {
 
 export const albumId = "panini_world_cup_2026";
 
-export type CloudSyncStatus = "idle" | "syncing" | "success" | "warning";
+export type CloudSyncStatus = "idle" | "syncing" | "synced" | "failed" | "disabled_missing_tables";
+
+export type CloudSyncFailureKind = "missing_tables" | "failed";
 
 export type CloudSnapshot = {
   albumId: string;
@@ -55,7 +57,6 @@ type CollectionRow = {
 
 type TradeRow = {
   id: string;
-  local_id: string | null;
   friend_name: string | null;
   stickers_given: string[] | null;
   stickers_received: string[] | null;
@@ -67,7 +68,6 @@ type TradeRow = {
 
 type SpendingRow = {
   id: string;
-  local_id: string | null;
   amount_rsd: number | string;
   packs_count: number | null;
   stickers_count: number | null;
@@ -80,6 +80,25 @@ type SpendingRow = {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+export function getCloudSyncFailureKind(error: unknown): CloudSyncFailureKind {
+  if (!error || typeof error !== "object") return "failed";
+  const maybeError = error as { code?: unknown; status?: unknown; message?: unknown; details?: unknown };
+  const text = `${String(maybeError.code ?? "")} ${String(maybeError.status ?? "")} ${String(maybeError.message ?? "")} ${String(maybeError.details ?? "")}`.toLowerCase();
+
+  if (
+    maybeError.status === 404 ||
+    text.includes("404") ||
+    text.includes("pgrst205") ||
+    text.includes("could not find the table") ||
+    text.includes("schema cache") ||
+    text.includes("relation") && text.includes("does not exist")
+  ) {
+    return "missing_tables";
+  }
+
+  return "failed";
 }
 
 function cleanQuantities(quantities: Record<string, number>) {
@@ -200,13 +219,13 @@ export async function loadCloudCollection(supabase: SupabaseClient, userId: stri
   const [{ data: trades, error: tradesError }, { data: spending, error: spendingError }] = await Promise.all([
     supabase
       .from("trades")
-      .select("id, local_id, friend_name, stickers_given, stickers_received, note, applied_to_collection, created_at, updated_at")
+      .select("id, friend_name, stickers_given, stickers_received, note, applied_to_collection, created_at, updated_at")
       .eq("user_id", userId)
       .eq("album_id", albumId)
       .order("created_at", { ascending: false }),
     supabase
       .from("spending_entries")
-      .select("id, local_id, amount_rsd, packs_count, stickers_count, category, note, date, created_at, updated_at")
+      .select("id, amount_rsd, packs_count, stickers_count, category, note, date, created_at, updated_at")
       .eq("user_id", userId)
       .eq("album_id", albumId)
       .order("created_at", { ascending: false })
@@ -238,7 +257,7 @@ export async function loadCloudCollection(supabase: SupabaseClient, userId: stri
     onboarded: collection.onboarding_completed,
     dismissedGuides: collection.dismissed_help ?? {},
     tradeHistory: ((trades ?? []) as TradeRow[]).map((trade) => ({
-      id: trade.local_id ?? trade.id,
+      id: trade.id,
       date: trade.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
       friendName: trade.friend_name ?? "",
       stickersGiven: Array.isArray(trade.stickers_given) ? trade.stickers_given : [],
@@ -248,7 +267,7 @@ export async function loadCloudCollection(supabase: SupabaseClient, userId: stri
       createdAt: trade.created_at ?? nowIso()
     })),
     spendingEntries: ((spending ?? []) as SpendingRow[]).map((entry) => ({
-      id: entry.local_id ?? entry.id,
+      id: entry.id,
       date: entry.date ?? new Date().toISOString().slice(0, 10),
       amount: Number(entry.amount_rsd) || 0,
       currency: "RSD",
@@ -271,6 +290,7 @@ export async function saveCloudCollection(supabase: SupabaseClient, user: User, 
       id: user.id,
       email: user.email,
       display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email,
+      avatar_url: user.user_metadata?.avatar_url ?? null,
       updated_at: updatedAt
     },
     { onConflict: "id" }
@@ -303,7 +323,6 @@ export async function saveCloudCollection(supabase: SupabaseClient, user: User, 
       snapshot.tradeHistory.map((trade) => ({
         user_id: user.id,
         album_id: albumId,
-        local_id: trade.id,
         friend_name: trade.friendName,
         stickers_given: trade.stickersGiven,
         stickers_received: trade.stickersReceived,
@@ -328,7 +347,6 @@ export async function saveCloudCollection(supabase: SupabaseClient, user: User, 
       snapshot.spendingEntries.map((entry) => ({
         user_id: user.id,
         album_id: albumId,
-        local_id: entry.id,
         amount_rsd: getEntryAmountRsd(entry),
         packs_count: entry.packsCount ?? null,
         stickers_count: entry.stickersCount ?? null,

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Cloud, LogOut, RefreshCw, UserCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Cloud, LogOut, Pencil, Plus, RefreshCw, Trash2, UserCircle, Users } from "lucide-react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { Button, Card } from "@/components/ui/Primitives";
 import {
+  getCloudSyncFailureKind,
   getCurrentUser,
   getLocalSnapshot,
   hasMeaningfulLocalData,
@@ -17,6 +18,15 @@ import {
   type CloudSnapshot,
   type CloudSyncStatus
 } from "@/lib/cloudSync";
+import {
+  createGuestProfile,
+  deleteGuestProfile,
+  formatGuestProfileName,
+  getGuestProfilesState,
+  loadGuestProfile,
+  renameGuestProfile,
+  type GuestProfilesState
+} from "@/lib/guestProfiles";
 import { useI18n } from "@/hooks/useI18n";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import { createClient } from "@/utils/supabase/client";
@@ -27,7 +37,7 @@ type MergePrompt = {
 };
 
 export function AccountSection() {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const supabase = useMemo(() => createClient(), []);
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<CloudSyncStatus>("idle");
@@ -35,23 +45,51 @@ export function AccountSection() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [mergePrompt, setMergePrompt] = useState<MergePrompt | null>(null);
   const [authError, setAuthError] = useState(false);
+  const [guestState, setGuestState] = useState<GuestProfilesState | null>(null);
+  const syncInFlightRef = useRef(false);
+  const preparedUserIdRef = useRef<string | null>(null);
 
-  const runBackgroundSync = useCallback(
-    async (client: SupabaseClient, currentUser: User) => {
-      try {
-        await saveCloudCollection(client, currentUser, getLocalSnapshot());
-        setLastSyncedAt(new Date().toISOString());
-        setStatus("success");
-        setMessage(null);
-      } catch {
-        setStatus("warning");
-        setMessage(t("account.syncWarning"));
+  const activeGuest = guestState?.profiles.find((profile) => profile.id === guestState.activeId);
+
+  const setSyncFailure = useCallback(
+    (error: unknown) => {
+      const failureKind = getCloudSyncFailureKind(error);
+      if (failureKind === "missing_tables") {
+        setStatus("disabled_missing_tables");
+        setMessage(t("account.cloudNotReady"));
+        return;
       }
+
+      setStatus("failed");
+      setMessage(t("account.syncWarning"));
     },
     [t]
   );
 
-  const prepareCloudState = useCallback(async (client: SupabaseClient, currentUser: User) => {
+  const runBackgroundSync = useCallback(
+    async (client: SupabaseClient, currentUser: User) => {
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
+      setStatus("syncing");
+      try {
+        await saveCloudCollection(client, currentUser, getLocalSnapshot());
+        setLastSyncedAt(new Date().toISOString());
+        setStatus("synced");
+        setMessage(null);
+      } catch (error) {
+        setSyncFailure(error);
+      } finally {
+        syncInFlightRef.current = false;
+      }
+    },
+    [setSyncFailure]
+  );
+
+  const prepareCloudState = useCallback(async (client: SupabaseClient, currentUser: User, force = false) => {
+    if (syncInFlightRef.current) return;
+    if (!force && preparedUserIdRef.current === currentUser.id) return;
+    syncInFlightRef.current = true;
+    preparedUserIdRef.current = currentUser.id;
     setStatus("syncing");
     try {
       const local = getLocalSnapshot();
@@ -76,12 +114,18 @@ export function AccountSection() {
         setLastSyncedAt(cloud.updatedAt);
       }
 
-      setStatus("success");
-    } catch {
-      setStatus("warning");
-      setMessage(t("account.syncWarning"));
+      setStatus("synced");
+      setMessage(null);
+    } catch (error) {
+      setSyncFailure(error);
+    } finally {
+      syncInFlightRef.current = false;
     }
-  }, [t]);
+  }, [setSyncFailure]);
+
+  useEffect(() => {
+    setGuestState(getGuestProfilesState(language));
+  }, [language]);
 
   useEffect(() => {
     let active = true;
@@ -98,7 +142,11 @@ export function AccountSection() {
       setUser(nextUser);
       setMessage(null);
       if (nextUser && supabase) void prepareCloudState(supabase, nextUser);
-      else setMergePrompt(null);
+      else {
+        setMergePrompt(null);
+        setStatus("idle");
+        preparedUserIdRef.current = null;
+      }
     });
 
     return () => {
@@ -129,7 +177,9 @@ export function AccountSection() {
   }, [t]);
 
   useEffect(() => {
-    if (!supabase || !user || mergePrompt) return;
+    if (!supabase || !user || mergePrompt || status === "disabled_missing_tables" || status === "failed" || status === "syncing") {
+      return;
+    }
 
     let syncTimer: ReturnType<typeof setTimeout> | null = null;
     const unsubscribe = useCollectionStore.subscribe(() => {
@@ -143,14 +193,14 @@ export function AccountSection() {
       if (syncTimer) clearTimeout(syncTimer);
       unsubscribe();
     };
-  }, [mergePrompt, runBackgroundSync, supabase, user]);
+  }, [mergePrompt, runBackgroundSync, status, supabase, user]);
 
   async function signInWithGoogle() {
     setAuthError(false);
     setMessage(null);
 
     if (!supabase) {
-      setStatus("warning");
+      setStatus("failed");
       setMessage(t("account.notConfigured"));
       return;
     }
@@ -170,24 +220,31 @@ export function AccountSection() {
     setMergePrompt(null);
     setLastSyncedAt(null);
     setMessage(null);
+    setStatus("idle");
+    preparedUserIdRef.current = null;
   }
 
   async function handleSyncNow() {
     if (!supabase || !user) return;
+    if (syncInFlightRef.current) return;
+    syncInFlightRef.current = true;
     setStatus("syncing");
     try {
       const snapshot = await syncNow(supabase, user);
       setLastSyncedAt(snapshot.updatedAt);
-      setStatus("success");
+      setStatus("synced");
       setMessage(t("account.syncSuccess"));
-    } catch {
-      setStatus("warning");
-      setMessage(t("account.syncWarning"));
+    } catch (error) {
+      setSyncFailure(error);
+    } finally {
+      syncInFlightRef.current = false;
     }
   }
 
   async function resolveMerge(action: "local" | "cloud" | "merge") {
     if (!supabase || !user || !mergePrompt) return;
+    if (syncInFlightRef.current) return;
+    syncInFlightRef.current = true;
     setStatus("syncing");
     try {
       const local = getLocalSnapshot();
@@ -202,12 +259,36 @@ export function AccountSection() {
       await saveCloudCollection(supabase, user, nextSnapshot);
       setMergePrompt(null);
       setLastSyncedAt(new Date().toISOString());
-      setStatus("success");
+      setStatus("synced");
       setMessage(t("account.syncSuccess"));
-    } catch {
-      setStatus("warning");
-      setMessage(t("account.syncWarning"));
+    } catch (error) {
+      setSyncFailure(error);
+    } finally {
+      syncInFlightRef.current = false;
     }
+  }
+
+  function handleSwitchGuest(profileId: string) {
+    setGuestState(loadGuestProfile(profileId, language));
+  }
+
+  function handleAddGuest() {
+    setGuestState(createGuestProfile(language));
+  }
+
+  function handleRenameGuest() {
+    if (!activeGuest) return;
+    const nextName = window.prompt(t("account.renameGuestPrompt"), formatGuestProfileName(activeGuest.name, language));
+    if (!nextName) return;
+    setGuestState(renameGuestProfile(activeGuest.id, nextName, language));
+  }
+
+  function handleDeleteGuest() {
+    if (!activeGuest) return;
+    if (!window.confirm(t("account.deleteGuestConfirm", { name: formatGuestProfileName(activeGuest.name, language) }))) {
+      return;
+    }
+    setGuestState(deleteGuestProfile(activeGuest.id, language));
   }
 
   return (
@@ -235,12 +316,59 @@ export function AccountSection() {
               <div>
                 <p className="text-sm font-black text-ink dark:text-white">{t("account.guestMode")}</p>
                 <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
-                  {t("account.guestBody")}
+                  {t("account.guestSignedOut")}
                 </p>
                 <p className="text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
                   {t("account.guestRisk")}
                 </p>
               </div>
+              {guestState && activeGuest ? (
+                <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-pitch shadow-sm dark:bg-neutral-900">
+                      <Users size={18} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">
+                        {t("account.switchGuest")}
+                      </p>
+                      <p className="mt-1 break-words text-sm font-black text-ink dark:text-white">
+                        {formatGuestProfileName(activeGuest.name, language)}
+                      </p>
+                    </div>
+                  </div>
+                  {guestState.profiles.length > 1 ? (
+                    <label className="mt-3 block">
+                      <span className="sr-only">{t("account.switchGuest")}</span>
+                      <select
+                        value={guestState.activeId}
+                        onChange={(event) => handleSwitchGuest(event.target.value)}
+                        className="w-full rounded-lg border-line bg-white text-sm font-bold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-900 dark:text-white"
+                      >
+                        {guestState.profiles.map((profile) => (
+                          <option key={profile.id} value={profile.id}>
+                            {formatGuestProfileName(profile.name, language)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <Button onClick={handleAddGuest}>
+                      <Plus size={18} />
+                      {t("account.addGuest")}
+                    </Button>
+                    <Button onClick={handleRenameGuest}>
+                      <Pencil size={18} />
+                      {t("account.renameGuest")}
+                    </Button>
+                    <Button tone="danger" onClick={handleDeleteGuest} disabled={guestState.profiles.length <= 1}>
+                      <Trash2 size={18} />
+                      {t("account.deleteGuest")}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button tone="primary" onClick={signInWithGoogle}>
                   <Cloud size={18} />
@@ -284,8 +412,38 @@ export function AccountSection() {
                 </div>
               ) : null}
 
+              {status === "disabled_missing_tables" ? (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-gold/40 bg-gold/15 p-3 text-sm font-bold text-yellow-800 dark:text-gold"
+                >
+                  <p>{t("account.cloudNotReady")}</p>
+                  <Button className="mt-3 w-full sm:w-auto" onClick={handleSyncNow}>
+                    <RefreshCw size={18} />
+                    {t("account.retrySync")}
+                  </Button>
+                </div>
+              ) : null}
+
+              {status === "failed" ? (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-coral/25 bg-coral/10 p-3 text-sm font-bold text-coral dark:border-coral/40 dark:bg-coral/15"
+                >
+                  <p>{t("account.syncWarning")}</p>
+                  <Button className="mt-3 w-full sm:w-auto" onClick={handleSyncNow}>
+                    <RefreshCw size={18} />
+                    {t("account.retrySync")}
+                  </Button>
+                </div>
+              ) : null}
+
               <div className="grid gap-2 sm:grid-cols-2">
-                <Button tone="primary" onClick={handleSyncNow} disabled={status === "syncing" || Boolean(mergePrompt)}>
+                <Button
+                  tone="primary"
+                  onClick={handleSyncNow}
+                  disabled={status === "syncing" || Boolean(mergePrompt) || status === "disabled_missing_tables"}
+                >
                   <RefreshCw size={18} />
                   {status === "syncing" ? t("account.syncing") : t("account.syncNow")}
                 </Button>
@@ -296,7 +454,7 @@ export function AccountSection() {
               </div>
             </div>
           )}
-          {message ? (
+          {message && status !== "disabled_missing_tables" && status !== "failed" ? (
             <p className="mt-3 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
               {message}
             </p>

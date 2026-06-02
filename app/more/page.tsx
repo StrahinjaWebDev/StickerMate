@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight, Copy, HelpCircle, Info, QrCode, Settings, Shield, UserPlus, Wallet } from "lucide-react";
+import { AccountSection } from "@/components/AccountSection";
 import { Card } from "@/components/ui/Primitives";
 import { ShareAppButton } from "@/components/ShareAppButton";
 import { useI18n } from "@/hooks/useI18n";
@@ -33,6 +34,8 @@ export default function MorePage() {
           <ShareAppButton className="shrink-0" />
         </div>
       </Card>
+
+      <AccountSection />
 
       <section className="grid gap-3 sm:grid-cols-2">
         {moreItems.map((item) => {

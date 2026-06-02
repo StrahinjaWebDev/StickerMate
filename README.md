@@ -228,11 +228,13 @@ Do not commit `.env.local`. Google Client ID and Google Client Secret are config
 4. Add the Google Client ID and Secret in the Supabase Dashboard.
 5. Add the Supabase callback URL to Google OAuth Authorized redirect URIs.
 6. Add local and production app URLs in Supabase Auth URL configuration.
-7. Run `supabase/migrations/001_stickermate_cloud_sync.sql` in the Supabase SQL Editor.
+7. Run `docs/supabase-schema.sql` in the Supabase SQL Editor before using cloud sync.
 8. Deploy to Vercel with the same public Supabase environment variables.
 9. If Google OAuth consent is in testing mode, add every allowed Google account as a test user.
 
 First login never deletes local data automatically. If cloud data and local data both exist, the Settings account card asks whether to save local data online, load cloud data, or merge both.
+
+If `docs/supabase-schema.sql` has not been run yet, StickerMate still works normally in guest/localStorage mode. Signed-in users will see a friendly "cloud save is not ready" message and cloud sync will stay disabled until the schema exists.
 
 ### Google Auth Troubleshooting
 
