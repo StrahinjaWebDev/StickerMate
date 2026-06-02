@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr/dist/module/createServerClient";
 import { getSupabaseConfig } from "@/utils/supabase/config";
 
 export async function updateSession(request: NextRequest) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@supabase/ssr/dist/module/createBrowserClient";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseConfig } from "@/utils/supabase/config";
 
