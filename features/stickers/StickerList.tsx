@@ -36,7 +36,7 @@ export function StickerList({
   const virtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => (isDuplicateView ? 108 : 96),
+    estimateSize: () => (isDuplicateView ? 120 : 88),
     overscan: 12
   });
 
@@ -51,8 +51,8 @@ export function StickerList({
   }
 
   return (
-    <div ref={parentRef} className={`${heightClassName} overflow-auto rounded-lg`}>
-      <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+    <div ref={parentRef} className={`${heightClassName} min-w-0 overflow-x-hidden overflow-y-auto rounded-lg`}>
+      <div className="relative w-full min-w-0" style={{ height: `${virtualizer.getTotalSize()}px` }}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const sticker = filtered[virtualRow.index];
           const quantity = quantities[sticker.code] ?? 0;
@@ -60,7 +60,7 @@ export function StickerList({
           return (
             <div
               key={sticker.code}
-              className="absolute left-0 top-0 w-full pb-3"
+              className="absolute left-0 top-0 w-full min-w-0 pb-3 pr-0.5"
               style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
               <StickerRow

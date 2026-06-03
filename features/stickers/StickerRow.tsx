@@ -51,11 +51,11 @@ export function StickerRow({
   return (
     <div
       data-sticker-code={sticker.code}
-      className="flex min-w-0 gap-2.5 rounded-lg border border-line bg-white p-2 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:gap-3 sm:p-2.5"
+      className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2.5 overflow-visible rounded-lg border border-line bg-white p-2 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:gap-3 sm:p-2.5"
     >
       <Link
         href={`/sticker/${encodeURIComponent(sticker.code)}`}
-        className="shrink-0 self-start"
+        className="shrink-0 self-center"
         aria-label={t("sticker.open", { code: sticker.code })}
       >
         <StickerImage
@@ -67,8 +67,11 @@ export function StickerRow({
         />
       </Link>
 
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-        <Link href={`/sticker/${encodeURIComponent(sticker.code)}`} className="min-w-0">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <Link
+          href={`/sticker/${encodeURIComponent(sticker.code)}`}
+          className="min-w-0 flex-1 overflow-hidden sm:max-w-md sm:flex-none"
+        >
           <div className="flex min-w-0 flex-wrap items-center gap-1">
             <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-black leading-none text-ink dark:bg-neutral-800 dark:text-white">
               {sticker.code}
@@ -92,9 +95,9 @@ export function StickerRow({
             {sticker.team}
           </p>
         </Link>
-      </div>
 
-      <QuantityControls sticker={sticker} quantity={quantity} onIncrement={onIncrement} onDecrement={onDecrement} />
+        <QuantityControls sticker={sticker} quantity={quantity} onIncrement={onIncrement} onDecrement={onDecrement} />
+      </div>
     </div>
   );
 }
@@ -118,7 +121,7 @@ function DuplicateStickerRow({
   return (
     <div
       data-sticker-code={sticker.code}
-      className="flex min-w-0 gap-2.5 rounded-lg border border-line bg-white p-2.5 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:gap-3 sm:p-3"
+      className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2.5 overflow-visible rounded-lg border border-line bg-white p-2.5 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:gap-3 sm:p-3"
     >
       <Link
         href={`/sticker/${encodeURIComponent(sticker.code)}`}
@@ -134,32 +137,34 @@ function DuplicateStickerRow({
         />
       </Link>
 
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-black leading-none text-ink dark:bg-neutral-800 dark:text-white">
-            {sticker.code}
-          </span>
-          <span className="shrink-0 rounded bg-gold/20 px-2 py-0.5 text-[11px] font-black leading-none text-yellow-800 dark:text-gold">
-            {duplicateLabel}
-          </span>
+      <div className="flex min-w-0 items-start gap-2 sm:items-center sm:gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-black leading-none text-ink dark:bg-neutral-800 dark:text-white">
+              {sticker.code}
+            </span>
+            <span className="shrink-0 rounded bg-gold/20 px-2 py-0.5 text-[11px] font-black leading-none text-yellow-800 dark:text-gold">
+              {duplicateLabel}
+            </span>
+          </div>
+          <Link href={`/sticker/${encodeURIComponent(sticker.code)}`} className="min-w-0">
+            <p className="line-clamp-2 text-sm font-black leading-snug text-ink dark:text-white">{sticker.name}</p>
+            <p className="mt-0.5 line-clamp-1 text-xs font-bold text-neutral-500 dark:text-neutral-400">
+              <span className="mr-1">{getTeamIcon(sticker.team)}</span>
+              {sticker.team}
+            </p>
+          </Link>
+          <p className="text-[11px] font-bold text-neutral-500 dark:text-neutral-400">{t("duplicates.albumHint")}</p>
         </div>
-        <Link href={`/sticker/${encodeURIComponent(sticker.code)}`} className="min-w-0">
-          <p className="line-clamp-2 text-sm font-black leading-snug text-ink dark:text-white">{sticker.name}</p>
-          <p className="mt-0.5 line-clamp-1 text-xs font-bold text-neutral-500 dark:text-neutral-400">
-            <span className="mr-1">{getTeamIcon(sticker.team)}</span>
-            {sticker.team}
-          </p>
-        </Link>
-        <p className="text-[11px] font-bold text-neutral-500 dark:text-neutral-400">{t("duplicates.albumHint")}</p>
-      </div>
 
-      <QuantityControls
-        sticker={sticker}
-        quantity={quantity}
-        onIncrement={onIncrement}
-        onDecrement={onDecrement}
-        compact={false}
-      />
+        <QuantityControls
+          sticker={sticker}
+          quantity={quantity}
+          onIncrement={onIncrement}
+          onDecrement={onDecrement}
+          compact={false}
+        />
+      </div>
     </div>
   );
 }
@@ -179,11 +184,11 @@ function QuantityControls({
 }) {
   const { t } = useI18n();
   const buttonClass = compact
-    ? "grid h-9 w-9 place-items-center rounded-lg"
-    : "grid h-10 w-10 place-items-center rounded-lg sm:h-11 sm:w-11";
+    ? "grid h-9 w-9 shrink-0 place-items-center rounded-lg"
+    : "grid h-10 w-10 shrink-0 place-items-center rounded-lg sm:h-11 sm:w-11";
 
   return (
-    <div className="flex shrink-0 flex-col items-center self-center">
+    <div className="flex shrink-0 flex-row items-center gap-0.5 sm:gap-1">
       <button
         type="button"
         className={clsx(
@@ -197,8 +202,8 @@ function QuantityControls({
       </button>
       <span
         className={clsx(
-          "grid place-items-center font-black text-ink dark:text-white",
-          compact ? "h-8 w-9 text-sm" : "h-9 w-10 text-base sm:h-10 sm:w-11"
+          "grid min-w-[1.75rem] shrink-0 place-items-center tabular-nums font-black text-ink dark:text-white",
+          compact ? "h-9 px-0.5 text-sm" : "h-10 min-w-[2rem] px-1 text-base sm:h-11 sm:min-w-[2.25rem]"
         )}
         aria-label={`${t("sticker.quantity")}: ${quantity}`}
       >
