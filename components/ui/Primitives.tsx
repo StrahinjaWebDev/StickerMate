@@ -11,7 +11,7 @@ export function Card({
   return (
     <section
       className={clsx(
-        "min-w-0 rounded-lg border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:p-5",
+        "min-w-0 rounded-lg border border-line bg-white p-4 shadow-sm motion-safe:transition-shadow motion-safe:duration-200 md:motion-safe:hover:shadow-lift dark:border-white/10 dark:bg-neutral-900 sm:p-5",
         className
       )}
       {...props}
@@ -35,7 +35,7 @@ export function Button({
     <button
       type="button"
       className={clsx(
-        "inline-flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-lg px-4 font-black shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pitch disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-lg px-4 font-black shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pitch disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition-[transform,background-color,border-color,color] motion-safe:duration-150 motion-safe:active:scale-[0.98]",
         tone === "primary" && "bg-pitch text-white hover:bg-pitch/90",
         tone === "neutral" &&
           "border border-line bg-white text-ink hover:bg-field dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:hover:bg-neutral-800",

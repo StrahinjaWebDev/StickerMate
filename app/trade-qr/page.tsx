@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, RefreshCcw, Share2 } from "lucide-react";
 import { Button, Card } from "@/components/ui/Primitives";
+import { StatusMessage } from "@/components/StatusMessage";
 import { GuideCard } from "@/components/GuideCard";
 import { getProfileInfo } from "@/lib/accountProfile";
 import { useAuthSyncStore } from "@/lib/authSyncStore";
@@ -94,7 +95,11 @@ export default function TradeQrPage() {
               <img src={qrUrl} alt={t("tradeQr.qrAlt", { name: displayName })} className="mx-auto h-56 w-56 rounded bg-white p-2 sm:h-64 sm:w-64" />
             ) : (
               <div className="mx-auto grid h-56 w-56 place-items-center rounded bg-white p-2 sm:h-64 sm:w-64">
-                <p className="px-4 text-center text-sm font-semibold text-neutral-500">{t("tradeQr.generating")}</p>
+                <div
+                  className="h-48 w-48 animate-pulse-soft rounded bg-neutral-100 dark:bg-neutral-800/40 sm:h-56 sm:w-56"
+                  aria-hidden="true"
+                />
+                <p className="sr-only">{t("tradeQr.generating")}</p>
               </div>
             )}
           </div>
@@ -115,7 +120,7 @@ export default function TradeQrPage() {
               <RefreshCcw size={18} />
               {t("tradeQr.regenerate")}
             </Button>
-            {message ? <p className="rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{message}</p> : null}
+            {message ? <StatusMessage>{message}</StatusMessage> : null}
           </div>
         </div>
       </Card>

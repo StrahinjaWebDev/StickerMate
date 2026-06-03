@@ -8,6 +8,7 @@ import { AccountSection } from "@/components/AccountSection";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { GuideCard } from "@/components/GuideCard";
 import { Button, Card } from "@/components/ui/Primitives";
+import { StatusMessage } from "@/components/StatusMessage";
 import { useI18n } from "@/hooks/useI18n";
 import { formatMoney, PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
 import { stickerCount } from "@/lib/stickers";
@@ -110,7 +111,7 @@ export default function SettingsPage() {
           <SettingsButton icon={<Wand2 size={19} />} label={t("settings.onboarding")} onClick={() => setDialog("onboarding")} />
           <SettingsButton icon={<HelpCircle size={19} />} label={t("settings.showHelpAgain")} onClick={handleShowHelpAgain} />
         </div>
-        {message ? <p className="mt-4 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{message}</p> : null}
+        {message ? <StatusMessage className="mt-4">{message}</StatusMessage> : null}
       </Card>
 
       <Card>

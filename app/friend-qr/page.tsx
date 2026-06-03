@@ -6,6 +6,7 @@ import { Camera, ClipboardPaste, Copy, ImageUp, QrCode, Save } from "lucide-reac
 import { EmptyState } from "@/components/EmptyState";
 import { FriendQrScanner } from "@/components/FriendQrScanner";
 import { Button, Card } from "@/components/ui/Primitives";
+import { StatusMessage } from "@/components/StatusMessage";
 import { GuideCard } from "@/components/GuideCard";
 import { useI18n } from "@/hooks/useI18n";
 import { getTradeMatch, parseTradeProfilePayload, QrImageNotFoundError, readQrFromImageFile } from "@/services/tradeQrService";
@@ -180,7 +181,7 @@ export default function FriendQrPage() {
         </Button>
 
         {payload ? (
-          <div className="mt-4 rounded-lg bg-field p-3 dark:bg-neutral-950">
+          <div className="mt-4 animate-fade-in rounded-lg bg-field p-3 dark:bg-neutral-950">
             <p className="font-black text-ink dark:text-white">{payload.name}</p>
             <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
               {t("tradeQr.missingCount", { count: payload.missing.length })} · {t("tradeQr.duplicateCount", { count: payload.duplicates.length })}
@@ -197,7 +198,7 @@ export default function FriendQrPage() {
           </div>
         ) : null}
 
-        {message ? <p className="mt-4 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{message}</p> : null}
+        {message ? <StatusMessage className="mt-4">{message}</StatusMessage> : null}
       </Card>
 
       {friend && match ? (

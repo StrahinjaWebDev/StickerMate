@@ -20,7 +20,7 @@ export function EmptyState({
     "mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-pitch px-4 text-sm font-black text-white shadow-sm transition hover:bg-pitch/90 active:scale-[0.98]";
 
   return (
-    <div className="grid min-h-48 place-items-center rounded-lg border border-dashed border-line bg-white/60 p-5 text-center dark:border-white/10 dark:bg-neutral-900/50 sm:min-h-56 sm:p-7">
+    <div className="grid min-h-48 animate-fade-in place-items-center rounded-lg border border-dashed border-line bg-white/60 p-5 text-center dark:border-white/10 dark:bg-neutral-900/50 sm:min-h-56 sm:p-7">
       <div>
         <span className="mx-auto grid h-11 w-11 place-items-center rounded-lg bg-neutral-100 text-pitch dark:bg-neutral-800">
           <Icon size={22} />

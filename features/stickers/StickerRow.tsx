@@ -78,7 +78,7 @@ export function StickerRow({
             </span>
             <span
               className={clsx(
-                "shrink-0 rounded px-1.5 py-0.5 text-[11px] font-black leading-none",
+                "shrink-0 rounded px-1.5 py-0.5 text-[11px] font-black leading-none transition-colors duration-200",
                 quantity === 0
                   ? "bg-coral/10 text-coral"
                   : quantity === 1
@@ -193,7 +193,7 @@ function QuantityControls({
         type="button"
         className={clsx(
           buttonClass,
-          "border border-line bg-field text-neutral-700 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-200"
+          "tap-scale border border-line bg-field text-neutral-700 motion-safe:active:scale-[0.95] dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-200"
         )}
         onClick={onDecrement}
         aria-label={t("sticker.decrease", { code: sticker.code })}
@@ -201,8 +201,9 @@ function QuantityControls({
         <Minus size={compact ? 16 : 18} />
       </button>
       <span
+        key={quantity}
         className={clsx(
-          "grid min-w-[1.75rem] shrink-0 place-items-center tabular-nums font-black text-ink dark:text-white",
+          "grid min-w-[1.75rem] shrink-0 place-items-center tabular-nums font-black text-ink motion-safe:animate-qty-pop dark:text-white",
           compact ? "h-9 px-0.5 text-sm" : "h-10 min-w-[2rem] px-1 text-base sm:h-11 sm:min-w-[2.25rem]"
         )}
         aria-label={`${t("sticker.quantity")}: ${quantity}`}
@@ -211,7 +212,7 @@ function QuantityControls({
       </span>
       <button
         type="button"
-        className={clsx(buttonClass, "bg-pitch text-white")}
+        className={clsx(buttonClass, "tap-scale bg-pitch text-white motion-safe:active:scale-[0.95]")}
         onClick={onIncrement}
         aria-label={t("sticker.increase", { code: sticker.code })}
       >

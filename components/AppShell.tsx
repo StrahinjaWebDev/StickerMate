@@ -10,6 +10,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { GuestProfileHydrator } from "@/components/GuestProfileHydrator";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { useI18n } from "@/hooks/useI18n";
+import { scrollToTop } from "@/lib/motion";
 
 const navItems = [
   { href: "/", labelKey: "nav.home" as const, icon: Home },
@@ -57,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     key={item.href}
                     href={item.href}
                     className={clsx(
-                      "flex h-10 items-center gap-2 rounded-md px-4 text-sm font-semibold transition active:scale-[0.98]",
+                      "flex h-10 items-center gap-2 rounded-md px-4 text-sm font-semibold transition-colors duration-200 motion-safe:transition-transform motion-safe:duration-150 motion-safe:active:scale-[0.98]",
                       active
                         ? "bg-pitch text-white"
                         : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
@@ -73,7 +74,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="min-w-0 flex-1 py-4 sm:py-6">{children}</main>
+      <main key={pathname} className="min-w-0 flex-1 animate-page-in py-4 sm:py-6">
+        {children}
+      </main>
       <AuthSyncController />
       <GuestProfileHydrator />
       <ServiceWorkerRegister />
@@ -90,11 +93,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={(event) => {
                   if (active) {
                     event.preventDefault();
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    scrollToTop();
                   }
                 }}
                 className={clsx(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg text-xs font-bold transition active:scale-95",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg text-xs font-bold transition-colors duration-200 motion-safe:transition-transform motion-safe:duration-150 motion-safe:active:scale-[0.97]",
                   active
                     ? "bg-pitch text-white"
                     : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900"

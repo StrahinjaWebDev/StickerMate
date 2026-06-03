@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowRight, Keyboard, Layers3, Save, Sticker, X } from "lucide-react";
 import { Button, Card } from "@/components/ui/Primitives";
+import { StatusMessage } from "@/components/StatusMessage";
 import { ImportPreview } from "@/features/stickers/ImportPreview";
 import { useI18n } from "@/hooks/useI18n";
 import { extractStickerCodeCandidates, validateStickerCodes } from "@/services/stickerCodeService";
@@ -126,7 +127,7 @@ export default function FillPage() {
         </Button>
         </Card>
       ) : null}
-      {message ? <p className="rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{message}</p> : null}
+      {message ? <StatusMessage>{message}</StatusMessage> : null}
       {summary ? <ImportPreview summary={summary} /> : null}
     </div>
   );

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Cloud, LogOut, RefreshCw } from "lucide-react";
 import { clsx } from "clsx";
 import { Button, Card } from "@/components/ui/Primitives";
+import { StatusMessage } from "@/components/StatusMessage";
 import { getGuestInitials, getProfileInfo } from "@/lib/accountProfile";
 import { getGuestIdentity, type GuestIdentity } from "@/lib/guestProfiles";
 import { resolveCloudMerge, runManualSync, signInWithGoogle, signOutLocally, useAuthSyncStore } from "@/lib/authSyncStore";
@@ -177,9 +178,7 @@ export function AccountSection() {
         visibleMessageKey !== "account.loadingOnline" &&
         status !== "auth_expired" &&
         !authError ? (
-          <p className="rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-            {t(visibleMessageKey as TranslationKey)}
-          </p>
+          <StatusMessage>{t(visibleMessageKey as TranslationKey)}</StatusMessage>
         ) : null}
       </div>
     </Card>

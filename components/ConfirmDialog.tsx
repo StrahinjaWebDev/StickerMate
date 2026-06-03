@@ -45,13 +45,13 @@ export function ConfirmDialog({
   const disabled = typedConfirmation ? typedValue !== typedConfirmation.value : false;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-3 sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-end justify-center bg-ink/45 p-3 sm:items-center sm:p-6">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-body"
-        className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-lift dark:border-white/10 dark:bg-neutral-900"
+        className="animate-status-in w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-lift dark:border-white/10 dark:bg-neutral-900"
       >
         <h2 id="confirm-dialog-title" className="text-xl font-black text-ink dark:text-white">
           {title}

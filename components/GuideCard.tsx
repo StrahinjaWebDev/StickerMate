@@ -26,7 +26,7 @@ export function GuideCard({
   if (dismissed) return null;
 
   return (
-    <section className="rounded-lg border border-line bg-white px-3 py-2 shadow-sm dark:border-white/10 dark:bg-neutral-900">
+    <section className="animate-fade-in rounded-lg border border-line bg-white px-3 py-2 shadow-sm dark:border-white/10 dark:bg-neutral-900">
       <div className="flex items-start gap-2">
         <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-field text-pitch dark:bg-neutral-950">
           <Info size={15} />

@@ -21,6 +21,100 @@ html {
   overflow-x: hidden;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+@keyframes sm-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sm-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sm-qty-pop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes sm-pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@layer utilities {
+  .animate-page-in {
+    animation: sm-slide-up 0.28s ease-out both;
+  }
+
+  .animate-fade-in {
+    animation: sm-fade-in 0.24s ease-out both;
+  }
+
+  .animate-status-in {
+    animation: sm-slide-up 0.22s ease-out both;
+  }
+
+  .animate-qty-pop {
+    animation: sm-qty-pop 0.2s ease-out;
+  }
+
+  .animate-pulse-soft {
+    animation: sm-pulse-soft 1.5s ease-in-out infinite;
+  }
+
+  .tap-scale {
+    transition: transform 150ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-page-in,
+    .animate-fade-in,
+    .animate-status-in,
+    .animate-qty-pop {
+      animation: none !important;
+    }
+
+    .animate-pulse-soft {
+      animation: none !important;
+      opacity: 0.7;
+    }
+
+    .tap-scale {
+      transition: none;
+    }
+  }
+}
+
 body {
   min-height: 100vh;
   overflow-x: hidden;
