@@ -11,6 +11,7 @@ import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
 import type { TranslationKey } from "@/lib/i18n";
 import { getDuplicateCount, getTradableCount, parseStickerCodes, stickers } from "@/lib/stickers";
+import { formatDuplicateLabel } from "@/lib/duplicateLabel";
 import { getTeamIcon } from "@/lib/teamIcons";
 import { getTradeMatch } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -207,7 +208,7 @@ export default function TradesPage() {
                       </p>
                     </div>
                     <Badge tone="gold" className="shrink-0 whitespace-nowrap text-[11px]">
-                      {t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount })}
+                      {formatDuplicateLabel(t, duplicateCount)}
                     </Badge>
                   </div>
                 );

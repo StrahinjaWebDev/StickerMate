@@ -60,6 +60,7 @@ export default function DuplicatesPage() {
       <section className="rounded-lg border border-line bg-white p-4 shadow-lift dark:border-white/10 dark:bg-neutral-900 sm:p-5">
         <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("duplicates.title")}</h1>
         <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t("duplicates.body")}</p>
+        <p className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-400">{t("duplicates.albumHint")}</p>
         {duplicates.length > 0 ? (
           <p className="mt-2 text-sm font-black text-pitch">
             {t("duplicates.ready", { count: duplicateCopies })}

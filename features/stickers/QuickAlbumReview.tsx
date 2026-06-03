@@ -10,6 +10,7 @@ import { StatsCards } from "@/features/stickers/StatsCards";
 import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
 import { formatPercent, getDuplicateCount, getQuantity, getStats, stickers, stickersByTeam } from "@/lib/stickers";
+import { formatDuplicateLabel } from "@/lib/duplicateLabel";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export function QuickAlbumReview() {
@@ -35,7 +36,7 @@ export function QuickAlbumReview() {
   const duplicateCountLabel =
     duplicateCount === 0
       ? t("review.noDuplicates")
-      : t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount });
+      : formatDuplicateLabel(t, duplicateCount);
   const isComplete = reviewCompleted || currentIndex >= stickers.length;
 
   useEffect(() => {

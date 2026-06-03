@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Copy, ExternalLink, Minus, Plus, X } from "lucide-rea
 import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
 import { getDuplicateCount, getSticker } from "@/lib/stickers";
+import { formatDuplicateLabel } from "@/lib/duplicateLabel";
 import { getTeamIcon } from "@/lib/teamIcons";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
@@ -27,7 +28,7 @@ export default function StickerDetailPage() {
       ? t("status.missing")
       : quantity === 1
         ? t("status.owned")
-        : t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount });
+        : formatDuplicateLabel(t, duplicateCount);
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -87,7 +88,7 @@ export default function StickerDetailPage() {
               <p className="text-4xl font-black text-ink dark:text-white">{quantity}</p>
               {quantity > 1 ? (
                 <p className="mt-1 text-sm font-bold text-neutral-500 dark:text-neutral-400">
-                  {t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount })}
+                  {formatDuplicateLabel(t, duplicateCount)}
                 </p>
               ) : null}
             </div>

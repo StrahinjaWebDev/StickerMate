@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
 import { getDuplicateCount } from "@/lib/stickers";
+import { formatDuplicateLabel } from "@/lib/duplicateLabel";
 import { getTeamIcon } from "@/lib/teamIcons";
 import type { Sticker } from "@/types/sticker";
 
@@ -27,7 +28,7 @@ export function StickerCard({
       ? t("status.missingCard")
       : quantity === 1
         ? t("status.ownedCard")
-        : t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount });
+        : formatDuplicateLabel(t, duplicateCount);
 
   return (
     <article

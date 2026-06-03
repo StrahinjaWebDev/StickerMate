@@ -13,6 +13,7 @@ import {
 } from "@/features/trades/friendListTypes";
 import { useI18n } from "@/hooks/useI18n";
 import { getDuplicateCount } from "@/lib/stickers";
+import { formatMyDuplicateBadge } from "@/lib/duplicateLabel";
 import { buildFriendTradeMessage, getTradeMatch } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend } from "@/types/sticker";
@@ -164,7 +165,7 @@ function StickerTradeSection({
 
   function contextLabel(code: string) {
     if (listType === "i-can-give" && quantities) {
-      return t("friendDetail.myDuplicateBadge", { count: getDuplicateCount(quantities, code) });
+      return formatMyDuplicateBadge(t, getDuplicateCount(quantities, code));
     }
     if (listType === "friend-can-give") {
       return t("friendDetail.friendHasDuplicate");

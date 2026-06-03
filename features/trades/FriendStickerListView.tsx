@@ -15,6 +15,7 @@ import {
 } from "@/features/trades/friendListTypes";
 import { useI18n } from "@/hooks/useI18n";
 import { getDuplicateCount, normalize, teams } from "@/lib/stickers";
+import { formatMyDuplicateBadge } from "@/lib/duplicateLabel";
 import { getTeamIcon } from "@/lib/teamIcons";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend } from "@/types/sticker";
@@ -55,7 +56,7 @@ export function FriendStickerListView({ friend, listType }: { friend: TradeFrien
   function contextLabel(code: string) {
     if (listType === "i-can-give") {
       const count = getDuplicateCount(quantities, code);
-      return t("friendDetail.myDuplicateBadge", { count });
+      return formatMyDuplicateBadge(t, count);
     }
     if (listType === "friend-can-give") {
       return t("friendDetail.friendHasDuplicate");

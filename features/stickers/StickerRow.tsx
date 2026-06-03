@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
 import { getDuplicateCount } from "@/lib/stickers";
+import { formatDuplicateLabel } from "@/lib/duplicateLabel";
 import { getTeamIcon } from "@/lib/teamIcons";
 import type { Sticker } from "@/types/sticker";
 
@@ -53,7 +54,7 @@ export function StickerRow({
       ? t("status.missing")
       : quantity === 1
         ? t("status.owned")
-        : t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount });
+        : formatDuplicateLabel(t, duplicateCount);
 
   return (
     <div
@@ -143,9 +144,7 @@ function DuplicateStickerRow({
   onDecrement: () => void;
 }) {
   const { t } = useI18n();
-  const duplicateLabel = t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", {
-    count: duplicateCount
-  });
+  const duplicateLabel = formatDuplicateLabel(t, duplicateCount);
 
   return (
     <div
@@ -182,9 +181,7 @@ function DuplicateStickerRow({
             {sticker.team}
           </p>
         </Link>
-        <p className="text-[11px] font-bold text-neutral-500 dark:text-neutral-400">
-          {t("duplicates.totalCopies", { count: quantity })}
-        </p>
+        <p className="text-[11px] font-bold text-neutral-500 dark:text-neutral-400">{t("duplicates.albumHint")}</p>
       </div>
 
       <QuantityControls
