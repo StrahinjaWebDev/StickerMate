@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ClipboardX } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { filterStickers } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
-import type { PaintMode } from "@/features/stickers/StickerRow";
 import { StickerRow } from "@/features/stickers/StickerRow";
 import { useI18n } from "@/hooks/useI18n";
 import type { Sticker, StickerFilter } from "@/types/sticker";
@@ -25,62 +24,21 @@ export function StickerList({
   heightClassName?: string;
 }) {
   const parentRef = useRef<HTMLDivElement | null>(null);
-  const [paintMode, setPaintMode] = useState<PaintMode | null>(null);
-  const paintedCodes = useRef(new Set<string>());
   const isDuplicateView = variant === "duplicates";
 
   const quantities = useCollectionStore((state) => state.quantities);
   const increment = useCollectionStore((state) => state.increment);
   const decrement = useCollectionStore((state) => state.decrement);
-  const setQuantity = useCollectionStore((state) => state.setQuantity);
-  const toggleSelected = useCollectionStore((state) => state.toggleSelected);
-  const selectedCodes = useCollectionStore((state) => state.selectedCodes);
   const { t } = useI18n();
 
   const filtered = useMemo(() => filterStickers(list, quantities, filter, query), [filter, list, quantities, query]);
-  const selected = useMemo(() => new Set(selectedCodes), [selectedCodes]);
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => (isDuplicateView ? 108 : 112),
+    estimateSize: () => (isDuplicateView ? 108 : 96),
     overscan: 12
   });
-
-  const applyPaint = useCallback(
-    (mode: PaintMode, code: string) => {
-      if (paintedCodes.current.has(code)) return;
-      paintedCodes.current.add(code);
-      if (mode === "owned") setQuantity(code, 1);
-      if (mode === "missing") setQuantity(code, 0);
-      if (mode === "duplicate") setQuantity(code, 2);
-    },
-    [setQuantity]
-  );
-
-  const startPaint = useCallback(
-    (mode: PaintMode, code: string) => {
-      paintedCodes.current = new Set();
-      setPaintMode(mode);
-      applyPaint(mode, code);
-    },
-    [applyPaint]
-  );
-
-  const stopPaint = useCallback(() => {
-    setPaintMode(null);
-    paintedCodes.current = new Set();
-  }, []);
-
-  const handlePointerMove = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (!paintMode) return;
-      const element = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-sticker-code]");
-      const code = element?.getAttribute("data-sticker-code");
-      if (code) applyPaint(paintMode, code);
-    },
-    [applyPaint, paintMode]
-  );
 
   if (filtered.length === 0) {
     return (
@@ -93,14 +51,7 @@ export function StickerList({
   }
 
   return (
-    <div
-      ref={parentRef}
-      className={`${heightClassName} overflow-auto rounded-lg`}
-      onPointerMove={isDuplicateView ? undefined : handlePointerMove}
-      onPointerUp={isDuplicateView ? undefined : stopPaint}
-      onPointerCancel={isDuplicateView ? undefined : stopPaint}
-      onPointerLeave={isDuplicateView ? undefined : stopPaint}
-    >
+    <div ref={parentRef} className={`${heightClassName} overflow-auto rounded-lg`}>
       <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const sticker = filtered[virtualRow.index];
@@ -116,11 +67,8 @@ export function StickerList({
                 sticker={sticker}
                 quantity={quantity}
                 variant={variant}
-                selected={selected.has(sticker.code)}
                 onIncrement={() => increment(sticker.code)}
                 onDecrement={() => decrement(sticker.code)}
-                onToggleSelected={() => toggleSelected(sticker.code)}
-                onPaintStart={startPaint}
               />
             </div>
           );
