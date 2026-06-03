@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CircleOff, Layers3, Wallet } from "lucide-react";
+import { ArrowRight, CircleOff, Layers3 } from "lucide-react";
 import { AccountStatusPrompt } from "@/components/AccountStatusPrompt";
 import { ProgressBar } from "@/components/ProgressBar";
 import { ShareAppButton } from "@/components/ShareAppButton";
@@ -10,7 +10,6 @@ import { Onboarding } from "@/features/stickers/Onboarding";
 import { RecentStickers } from "@/features/stickers/RecentStickers";
 import { StatsCards } from "@/features/stickers/StatsCards";
 import { useI18n } from "@/hooks/useI18n";
-import { formatMoney, getEstimatedSpendingFromCollection } from "@/lib/spending";
 import { getStats, stickers, stickersByTeam } from "@/lib/stickers";
 import { getTeamIcon } from "@/lib/teamIcons";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -19,7 +18,7 @@ export default function HomePage() {
   const quantities = useCollectionStore((state) => state.quantities);
   const reviewCurrentIndex = useCollectionStore((state) => state.reviewCurrentIndex);
   const reviewCompleted = useCollectionStore((state) => state.reviewCompleted);
-  const { language, t } = useI18n();
+  const { t } = useI18n();
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -32,7 +31,6 @@ export default function HomePage() {
   }, []);
 
   const stats = useMemo(() => getStats(quantities, stickers), [quantities]);
-  const spendingEstimate = useMemo(() => getEstimatedSpendingFromCollection(quantities), [quantities]);
   const teamPreview = useMemo(
     () =>
       stickersByTeam
@@ -80,26 +78,6 @@ export default function HomePage() {
       <AccountStatusPrompt />
 
       <StatsCards stats={stats} />
-
-      <Link
-        href="/spending"
-        className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 text-ink shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <span className="flex min-w-0 items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-pitch text-white">
-            <Wallet size={21} />
-          </span>
-          <span className="min-w-0">
-            <span className="block font-black">{t("spending.title")}</span>
-            <span className="mt-0.5 block text-sm font-semibold text-neutral-600 dark:text-neutral-300">
-              {t("spending.homeSubtitle")}
-            </span>
-          </span>
-        </span>
-        <span className="text-2xl font-black text-ink dark:text-white">
-          {formatMoney(spendingEstimate.totalSpentRsd, language)}
-        </span>
-      </Link>
 
       {!reviewCompleted && reviewCurrentIndex > 0 ? (
         <Link
