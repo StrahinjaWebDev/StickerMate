@@ -59,7 +59,9 @@ export function AccountSection() {
   const guestName = guestIdentity?.name ?? (language === "sr" ? "Lokalni Kolekcionar" : "Local Collector");
   const statusLabel =
     status === "syncing"
-      ? t("account.syncing")
+      ? messageKey === "account.loadingOnline"
+        ? t("account.loadingOnline")
+        : t("account.syncing")
       : status === "dirty"
         ? t("account.waitingToSync")
         : status === "synced"
@@ -148,21 +150,31 @@ export function AccountSection() {
             {mergePrompt ? (
               <div className="rounded-lg border border-pitch/20 bg-pitch/10 p-3 dark:border-pitch/30 dark:bg-pitch/15">
                 <p className="text-sm font-black text-ink dark:text-white">
-                  {mergePrompt.reason === "cloud-empty" ? t("account.cloudEmptyTitle") : t("account.mergeTitle")}
+                  {mergePrompt.reason === "cloud-empty" ? t("account.saveOnlineTitle") : t("account.mergeTitle")}
                 </p>
-                <p className="mt-1 text-sm font-semibold leading-5 text-neutral-700 dark:text-neutral-300">
-                  {mergePrompt.reason === "cloud-empty" ? t("account.cloudEmptyBody") : t("account.mergeBody")}
-                </p>
+                {mergePrompt.reason === "cloud-empty" ? null : (
+                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-700 dark:text-neutral-300">
+                    {t("account.mergeBody")}
+                  </p>
+                )}
                 <div className="mt-3 grid gap-2">
-                  <Button tone="primary" disabled={status === "syncing"} onClick={() => resolveCloudMerge("local")}>
-                    {t("account.mergeLocal")}
-                  </Button>
-                  {mergePrompt.cloud ? (
+                  {mergePrompt.reason === "cloud-empty" ? (
+                    <Button tone="primary" disabled={status === "syncing"} onClick={() => resolveCloudMerge("local")}>
+                      {t("account.saveOnlineTitle")}
+                    </Button>
+                  ) : (
                     <>
-                      <Button disabled={status === "syncing"} onClick={() => resolveCloudMerge("cloud")}>{t("account.mergeCloud")}</Button>
-                      <Button disabled={status === "syncing"} onClick={() => resolveCloudMerge("merge")}>{t("account.mergeBoth")}</Button>
+                      <Button tone="primary" disabled={status === "syncing"} onClick={() => resolveCloudMerge("cloud")}>
+                        {t("account.mergeCloud")}
+                      </Button>
+                      <Button disabled={status === "syncing"} onClick={() => resolveCloudMerge("local")}>
+                        {t("account.mergeLocal")}
+                      </Button>
+                      <Button disabled={status === "syncing"} onClick={() => resolveCloudMerge("merge")}>
+                        {t("account.mergeBoth")}
+                      </Button>
                     </>
-                  ) : null}
+                  )}
                 </div>
               </div>
             ) : null}
@@ -177,12 +189,11 @@ export function AccountSection() {
 
             <div className="grid gap-2 sm:grid-cols-2">
               <Button
-                tone="primary"
                 onClick={runManualSync}
                 disabled={status === "syncing" || Boolean(mergePrompt) || status === "disabled_missing_tables"}
               >
                 <RefreshCw size={18} />
-                {status === "syncing" ? t("account.syncing") : t("account.syncNow")}
+                {status === "syncing" ? t("account.syncing") : t("account.syncNowFallback")}
               </Button>
               <Button tone="danger" onClick={signOutLocally}>
                 <LogOut size={18} />
@@ -192,7 +203,11 @@ export function AccountSection() {
           </div>
         ) : null}
 
-        {visibleMessageKey && status !== "disabled_missing_tables" && status !== "failed" && status !== "auth_expired" ? (
+        {visibleMessageKey &&
+        visibleMessageKey !== "account.loadingOnline" &&
+        status !== "disabled_missing_tables" &&
+        status !== "failed" &&
+        status !== "auth_expired" ? (
           <p className="rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
             {t(visibleMessageKey as TranslationKey)}
           </p>

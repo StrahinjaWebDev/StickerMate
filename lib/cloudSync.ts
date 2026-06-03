@@ -135,7 +135,10 @@ function getSnapshotReviewState(snapshot: CloudSnapshot) {
   };
 }
 
-function mergeById<T extends { id: string; updatedAt?: string; createdAt?: string }>(local: T[], cloud: T[]) {
+function mergeById<T extends { id: string; updatedAt?: string; createdAt?: string; importedAt?: string }>(
+  local: T[],
+  cloud: T[]
+) {
   const byId = new Map<string, T>();
   for (const item of [...cloud, ...local]) {
     const existing = byId.get(item.id);
@@ -143,8 +146,8 @@ function mergeById<T extends { id: string; updatedAt?: string; createdAt?: strin
       byId.set(item.id, item);
       continue;
     }
-    const existingTime = existing.updatedAt ?? existing.createdAt ?? "";
-    const itemTime = item.updatedAt ?? item.createdAt ?? "";
+    const existingTime = existing.updatedAt ?? existing.createdAt ?? existing.importedAt ?? "";
+    const itemTime = item.updatedAt ?? item.createdAt ?? item.importedAt ?? "";
     byId.set(item.id, itemTime >= existingTime ? item : existing);
   }
   return Array.from(byId.values());
@@ -186,7 +189,30 @@ export function hasMeaningfulLocalData(snapshot = getLocalSnapshot()) {
     snapshot.tradeHistory.length > 0 ||
     snapshot.spendingEntries.length > 0 ||
     snapshot.settings.entryHistory.length > 0 ||
+    snapshot.settings.friends.length > 0 ||
     snapshot.onboarded
+  );
+}
+
+export function hasMeaningfulCloudData(snapshot: CloudSnapshot) {
+  return hasMeaningfulLocalData(snapshot);
+}
+
+export function snapshotsAreEquivalent(a: CloudSnapshot, b: CloudSnapshot) {
+  const aCodes = Object.keys(a.quantities);
+  const bCodes = Object.keys(b.quantities);
+  if (aCodes.length !== bCodes.length) return false;
+
+  for (const code of aCodes) {
+    if ((b.quantities[code] ?? 0) !== a.quantities[code]) return false;
+  }
+
+  return (
+    a.tradeHistory.length === b.tradeHistory.length &&
+    a.spendingEntries.length === b.spendingEntries.length &&
+    a.settings.friends.length === b.settings.friends.length &&
+    a.settings.entryHistory.length === b.settings.entryHistory.length &&
+    a.onboarded === b.onboarded
   );
 }
 
@@ -381,6 +407,7 @@ export async function saveCloudCollection(supabase: SupabaseClient, user: User, 
 }
 
 export function mergeLocalAndCloud(local: CloudSnapshot, cloud: CloudSnapshot) {
+  // Sticker quantities use max(local, cloud). Lists merge by id with newest timestamp winning.
   const quantities: Record<string, number> = { ...cloud.quantities };
   const localReviewState = getSnapshotReviewState(local);
   const cloudReviewState = getSnapshotReviewState(cloud);

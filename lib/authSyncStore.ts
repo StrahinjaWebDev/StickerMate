@@ -5,12 +5,14 @@ import type { User } from "@supabase/supabase-js";
 import {
   getCloudSyncFailureKind,
   getLocalSnapshot,
+  hasMeaningfulCloudData,
   hasMeaningfulLocalData,
   isInvalidRefreshTokenError,
   loadCloudCollection,
   mergeLocalAndCloud,
   saveCloudCollection,
   saveLocalSnapshot,
+  snapshotsAreEquivalent,
   syncNow as syncCloudNow,
   type CloudSnapshot,
   type CloudSyncStatus
@@ -31,6 +33,7 @@ type AuthSyncState = {
   messageKey: string | null;
   lastSyncedAt: string | null;
   mergePrompt: MergePrompt | null;
+  initialLoadDone: boolean;
 };
 
 const initialState: AuthSyncState = {
@@ -40,10 +43,14 @@ const initialState: AuthSyncState = {
   status: "idle",
   messageKey: null,
   lastSyncedAt: null,
-  mergePrompt: null
+  mergePrompt: null,
+  initialLoadDone: false
 };
 
 export const useAuthSyncStore = create<AuthSyncState>()(() => initialState);
+
+const SYNC_META_KEY = "stickermate-sync-meta";
+const AUTO_SYNC_DELAY_MS = 2500;
 
 let initialized = false;
 let authSubscription: { unsubscribe: () => void } | null = null;
@@ -54,6 +61,13 @@ let suppressAutoSync = false;
 let authExpiredHandling = false;
 let signOutInFlight = false;
 let preparedUserId: string | null = null;
+let prepareCompleted = false;
+let sessionLocalEdited = false;
+let pendingAutoSyncAfterCurrent = false;
+
+type SyncMeta = {
+  cloudUpdatedAt: string | null;
+};
 
 function getSupabase() {
   return createClient();
@@ -68,11 +82,54 @@ function clearAutoSyncTimer() {
   autoSyncTimer = null;
 }
 
+function scheduleAutoSync() {
+  clearAutoSyncTimer();
+  autoSyncTimer = setTimeout(() => {
+    void runAutoSync();
+  }, AUTO_SYNC_DELAY_MS);
+}
+
 function muteNextLocalStoreSync() {
   suppressAutoSync = true;
   window.setTimeout(() => {
     suppressAutoSync = false;
   }, 1200);
+}
+
+function readSyncMeta(userId: string): SyncMeta | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SYNC_META_KEY);
+    if (!raw) return null;
+    const all = JSON.parse(raw) as Record<string, SyncMeta>;
+    return all[userId] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSyncMeta(userId: string, cloudUpdatedAt: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = window.localStorage.getItem(SYNC_META_KEY);
+    const all = raw ? (JSON.parse(raw) as Record<string, SyncMeta>) : {};
+    all[userId] = { cloudUpdatedAt };
+    window.localStorage.setItem(SYNC_META_KEY, JSON.stringify(all));
+  } catch {
+    // Ignore storage failures; sync still works without meta.
+  }
+}
+
+function markSynced(userId: string, cloudUpdatedAt: string, extra: Partial<AuthSyncState> = {}) {
+  writeSyncMeta(userId, cloudUpdatedAt);
+  setAuthSyncState({
+    lastSyncedAt: cloudUpdatedAt,
+    status: "synced",
+    messageKey: null,
+    mergePrompt: null,
+    initialLoadDone: true,
+    ...extra
+  });
 }
 
 function setSyncFailure(error: unknown) {
@@ -84,7 +141,8 @@ function setSyncFailure(error: unknown) {
   const failureKind = getCloudSyncFailureKind(error);
   setAuthSyncState({
     status: failureKind === "missing_tables" ? "disabled_missing_tables" : "failed",
-    messageKey: failureKind === "missing_tables" ? "account.cloudNotReady" : "account.syncWarning"
+    messageKey: failureKind === "missing_tables" ? "account.cloudNotReady" : "account.syncWarning",
+    initialLoadDone: true
   });
 }
 
@@ -103,6 +161,9 @@ async function handleAuthExpired() {
   authExpiredHandling = true;
   clearAutoSyncTimer();
   preparedUserId = null;
+  prepareCompleted = false;
+  sessionLocalEdited = false;
+  pendingAutoSyncAfterCurrent = false;
 
   setAuthSyncState({
     user: null,
@@ -111,7 +172,8 @@ async function handleAuthExpired() {
     status: "auth_expired",
     messageKey: "account.sessionExpired",
     mergePrompt: null,
-    lastSyncedAt: null
+    lastSyncedAt: null,
+    initialLoadDone: false
   });
 
   const supabase = getSupabase();
@@ -126,52 +188,90 @@ async function handleAuthExpired() {
   }
 }
 
+async function applyCloudSnapshot(userId: string, cloud: CloudSnapshot) {
+  muteNextLocalStoreSync();
+  saveLocalSnapshot(cloud);
+  markSynced(userId, cloud.updatedAt);
+  sessionLocalEdited = false;
+}
+
 async function prepareCloudState(currentUser: User, force = false) {
   if (!force && preparedUserId === currentUser.id) return null;
 
   const supabase = getSupabase();
   if (!supabase) {
-    setAuthSyncState({ status: "failed", messageKey: "account.notConfigured" });
+    setAuthSyncState({ status: "failed", messageKey: "account.notConfigured", initialLoadDone: true });
     return null;
   }
 
   return runExclusive(async () => {
     preparedUserId = currentUser.id;
-    setAuthSyncState({ status: "syncing", messageKey: null });
+    sessionLocalEdited = false;
+    prepareCompleted = false;
+    setAuthSyncState({ status: "syncing", messageKey: "account.loadingOnline", mergePrompt: null });
 
     try {
       const local = getLocalSnapshot();
       const cloud = await loadCloudCollection(supabase, currentUser.id);
       const localHasData = hasMeaningfulLocalData(local);
-      const cloudHasData = cloud ? hasMeaningfulLocalData(cloud) : false;
+      const cloudHasData = cloud ? hasMeaningfulCloudData(cloud) : false;
 
-      if (!cloud && localHasData) {
-        setAuthSyncState({ mergePrompt: { cloud: null, reason: "cloud-empty" }, status: "idle", messageKey: null });
+      if (!cloudHasData && localHasData) {
+        setAuthSyncState({
+          mergePrompt: { cloud: null, reason: "cloud-empty" },
+          status: "idle",
+          messageKey: null,
+          initialLoadDone: true
+        });
+        prepareCompleted = true;
         return null;
       }
 
-      if (cloud && localHasData && cloudHasData) {
-        setAuthSyncState({ mergePrompt: { cloud, reason: "both-have-data" }, status: "idle", messageKey: null });
+      if (cloudHasData && !localHasData && cloud) {
+        await applyCloudSnapshot(currentUser.id, cloud);
+        prepareCompleted = true;
         return cloud;
       }
 
-      if (cloud && cloudHasData && !localHasData) {
-        muteNextLocalStoreSync();
-        saveLocalSnapshot(cloud);
-        setAuthSyncState({ lastSyncedAt: cloud.updatedAt, status: "synced", messageKey: null });
-        return cloud;
-      }
-
-      if (!cloud && !localHasData) {
+      if (!cloudHasData && !localHasData) {
         await saveCloudCollection(supabase, currentUser, local);
-        setAuthSyncState({ lastSyncedAt: local.updatedAt, status: "synced", messageKey: null });
+        markSynced(currentUser.id, local.updatedAt);
+        prepareCompleted = true;
         return local;
       }
 
-      setAuthSyncState({ status: "synced", messageKey: null });
+      if (cloudHasData && localHasData && cloud) {
+        if (snapshotsAreEquivalent(local, cloud)) {
+          markSynced(currentUser.id, cloud.updatedAt);
+          prepareCompleted = true;
+          return cloud;
+        }
+
+        const meta = readSyncMeta(currentUser.id);
+        const cloudChangedRemotely = Boolean(meta?.cloudUpdatedAt && meta.cloudUpdatedAt !== cloud.updatedAt);
+
+        if (!sessionLocalEdited && cloudChangedRemotely) {
+          await applyCloudSnapshot(currentUser.id, cloud);
+          prepareCompleted = true;
+          return cloud;
+        }
+
+        setAuthSyncState({
+          mergePrompt: { cloud, reason: "both-have-data" },
+          status: "idle",
+          messageKey: null,
+          initialLoadDone: true
+        });
+        prepareCompleted = true;
+        return cloud;
+      }
+
+      markSynced(currentUser.id, cloud?.updatedAt ?? local.updatedAt);
+      prepareCompleted = true;
       return cloud;
     } catch (error) {
       preparedUserId = null;
+      prepareCompleted = true;
       setSyncFailure(error);
       return null;
     }
@@ -182,8 +282,21 @@ async function runAutoSync() {
   const { user, mergePrompt, status } = useAuthSyncStore.getState();
   const supabase = getSupabase();
 
-  if (!supabase || !user || mergePrompt || syncPromise || status === "syncing" || status === "auth_expired" || status === "disabled_missing_tables") {
+  if (
+    !supabase ||
+    !user ||
+    mergePrompt ||
+    status === "syncing" ||
+    status === "auth_expired" ||
+    status === "disabled_missing_tables"
+  ) {
     return null;
+  }
+
+  if (syncPromise) {
+    pendingAutoSyncAfterCurrent = true;
+    setAuthSyncState({ status: "dirty" });
+    return syncPromise;
   }
 
   return runExclusive(async () => {
@@ -191,11 +304,19 @@ async function runAutoSync() {
     try {
       const snapshot = getLocalSnapshot();
       await saveCloudCollection(supabase, user, snapshot);
-      setAuthSyncState({ status: "synced", messageKey: null, lastSyncedAt: new Date().toISOString() });
+      markSynced(user.id, snapshot.updatedAt);
       return snapshot;
     } catch (error) {
       setSyncFailure(error);
       return null;
+    } finally {
+      if (pendingAutoSyncAfterCurrent) {
+        pendingAutoSyncAfterCurrent = false;
+        const nextStatus = useAuthSyncStore.getState().status;
+        if (nextStatus !== "failed" && nextStatus !== "auth_expired" && nextStatus !== "disabled_missing_tables") {
+          scheduleAutoSync();
+        }
+      }
     }
   });
 }
@@ -206,15 +327,22 @@ function ensureCollectionSubscription() {
   collectionUnsubscribe = useCollectionStore.subscribe(() => {
     const { user, mergePrompt, status } = useAuthSyncStore.getState();
 
-    if (!user || mergePrompt || suppressAutoSync || syncPromise || status === "auth_expired" || status === "disabled_missing_tables" || status === "failed") {
+    if (!user || mergePrompt || suppressAutoSync || status === "auth_expired" || status === "disabled_missing_tables") {
+      return;
+    }
+
+    if (prepareCompleted) {
+      sessionLocalEdited = true;
+    }
+
+    if (syncPromise) {
+      pendingAutoSyncAfterCurrent = true;
+      setAuthSyncState({ status: "dirty" });
       return;
     }
 
     setAuthSyncState({ status: "dirty" });
-    clearAutoSyncTimer();
-    autoSyncTimer = setTimeout(() => {
-      void runAutoSync();
-    }, 2500);
+    scheduleAutoSync();
   });
 }
 
@@ -224,7 +352,7 @@ export function initializeAuthSync() {
 
   const supabase = getSupabase();
   if (!supabase) {
-    setAuthSyncState({ authReady: true, status: "idle" });
+    setAuthSyncState({ authReady: true, status: "idle", initialLoadDone: true });
     return;
   }
 
@@ -242,7 +370,7 @@ export function initializeAuthSync() {
       if (isInvalidRefreshTokenError(error)) {
         await handleAuthExpired();
       } else {
-        setAuthSyncState({ user: null, authReady: true, status: "failed", messageKey: "account.syncWarning" });
+        setAuthSyncState({ user: null, authReady: true, status: "failed", messageKey: "account.syncWarning", initialLoadDone: true });
       }
     }
   })();
@@ -254,7 +382,18 @@ export function initializeAuthSync() {
     if (event === "SIGNED_OUT") {
       clearAutoSyncTimer();
       preparedUserId = null;
-      setAuthSyncState({ user: null, status: "idle", messageKey: null, mergePrompt: null, lastSyncedAt: null, authReady: true });
+      prepareCompleted = false;
+      sessionLocalEdited = false;
+      pendingAutoSyncAfterCurrent = false;
+      setAuthSyncState({
+        user: null,
+        status: "idle",
+        messageKey: null,
+        mergePrompt: null,
+        lastSyncedAt: null,
+        authReady: true,
+        initialLoadDone: false
+      });
       return;
     }
 
@@ -262,6 +401,8 @@ export function initializeAuthSync() {
 
     if (nextUser && previousUser?.id !== nextUser.id) {
       preparedUserId = null;
+      prepareCompleted = false;
+      sessionLocalEdited = false;
       window.setTimeout(() => {
         void prepareCloudState(nextUser);
       }, 0);
@@ -291,14 +432,17 @@ export async function signOutLocally() {
   signOutInFlight = true;
   clearAutoSyncTimer();
   preparedUserId = null;
+  prepareCompleted = false;
+  sessionLocalEdited = false;
+  pendingAutoSyncAfterCurrent = false;
 
   const supabase = getSupabase();
   try {
     await supabase?.auth.signOut({ scope: "local" });
   } catch {
-    setAuthSyncState({ user: null, status: "idle", messageKey: null, mergePrompt: null, lastSyncedAt: null });
+    setAuthSyncState({ user: null, status: "idle", messageKey: null, mergePrompt: null, lastSyncedAt: null, initialLoadDone: false });
   } finally {
-    setAuthSyncState({ user: null, status: "idle", messageKey: null, mergePrompt: null, lastSyncedAt: null });
+    setAuthSyncState({ user: null, status: "idle", messageKey: null, mergePrompt: null, lastSyncedAt: null, initialLoadDone: false });
     signOutInFlight = false;
   }
 }
@@ -312,7 +456,8 @@ export async function runManualSync() {
     setAuthSyncState({ status: "syncing", messageKey: null });
     try {
       const snapshot = await syncCloudNow(supabase, user);
-      setAuthSyncState({ status: "synced", messageKey: "account.syncSuccess", lastSyncedAt: snapshot.updatedAt, mergePrompt: null });
+      markSynced(user.id, snapshot.updatedAt, { messageKey: "account.syncSuccess" });
+      sessionLocalEdited = false;
       return snapshot;
     } catch (error) {
       setSyncFailure(error);
@@ -341,12 +486,8 @@ export async function resolveCloudMerge(action: "local" | "cloud" | "merge") {
       muteNextLocalStoreSync();
       saveLocalSnapshot(nextSnapshot);
       await saveCloudCollection(supabase, user, nextSnapshot);
-      setAuthSyncState({
-        mergePrompt: null,
-        lastSyncedAt: new Date().toISOString(),
-        status: "synced",
-        messageKey: "account.syncSuccess"
-      });
+      markSynced(user.id, nextSnapshot.updatedAt, { messageKey: "account.syncSuccess" });
+      sessionLocalEdited = false;
       return nextSnapshot;
     } catch (error) {
       setSyncFailure(error);
@@ -363,4 +504,8 @@ export function cleanupAuthSyncForTests() {
   clearAutoSyncTimer();
   initialized = false;
   syncPromise = null;
+  preparedUserId = null;
+  prepareCompleted = false;
+  sessionLocalEdited = false;
+  pendingAutoSyncAfterCurrent = false;
 }

@@ -17,10 +17,14 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
   const { t } = useI18n();
   const user = useAuthSyncStore((state) => state.user);
   const status = useAuthSyncStore((state) => state.status);
+  const messageKey = useAuthSyncStore((state) => state.messageKey);
+  const mergePrompt = useAuthSyncStore((state) => state.mergePrompt);
 
   const statusLabel =
     status === "syncing"
-      ? t("account.syncing")
+      ? messageKey === "account.loadingOnline"
+        ? t("account.loadingOnline")
+        : t("account.syncing")
       : status === "dirty"
         ? t("account.waitingToSync")
       : status === "synced"
@@ -33,7 +37,9 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
             ? t("account.cloudStatusFailed")
             : status === "idle"
               ? user
-                ? t("account.savedOnline")
+                ? mergePrompt
+                  ? t("account.chooseSync")
+                  : t("account.savedOnline")
                 : t("account.localOnly")
               : user
                 ? t("account.savedOnline")
