@@ -51,7 +51,6 @@ export default function TradesPage() {
   const [giveText, setGiveText] = useState("");
   const [receiveText, setReceiveText] = useState("");
   const [note, setNote] = useState("");
-  const [applyToCollection, setApplyToCollection] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFullMessage, setShowFullMessage] = useState(false);
   const previewLimit = useDuplicatePreviewLimit();
@@ -111,12 +110,11 @@ export default function TradesPage() {
       setError(t("trades.codesError"));
       return;
     }
-    if (applyToCollection) {
-      const invalidGive = given.find((code) => getTradableCount(quantities, code) <= 0);
-      if (invalidGive) {
-        setError(t("trades.giveError", { code: invalidGive }));
-        return;
-      }
+
+    const invalidGive = given.find((code) => getTradableCount(quantities, code) <= 0);
+    if (invalidGive) {
+      setError(t("trades.giveDuplicatesOnly"));
+      return;
     }
 
     addTradeHistory({
@@ -125,7 +123,7 @@ export default function TradesPage() {
       stickersGiven: given,
       stickersReceived: received,
       note,
-      appliedToCollection: applyToCollection
+      appliedToCollection: true
     });
     setFriendName("");
     setGiveText("");
@@ -339,20 +337,14 @@ export default function TradesPage() {
         </div>
         {formOpen ? (
           <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={submitTrade}>
-            <TradeField label={t("trades.friendName")}>
+            <TradeField label={t("trades.friendName")} className="sm:col-span-2">
               <input
                 value={friendName}
                 onChange={(event) => setFriendName(event.target.value)}
                 className="w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
               />
             </TradeField>
-            <TradeField label={t("trades.applyToCollection")}>
-              <label className="flex min-h-11 items-center gap-2 rounded-lg bg-field px-3 font-bold text-ink dark:bg-neutral-950 dark:text-white">
-                <input type="checkbox" checked={applyToCollection} onChange={(event) => setApplyToCollection(event.target.checked)} />
-                {t("trades.safeApply")}
-              </label>
-            </TradeField>
-            <TradeField label={t("trades.iGive")}>
+            <TradeField label={t("trades.iGive")} hint={t("trades.giveHelper")}>
               <textarea
                 value={giveText}
                 onChange={(event) => setGiveText(event.target.value)}
@@ -454,10 +446,21 @@ export default function TradesPage() {
   );
 }
 
-function TradeField({ children, className, label }: { children: React.ReactNode; className?: string; label: string }) {
+function TradeField({
+  children,
+  className,
+  hint,
+  label
+}: {
+  children: React.ReactNode;
+  className?: string;
+  hint?: string;
+  label: string;
+}) {
   return (
     <label className={className}>
       <span className="text-sm font-black text-ink dark:text-white">{label}</span>
+      {hint ? <span className="mt-0.5 block text-xs font-semibold text-neutral-600 dark:text-neutral-400">{hint}</span> : null}
       <span className="mt-1 block">{children}</span>
     </label>
   );

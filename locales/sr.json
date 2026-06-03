@@ -256,6 +256,8 @@
   "trades.friendName": "Ime druga",
   "trades.iGive": "Sličice koje dajem",
   "trades.iReceive": "Sličice koje dobijam",
+  "trades.giveHelper": "Unesi samo duplikate koje daješ.",
+  "trades.giveDuplicatesOnly": "Možeš da daješ samo duplikate. Primerak iz albuma se ne menja.",
   "trades.applyToCollection": "Primeni na kolekciju",
   "trades.safeApply": "Ne menjaj primerak iz albuma",
   "trades.saveTrade": "Sačuvaj razmenu",

@@ -277,7 +277,12 @@ function applyTradeQuantities(
   const incrementCodes = reverse ? given : received;
 
   for (const code of decrementCodes) {
-    next = withQuantity(next, code, (quantity) => Math.max(0, quantity - 1));
+    next = withQuantity(next, code, (quantity) => {
+      if (reverse) {
+        return Math.max(0, quantity - 1);
+      }
+      return quantity > 1 ? quantity - 1 : quantity;
+    });
   }
 
   for (const code of incrementCodes) {

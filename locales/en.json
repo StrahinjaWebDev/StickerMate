@@ -256,6 +256,8 @@
   "trades.friendName": "Friend name",
   "trades.iGive": "Stickers I give",
   "trades.iReceive": "Stickers I receive",
+  "trades.giveHelper": "Enter only duplicates you are giving.",
+  "trades.giveDuplicatesOnly": "You can only give duplicates. The album copy is kept.",
   "trades.applyToCollection": "Apply to collection",
   "trades.safeApply": "Do not trade away album copies",
   "trades.saveTrade": "Save trade",
