@@ -240,7 +240,7 @@ StickerMate is local-first. Login is optional, and the app continues to work ful
 When Supabase is configured, Google login can be used for online backup and sync. Supabase stores only user-specific data:
 
 - Sticker quantities
-- App settings, onboarding state and dismissed help cards
+- App settings, onboarding state, review progress and dismissed help cards
 - Trade history
 - Spending entries
 - Sync timestamps
@@ -265,13 +265,17 @@ Do not commit `.env.local`. Google Client ID and Google Client Secret are config
 4. Add the Google Client ID and Secret in the Supabase Dashboard.
 5. Add the Supabase callback URL to Google OAuth Authorized redirect URIs.
 6. Add local and production app URLs in Supabase Auth URL configuration.
-7. Run `docs/supabase-schema.sql` in the Supabase SQL Editor before using cloud sync.
+7. Run `docs/supabase-schema.sql` in the Supabase SQL Editor before using cloud sync. The production StickerMate beta schema has been applied manually in Supabase.
 8. Deploy to Vercel with the same public Supabase environment variables.
 9. If Google OAuth consent is in testing mode, add every allowed Google account as a test user.
 
 First login never deletes local data automatically. If cloud data and local data both exist, the Settings account card asks whether to save local data online, load cloud data, or merge both.
 
 If `docs/supabase-schema.sql` has not been run yet, StickerMate still works normally in guest/localStorage mode. Signed-in users will see a compact "cloud save is not ready" status while the collection remains safely stored locally. The app does not keep retrying cloud sync in a loop when the schema is missing.
+
+`docs/supabase-schema.sql` must match the app sync code exactly. If cloud sync still says "cloud save is not ready" after applying the schema, check that the public API can see `profiles`, `collections`, `trades`, and `spending_entries`, and that the `collections` table includes `quantities`, `settings`, `dismissed_help`, `review_state`, and `onboarding_completed`. Also verify RLS policies use `auth.uid()` so authenticated users can only select, insert, update, and delete their own rows.
+
+Cloud sync is optional. Any Supabase, RLS, or network failure should leave the app usable in local-first mode with the current browser's LocalStorage copy intact.
 
 ### Google Auth Troubleshooting
 

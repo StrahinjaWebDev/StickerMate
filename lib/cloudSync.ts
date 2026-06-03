@@ -36,9 +36,11 @@ export type CloudSnapshot = {
     friends: TradeFriend[];
     recentCodes: string[];
     entryHistory: EntryHistoryItem[];
-    reviewCurrentIndex: number;
-    reviewCompleted: boolean;
-    reviewUpdatedAt?: string;
+  };
+  reviewState: {
+    currentIndex: number;
+    completed: boolean;
+    updatedAt?: string;
   };
   onboarded: boolean;
   dismissedGuides: Partial<Record<GuideKey, true>>;
@@ -50,6 +52,7 @@ export type CloudSnapshot = {
 type CollectionRow = {
   quantities: Record<string, number>;
   settings: Partial<CloudSnapshot["settings"]> | null;
+  review_state: Partial<CloudSnapshot["reviewState"]> | null;
   onboarding_completed: boolean;
   dismissed_help: Partial<Record<GuideKey, true>> | null;
   updated_at: string | null;
@@ -111,6 +114,20 @@ function cleanQuantities(quantities: Record<string, number>) {
   return next;
 }
 
+function getSnapshotReviewState(snapshot: CloudSnapshot) {
+  const legacySettings = snapshot.settings as Partial<CloudSnapshot["settings"]> & {
+    reviewCurrentIndex?: number;
+    reviewCompleted?: boolean;
+    reviewUpdatedAt?: string;
+  };
+
+  return {
+    currentIndex: snapshot.reviewState?.currentIndex ?? legacySettings.reviewCurrentIndex ?? 0,
+    completed: snapshot.reviewState?.completed ?? legacySettings.reviewCompleted ?? false,
+    updatedAt: snapshot.reviewState?.updatedAt ?? legacySettings.reviewUpdatedAt
+  };
+}
+
 function mergeById<T extends { id: string; updatedAt?: string; createdAt?: string }>(local: T[], cloud: T[]) {
   const byId = new Map<string, T>();
   for (const item of [...cloud, ...local]) {
@@ -141,10 +158,12 @@ export function getLocalSnapshot(): CloudSnapshot {
       tradeDisplayName: state.tradeDisplayName,
       friends: state.friends,
       recentCodes: state.recentCodes,
-      entryHistory: state.entryHistory,
-      reviewCurrentIndex: state.reviewCurrentIndex,
-      reviewCompleted: state.reviewCompleted,
-      reviewUpdatedAt: state.reviewUpdatedAt
+      entryHistory: state.entryHistory
+    },
+    reviewState: {
+      currentIndex: state.reviewCurrentIndex,
+      completed: state.reviewCompleted,
+      updatedAt: state.reviewUpdatedAt
     },
     onboarded: state.onboarded,
     dismissedGuides: state.dismissedGuides,
@@ -165,6 +184,8 @@ export function hasMeaningfulLocalData(snapshot = getLocalSnapshot()) {
 }
 
 export function saveLocalSnapshot(snapshot: CloudSnapshot) {
+  const reviewState = getSnapshotReviewState(snapshot);
+
   useCollectionStore.setState({
     quantities: cleanQuantities(snapshot.quantities),
     onboarded: snapshot.onboarded,
@@ -181,9 +202,9 @@ export function saveLocalSnapshot(snapshot: CloudSnapshot) {
     dismissedGuides: snapshot.dismissedGuides ?? {},
     tradeHistory: snapshot.tradeHistory ?? [],
     spendingEntries: snapshot.spendingEntries ?? [],
-    reviewCurrentIndex: snapshot.settings.reviewCurrentIndex ?? 0,
-    reviewCompleted: snapshot.settings.reviewCompleted ?? false,
-    reviewUpdatedAt: snapshot.settings.reviewUpdatedAt
+    reviewCurrentIndex: reviewState.currentIndex,
+    reviewCompleted: reviewState.completed,
+    reviewUpdatedAt: reviewState.updatedAt
   });
 }
 
@@ -208,7 +229,7 @@ export function subscribeToAuthChanges(
 export async function loadCloudCollection(supabase: SupabaseClient, userId: string) {
   const { data: collection, error: collectionError } = await supabase
     .from("collections")
-    .select("quantities, settings, onboarding_completed, dismissed_help, updated_at")
+    .select("quantities, settings, review_state, onboarding_completed, dismissed_help, updated_at")
     .eq("user_id", userId)
     .eq("album_id", albumId)
     .maybeSingle<CollectionRow>();
@@ -235,6 +256,12 @@ export async function loadCloudCollection(supabase: SupabaseClient, userId: stri
   if (spendingError) throw spendingError;
 
   const settings = collection.settings ?? {};
+  const reviewState = collection.review_state ?? {};
+  const legacySettings = settings as Partial<CloudSnapshot["settings"]> & {
+    reviewCurrentIndex?: number;
+    reviewCompleted?: boolean;
+    reviewUpdatedAt?: string;
+  };
 
   return {
     albumId,
@@ -249,10 +276,12 @@ export async function loadCloudCollection(supabase: SupabaseClient, userId: stri
       tradeDisplayName: settings.tradeDisplayName ?? "",
       friends: settings.friends ?? [],
       recentCodes: settings.recentCodes ?? [],
-      entryHistory: settings.entryHistory ?? [],
-      reviewCurrentIndex: settings.reviewCurrentIndex ?? 0,
-      reviewCompleted: settings.reviewCompleted ?? false,
-      reviewUpdatedAt: settings.reviewUpdatedAt
+      entryHistory: settings.entryHistory ?? []
+    },
+    reviewState: {
+      currentIndex: reviewState.currentIndex ?? legacySettings.reviewCurrentIndex ?? 0,
+      completed: reviewState.completed ?? legacySettings.reviewCompleted ?? false,
+      updatedAt: reviewState.updatedAt ?? legacySettings.reviewUpdatedAt
     },
     onboarded: collection.onboarding_completed,
     dismissedGuides: collection.dismissed_help ?? {},
@@ -272,8 +301,8 @@ export async function loadCloudCollection(supabase: SupabaseClient, userId: stri
       amount: Number(entry.amount_rsd) || 0,
       currency: "RSD",
       category: entry.category ?? "other",
-      packsCount: entry.packs_count ?? undefined,
-      stickersCount: entry.stickers_count ?? undefined,
+      packsCount: entry.packs_count && entry.packs_count > 0 ? entry.packs_count : undefined,
+      stickersCount: entry.stickers_count && entry.stickers_count > 0 ? entry.stickers_count : undefined,
       note: entry.note ?? undefined,
       createdAt: entry.created_at ?? nowIso(),
       updatedAt: entry.updated_at ?? entry.created_at ?? nowIso()
@@ -290,7 +319,7 @@ export async function saveCloudCollection(supabase: SupabaseClient, user: User, 
       id: user.id,
       email: user.email,
       display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email,
-      avatar_url: user.user_metadata?.avatar_url ?? null,
+      avatar_url: user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null,
       updated_at: updatedAt
     },
     { onConflict: "id" }
@@ -303,6 +332,7 @@ export async function saveCloudCollection(supabase: SupabaseClient, user: User, 
       album_id: albumId,
       quantities: cleanQuantities(snapshot.quantities),
       settings: snapshot.settings,
+      review_state: snapshot.reviewState,
       onboarding_completed: snapshot.onboarded,
       dismissed_help: snapshot.dismissedGuides,
       updated_at: updatedAt
@@ -348,8 +378,8 @@ export async function saveCloudCollection(supabase: SupabaseClient, user: User, 
         user_id: user.id,
         album_id: albumId,
         amount_rsd: getEntryAmountRsd(entry),
-        packs_count: entry.packsCount ?? null,
-        stickers_count: entry.stickersCount ?? null,
+        packs_count: entry.packsCount ?? 0,
+        stickers_count: entry.stickersCount ?? 0,
         category: entry.category,
         note: entry.note ?? null,
         date: entry.date,
@@ -363,6 +393,9 @@ export async function saveCloudCollection(supabase: SupabaseClient, user: User, 
 
 export function mergeLocalAndCloud(local: CloudSnapshot, cloud: CloudSnapshot) {
   const quantities: Record<string, number> = { ...cloud.quantities };
+  const localReviewState = getSnapshotReviewState(local);
+  const cloudReviewState = getSnapshotReviewState(cloud);
+
   for (const [code, quantity] of Object.entries(local.quantities)) {
     quantities[code] = Math.max(quantities[code] ?? 0, quantity);
   }
@@ -376,9 +409,11 @@ export function mergeLocalAndCloud(local: CloudSnapshot, cloud: CloudSnapshot) {
       friends: mergeById(local.settings.friends, cloud.settings.friends),
       recentCodes: Array.from(new Set([...local.settings.recentCodes, ...cloud.settings.recentCodes])).slice(0, 12),
       entryHistory: mergeById(local.settings.entryHistory, cloud.settings.entryHistory),
-      reviewCurrentIndex: Math.max(local.settings.reviewCurrentIndex, cloud.settings.reviewCurrentIndex),
-      reviewCompleted: local.settings.reviewCompleted || cloud.settings.reviewCompleted,
-      reviewUpdatedAt: local.settings.reviewUpdatedAt ?? cloud.settings.reviewUpdatedAt
+    },
+    reviewState: {
+      currentIndex: Math.max(localReviewState.currentIndex, cloudReviewState.currentIndex),
+      completed: localReviewState.completed || cloudReviewState.completed,
+      updatedAt: localReviewState.updatedAt ?? cloudReviewState.updatedAt
     },
     onboarded: local.onboarded || cloud.onboarded,
     dismissedGuides: { ...cloud.dismissedGuides, ...local.dismissedGuides },

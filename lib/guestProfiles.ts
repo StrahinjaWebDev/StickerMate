@@ -55,9 +55,11 @@ function emptySnapshot(language: LanguageCode): CloudSnapshot {
       tradeDisplayName: "",
       friends: [],
       recentCodes: [],
-      entryHistory: [],
-      reviewCurrentIndex: 0,
-      reviewCompleted: false
+      entryHistory: []
+    },
+    reviewState: {
+      currentIndex: 0,
+      completed: false
     },
     onboarded: false,
     dismissedGuides: {},

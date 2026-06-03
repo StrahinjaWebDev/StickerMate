@@ -158,6 +158,11 @@ export function AccountSection() {
         setLastSyncedAt(cloud.updatedAt);
       }
 
+      if (!cloud && !localHasData) {
+        await saveCloudCollection(client, currentUser, local);
+        setLastSyncedAt(local.updatedAt);
+      }
+
       setStatus("synced");
       setMessage(null);
     } catch (error) {

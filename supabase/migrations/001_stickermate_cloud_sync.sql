@@ -14,6 +14,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
   display_name text,
+  avatar_url text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -21,11 +22,12 @@ create table if not exists public.profiles (
 create table if not exists public.collections (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null,
-  album_id text not null default 'panini_world_cup_2026',
+  album_id text not null,
   quantities jsonb not null default '{}',
   settings jsonb not null default '{}',
-  onboarding_completed boolean not null default false,
   dismissed_help jsonb not null default '{}',
+  review_state jsonb not null default '{}',
+  onboarding_completed boolean default false,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   unique(user_id, album_id)
@@ -34,45 +36,36 @@ create table if not exists public.collections (
 create table if not exists public.trades (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null,
-  album_id text not null default 'panini_world_cup_2026',
-  local_id text not null,
+  album_id text not null,
   friend_name text,
   stickers_given jsonb not null default '[]',
   stickers_received jsonb not null default '[]',
   note text,
-  applied_to_collection boolean not null default false,
+  applied_to_collection boolean default false,
   created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  unique(user_id, album_id, local_id)
+  updated_at timestamptz default now()
 );
 
 create table if not exists public.spending_entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null,
-  album_id text not null default 'panini_world_cup_2026',
-  local_id text not null,
+  album_id text not null,
   amount_rsd numeric not null default 0,
-  packs_count int,
-  stickers_count int,
+  packs_count integer not null default 0,
+  stickers_count integer not null default 0,
   category text,
   note text,
   date date default current_date,
   created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  unique(user_id, album_id, local_id)
+  updated_at timestamptz default now()
 );
 
-alter table public.trades add column if not exists local_id text;
-update public.trades set local_id = id::text where local_id is null;
-alter table public.trades alter column local_id set not null;
-create unique index if not exists trades_user_album_local_id_idx
-on public.trades(user_id, album_id, local_id);
-
-alter table public.spending_entries add column if not exists local_id text;
-update public.spending_entries set local_id = id::text where local_id is null;
-alter table public.spending_entries alter column local_id set not null;
-create unique index if not exists spending_entries_user_album_local_id_idx
-on public.spending_entries(user_id, album_id, local_id);
+alter table public.profiles add column if not exists avatar_url text;
+alter table public.collections add column if not exists review_state jsonb not null default '{}';
+drop index if exists public.trades_user_album_local_id_idx;
+drop index if exists public.spending_entries_user_album_local_id_idx;
+alter table public.trades drop column if exists local_id;
+alter table public.spending_entries drop column if exists local_id;
 
 drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at

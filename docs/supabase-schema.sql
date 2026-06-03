@@ -26,9 +26,10 @@ create table if not exists public.collections (
   quantities jsonb not null default '{}',
   settings jsonb not null default '{}',
   dismissed_help jsonb not null default '{}',
+  review_state jsonb not null default '{}',
   onboarding_completed boolean default false,
-  updated_at timestamptz default now(),
   created_at timestamptz default now(),
+  updated_at timestamptz default now(),
   unique(user_id, album_id)
 );
 
@@ -58,6 +59,13 @@ create table if not exists public.spending_entries (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table public.profiles add column if not exists avatar_url text;
+alter table public.collections add column if not exists review_state jsonb not null default '{}';
+drop index if exists public.trades_user_album_local_id_idx;
+drop index if exists public.spending_entries_user_album_local_id_idx;
+alter table public.trades drop column if exists local_id;
+alter table public.spending_entries drop column if exists local_id;
 
 drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at
