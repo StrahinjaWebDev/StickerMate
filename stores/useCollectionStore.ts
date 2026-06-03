@@ -330,14 +330,16 @@ export const useCollectionStore = create<CollectionStore>()(
           recentCodes: mergeRecent(state.recentCodes, [code])
         })),
       decrement: (code) =>
-        set((state) => ({ quantities: withQuantity(state.quantities, code, (quantity) => quantity - 1) })),
+        set((state) => ({
+          quantities: withQuantity(state.quantities, code, (quantity) => Math.max(0, quantity - 1))
+        })),
       markMany: (codes, quantity) =>
         set((state) => {
           let quantities = state.quantities;
           for (const code of codes) {
             quantities = withQuantity(quantities, code, (current) => {
               if (quantity === "increment") return current + 1;
-              if (quantity === "decrement") return current - 1;
+              if (quantity === "decrement") return Math.max(0, current - 1);
               return quantity;
             });
           }

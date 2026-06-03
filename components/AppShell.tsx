@@ -45,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 shrink items-center gap-2">
             <LanguageSwitcher />
             <AccountStatusPrompt variant="chip" />
             <nav className="hidden items-center gap-1 rounded-lg border border-line bg-white p-1 shadow-sm dark:border-white/10 dark:bg-neutral-900 lg:flex">
@@ -73,7 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 py-4 sm:py-6">{children}</main>
+      <main className="min-w-0 flex-1 py-4 sm:py-6">{children}</main>
       <AuthSyncController />
       <GuestProfileHydrator />
       <ServiceWorkerRegister />

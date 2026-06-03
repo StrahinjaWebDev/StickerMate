@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BulkActions } from "@/features/stickers/BulkActions";
 import { FilterBar } from "@/features/stickers/FilterBar";
 import { StickerGrid } from "@/features/stickers/StickerGrid";
 import { StickerList } from "@/features/stickers/StickerList";
@@ -110,7 +109,6 @@ export default function CollectionPage() {
             </button>
           ) : null}
         </div>
-        <BulkActions />
         {viewMode === "list" ? (
           <StickerList list={sectionList} query={query} filter={filter} heightClassName={resultsHeightClassName} />
         ) : (
