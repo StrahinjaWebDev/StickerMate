@@ -2,7 +2,7 @@
 
 import { PointerEvent, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Download, ListRestart, RotateCcw, SkipForward, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ListRestart, RotateCcw, SkipForward, X } from "lucide-react";
 import { Button } from "@/components/ui/Primitives";
 import { GuideCard } from "@/components/GuideCard";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -25,7 +25,6 @@ export function QuickAlbumReview() {
   const skipReviewSticker = useCollectionStore((state) => state.skipReviewSticker);
   const completeReview = useCollectionStore((state) => state.completeReview);
   const resetReview = useCollectionStore((state) => state.resetReview);
-  const exportPayload = useCollectionStore((state) => state.exportPayload);
   const pointerStartX = useRef<number | null>(null);
 
   const stats = useMemo(() => getStats(quantities, stickers), [quantities]);
@@ -46,17 +45,6 @@ export function QuickAlbumReview() {
   function finishLater() {
     setOnboarded(true);
     router.push("/");
-  }
-
-  function handleExport() {
-    const payload = exportPayload();
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `stickermate-export-${new Date().toISOString().slice(0, 10)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
   }
 
   function mark(quantityValue: number) {
@@ -141,7 +129,7 @@ export function QuickAlbumReview() {
             </p>
             <p className="mt-3 text-lg font-black text-pitch">{formatPercent(stats.completion)}</p>
           </div>
-          <div className="mt-6 grid gap-2 sm:grid-cols-3">
+          <div className="mt-6 grid gap-2 sm:grid-cols-2">
             <Button tone="primary" onClick={finishLater}>
               <ArrowRight size={18} />
               {t("review.goDashboard")}
@@ -149,10 +137,6 @@ export function QuickAlbumReview() {
             <Button onClick={confirmRestartReview}>
               <RotateCcw size={18} />
               {t("review.reviewAgain")}
-            </Button>
-            <Button onClick={handleExport}>
-              <Download size={18} />
-              {t("review.exportBackup")}
             </Button>
           </div>
         </section>

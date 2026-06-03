@@ -11,7 +11,6 @@ import { Button, Card } from "@/components/ui/Primitives";
 import { StatusMessage } from "@/components/StatusMessage";
 import { useI18n } from "@/hooks/useI18n";
 import { formatMoney, PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
-import { stickerCount } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { ThemePreference } from "@/types/sticker";
 
@@ -115,16 +114,6 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
-        <h2 className="text-lg font-black text-ink dark:text-white">{t("settings.dataInfoTitle")}</h2>
-        <div className="mt-4 grid gap-2">
-          <DataPoint label={t("settings.albumStickerCount")} value={stickerCount} />
-        </div>
-        <p className="mt-4 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
-          {t("settings.albumScopeNote")}
-        </p>
-      </Card>
-
-      <Card>
         <h2 className="text-lg font-black text-ink dark:text-white">{t("about.title")}</h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
           {t("about.unofficial")} {t("about.affiliation")}
@@ -170,15 +159,6 @@ export default function SettingsPage() {
         onCancel={() => setDialog(null)}
         onConfirm={confirmResetCollection}
       />
-    </div>
-  );
-}
-
-function DataPoint({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
-      <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{label}</p>
-      <p className="mt-1 text-2xl font-black text-ink dark:text-white">{value}</p>
     </div>
   );
 }

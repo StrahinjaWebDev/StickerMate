@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
-import { getStats, stickerByCode, stickers } from "@/lib/stickers";
+import { stickerByCode, stickers } from "@/lib/stickers";
 import type {
   EntryHistoryItem,
   GuideKey,
@@ -38,29 +38,6 @@ type TradeInput = {
   appliedToCollection: boolean;
 };
 
-type ExportPayload = {
-  app: "StickerMate";
-  version: 2;
-  exportedAt: string;
-  quantities: Record<string, number>;
-  stats: ReturnType<typeof getStats>;
-  settings: {
-    theme: ThemePreference;
-    viewMode: StickerViewMode;
-    language: LanguageCode;
-    defaultCurrency: SpendingCurrency;
-    packPriceRsd: number;
-    stickersPerPack: number;
-  };
-  spendingEntries: SpendingEntry[];
-  tradeHistory: TradeHistoryItem[];
-  review: {
-    currentIndex: number;
-    completed: boolean;
-    updatedAt?: string;
-  };
-};
-
 type CollectionStore = {
   quantities: Record<string, number>;
   onboarded: boolean;
@@ -91,8 +68,6 @@ type CollectionStore = {
   decrement: (code: string) => void;
   markMany: (codes: string[], quantity: number | "increment" | "decrement") => void;
   addConfirmedCodes: (codes: string[], note: string) => ImportSummary;
-  importPayload: (payload: unknown) => { ok: true } | { ok: false; errorKey: "settings.importInvalidError" | "settings.importMissingQuantitiesError" };
-  exportPayload: () => ExportPayload;
   resetCollection: () => void;
   toggleSelected: (code: string) => void;
   clearSelection: () => void;
@@ -132,14 +107,6 @@ function cleanOptionalCount(value: unknown) {
   return cleaned > 0 ? cleaned : undefined;
 }
 
-function isSpendingCurrency(value: unknown): value is SpendingCurrency {
-  return value === "RSD" || value === "EUR";
-}
-
-function isSpendingCategory(value: unknown): value is SpendingCategory {
-  return value === "packs" || value === "album" || value === "bundle" || value === "individual" || value === "other";
-}
-
 function buildSpendingEntry(input: SpendingInput, existing?: SpendingEntry): SpendingEntry {
   const now = new Date().toISOString();
   return {
@@ -155,85 +122,6 @@ function buildSpendingEntry(input: SpendingInput, existing?: SpendingEntry): Spe
     createdAt: existing?.createdAt ?? now,
     updatedAt: now
   };
-}
-
-function sanitizeSpendingEntries(entries: unknown): SpendingEntry[] {
-  if (!Array.isArray(entries)) return [];
-
-  return entries
-    .map((entry): SpendingEntry | null => {
-      if (!entry || typeof entry !== "object") return null;
-      const maybeEntry = entry as Partial<SpendingEntry>;
-      if (
-        typeof maybeEntry.id !== "string" ||
-        typeof maybeEntry.date !== "string" ||
-        typeof maybeEntry.amount !== "number" ||
-        !isSpendingCurrency(maybeEntry.currency) ||
-        !isSpendingCategory(maybeEntry.category)
-      ) {
-        return null;
-      }
-
-      const amount = cleanMoney(maybeEntry.amount);
-      if (amount <= 0) return null;
-
-      const normalized: SpendingEntry = {
-        id: maybeEntry.id,
-        date: maybeEntry.date,
-        amount,
-        currency: maybeEntry.currency,
-        category: maybeEntry.category,
-        createdAt: typeof maybeEntry.createdAt === "string" ? maybeEntry.createdAt : new Date().toISOString(),
-        updatedAt: typeof maybeEntry.updatedAt === "string" ? maybeEntry.updatedAt : new Date().toISOString()
-      };
-
-      const packsCount = cleanOptionalCount(maybeEntry.packsCount);
-      const stickersCount = cleanOptionalCount(maybeEntry.stickersCount);
-      if (packsCount) normalized.packsCount = packsCount;
-      if (stickersCount) normalized.stickersCount = stickersCount;
-      if (typeof maybeEntry.note === "string" && maybeEntry.note.trim()) normalized.note = maybeEntry.note.trim();
-      if (typeof maybeEntry.linkedEntryId === "string" && maybeEntry.linkedEntryId.trim()) {
-        normalized.linkedEntryId = maybeEntry.linkedEntryId.trim();
-      }
-
-      return normalized;
-    })
-    .filter((entry): entry is SpendingEntry => Boolean(entry));
-}
-
-function sanitizeTradeHistory(entries: unknown): TradeHistoryItem[] {
-  if (!Array.isArray(entries)) return [];
-
-  return entries
-    .map((entry): TradeHistoryItem | null => {
-      if (!entry || typeof entry !== "object") return null;
-      const maybeEntry = entry as Partial<TradeHistoryItem>;
-      if (
-        typeof maybeEntry.id !== "string" ||
-        typeof maybeEntry.date !== "string" ||
-        typeof maybeEntry.friendName !== "string" ||
-        !Array.isArray(maybeEntry.stickersGiven) ||
-        !Array.isArray(maybeEntry.stickersReceived)
-      ) {
-        return null;
-      }
-
-      const normalized: TradeHistoryItem = {
-        id: maybeEntry.id,
-        date: maybeEntry.date,
-        friendName: maybeEntry.friendName,
-        stickersGiven: uniqueValidCodes(maybeEntry.stickersGiven),
-        stickersReceived: uniqueValidCodes(maybeEntry.stickersReceived),
-        appliedToCollection: Boolean(maybeEntry.appliedToCollection),
-        createdAt: typeof maybeEntry.createdAt === "string" ? maybeEntry.createdAt : new Date().toISOString()
-      };
-
-      if (typeof maybeEntry.note === "string" && maybeEntry.note.trim()) normalized.note = maybeEntry.note.trim();
-      if (typeof maybeEntry.undoneAt === "string") normalized.undoneAt = maybeEntry.undoneAt;
-
-      return normalized;
-    })
-    .filter((entry): entry is TradeHistoryItem => Boolean(entry));
 }
 
 function withQuantity(
@@ -403,97 +291,6 @@ export const useCollectionStore = create<CollectionStore>()(
           newCodes: Array.from(newCodes),
           duplicateCodes: Array.from(duplicateCodes),
           invalidCodes
-        };
-      },
-      importPayload: (payload) => {
-        if (!payload || typeof payload !== "object") {
-          return { ok: false, errorKey: "settings.importInvalidError" };
-        }
-
-        const maybePayload = payload as {
-          quantities?: unknown;
-          settings?: {
-            theme?: ThemePreference;
-            viewMode?: StickerViewMode;
-            language?: LanguageCode;
-            defaultCurrency?: SpendingCurrency;
-            packPriceRsd?: number;
-            stickersPerPack?: number;
-          };
-          spendingEntries?: unknown;
-          tradeHistory?: unknown;
-          review?: { currentIndex?: number; completed?: boolean; updatedAt?: string };
-        };
-        if (!maybePayload.quantities || typeof maybePayload.quantities !== "object") {
-          return { ok: false, errorKey: "settings.importMissingQuantitiesError" };
-        }
-
-        const quantities: Record<string, number> = {};
-        for (const [code, quantity] of Object.entries(maybePayload.quantities)) {
-          const normalized = code.toUpperCase();
-          if (stickerByCode.has(normalized) && typeof quantity === "number") {
-            const cleaned = cleanQuantity(quantity);
-            if (cleaned > 0) quantities[normalized] = cleaned;
-          }
-        }
-
-        set({
-          quantities,
-          onboarded: true,
-          theme: maybePayload.settings?.theme ?? get().theme,
-          viewMode: maybePayload.settings?.viewMode ?? get().viewMode,
-          language: maybePayload.settings?.language ?? get().language,
-          defaultCurrency: isSpendingCurrency(maybePayload.settings?.defaultCurrency)
-            ? maybePayload.settings.defaultCurrency
-            : get().defaultCurrency,
-          spendingEntries: Array.isArray(maybePayload.spendingEntries)
-            ? sanitizeSpendingEntries(maybePayload.spendingEntries)
-            : get().spendingEntries,
-          tradeHistory: Array.isArray(maybePayload.tradeHistory)
-            ? sanitizeTradeHistory(maybePayload.tradeHistory)
-            : get().tradeHistory,
-          packPriceRsd: PACK_PRICE_RSD,
-          stickersPerPack: STICKERS_PER_PACK,
-          reviewCurrentIndex:
-            typeof maybePayload.review?.currentIndex === "number"
-              ? Math.max(0, Math.min(stickers.length, Math.floor(maybePayload.review.currentIndex)))
-              : get().reviewCurrentIndex,
-          reviewCompleted:
-            typeof maybePayload.review?.completed === "boolean"
-              ? maybePayload.review.completed
-              : get().reviewCompleted,
-          reviewUpdatedAt: maybePayload.review?.updatedAt ?? get().reviewUpdatedAt
-        });
-
-        return { ok: true };
-      },
-      exportPayload: () => {
-        const {
-          quantities,
-          theme,
-          viewMode,
-          language,
-          defaultCurrency,
-          spendingEntries,
-          tradeHistory,
-          reviewCurrentIndex,
-          reviewCompleted,
-          reviewUpdatedAt
-        } = get();
-        return {
-          app: "StickerMate",
-          version: 2,
-          exportedAt: new Date().toISOString(),
-          quantities,
-          stats: getStats(quantities, stickers),
-          settings: { theme, viewMode, language, defaultCurrency, packPriceRsd: PACK_PRICE_RSD, stickersPerPack: STICKERS_PER_PACK },
-          spendingEntries,
-          tradeHistory,
-          review: {
-            currentIndex: reviewCurrentIndex,
-            completed: reviewCompleted,
-            updatedAt: reviewUpdatedAt
-          }
         };
       },
       resetCollection: () =>
