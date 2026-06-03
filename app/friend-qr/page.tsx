@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, ClipboardPaste, Copy, ImageUp, QrCode, Save } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
@@ -222,6 +223,12 @@ export default function FriendQrPage() {
                 <Copy size={18} />
                 {t("trades.copyWhatsApp")}
               </Button>
+              <Link
+                href={`/friends/${encodeURIComponent(friend.id)}`}
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-pitch px-4 text-sm font-black text-white"
+              >
+                {t("trades.viewMatches")}
+              </Link>
             </>
           )}
         </Card>

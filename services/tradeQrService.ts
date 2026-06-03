@@ -1,3 +1,4 @@
+import type { TranslationKey } from "@/lib/i18n";
 import { getQuantity, stickers } from "@/lib/stickers";
 import { validateStickerCodes } from "@/services/stickerCodeService";
 import type { TradeFriend, TradeProfilePayload } from "@/types/sticker";
@@ -156,6 +157,19 @@ export function getTradeMatch(quantities: Record<string, number>, friend: Pick<T
       .filter((sticker) => getQuantity(quantities, sticker.code) === 0 && friendDuplicates.has(sticker.code))
       .map((sticker) => sticker.code)
   };
+}
+
+export function buildFriendTradeMessage(
+  friendName: string,
+  iCanGive: string[],
+  friendCanGive: string[],
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+) {
+  void friendName;
+  return t("friendDetail.tradeMessage", {
+    give: iCanGive.length > 0 ? iCanGive.join(", ") : "-",
+    need: friendCanGive.length > 0 ? friendCanGive.join(", ") : "-"
+  });
 }
 
 function encodeBitset(codes: string[]) {

@@ -34,6 +34,7 @@ export type CloudSnapshot = {
     stickersPerPack: number;
     tradeDisplayName: string;
     friends: TradeFriend[];
+    deletedFriendIds: string[];
     recentCodes: string[];
     entryHistory: EntryHistoryItem[];
   };
@@ -153,6 +154,15 @@ function mergeById<T extends { id: string; updatedAt?: string; createdAt?: strin
   return Array.from(byId.values());
 }
 
+function mergeFriends(local: TradeFriend[], cloud: TradeFriend[], localDeleted: string[], cloudDeleted: string[]) {
+  const deleted = new Set([...localDeleted, ...cloudDeleted]);
+  return mergeById(local, cloud).filter((friend) => !deleted.has(friend.id));
+}
+
+function mergeDeletedFriendIds(local: string[], cloud: string[]) {
+  return Array.from(new Set([...local, ...cloud]));
+}
+
 export function getLocalSnapshot(): CloudSnapshot {
   const state = useCollectionStore.getState();
   return {
@@ -167,6 +177,7 @@ export function getLocalSnapshot(): CloudSnapshot {
       stickersPerPack: STICKERS_PER_PACK,
       tradeDisplayName: state.tradeDisplayName,
       friends: state.friends,
+      deletedFriendIds: state.deletedFriendIds,
       recentCodes: state.recentCodes,
       entryHistory: state.entryHistory
     },
@@ -230,6 +241,7 @@ export function saveLocalSnapshot(snapshot: CloudSnapshot) {
     stickersPerPack: STICKERS_PER_PACK,
     tradeDisplayName: snapshot.settings.tradeDisplayName ?? "",
     friends: snapshot.settings.friends ?? [],
+    deletedFriendIds: snapshot.settings.deletedFriendIds ?? [],
     recentCodes: snapshot.settings.recentCodes ?? [],
     entryHistory: snapshot.settings.entryHistory ?? [],
     dismissedGuides: snapshot.dismissedGuides ?? {},
@@ -290,6 +302,7 @@ export async function loadCloudCollection(supabase: SupabaseClient, userId: stri
       stickersPerPack: STICKERS_PER_PACK,
       tradeDisplayName: settings.tradeDisplayName ?? "",
       friends: settings.friends ?? [],
+      deletedFriendIds: Array.isArray(settings.deletedFriendIds) ? settings.deletedFriendIds : [],
       recentCodes: settings.recentCodes ?? [],
       entryHistory: settings.entryHistory ?? []
     },
@@ -433,7 +446,16 @@ export function mergeLocalAndCloud(local: CloudSnapshot, cloud: CloudSnapshot) {
     settings: {
       ...cloud.settings,
       ...local.settings,
-      friends: mergeById(local.settings.friends, cloud.settings.friends),
+      friends: mergeFriends(
+        local.settings.friends,
+        cloud.settings.friends,
+        local.settings.deletedFriendIds ?? [],
+        cloud.settings.deletedFriendIds ?? []
+      ),
+      deletedFriendIds: mergeDeletedFriendIds(
+        local.settings.deletedFriendIds ?? [],
+        cloud.settings.deletedFriendIds ?? []
+      ),
       recentCodes: Array.from(new Set([...local.settings.recentCodes, ...cloud.settings.recentCodes])).slice(0, 12),
       entryHistory: mergeById(local.settings.entryHistory, cloud.settings.entryHistory),
     },

@@ -54,6 +54,7 @@ function emptySnapshot(language: LanguageCode): CloudSnapshot {
       stickersPerPack: STICKERS_PER_PACK,
       tradeDisplayName: "",
       friends: [],
+      deletedFriendIds: [],
       recentCodes: [],
       entryHistory: []
     },

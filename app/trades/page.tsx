@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
-import { Check, CheckCircle2, Copy, History, MessageCircle, Plus, QrCode, RotateCcw, Trash2, UserPlus } from "lucide-react";
+import { Check, Copy, History, MessageCircle, Plus, QrCode, RotateCcw, Trash2, UserPlus } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
@@ -10,8 +10,9 @@ import { GuideCard } from "@/components/GuideCard";
 import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
 import type { TranslationKey } from "@/lib/i18n";
-import { getDuplicateCount, getMissingCodes, getTradableCount, parseStickerCodes, stickers } from "@/lib/stickers";
+import { getDuplicateCount, getTradableCount, parseStickerCodes, stickers } from "@/lib/stickers";
 import { getTeamIcon } from "@/lib/teamIcons";
+import { getTradeMatch } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 function today() {
@@ -37,19 +38,17 @@ export default function TradesPage() {
   const [note, setNote] = useState("");
   const [applyToCollection, setApplyToCollection] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAllMissing, setShowAllMissing] = useState(false);
   const [showFullMessage, setShowFullMessage] = useState(false);
 
   const tradable = useMemo(
     () => stickers.filter((sticker) => getTradableCount(quantities, sticker.code) > 0),
     [quantities]
   );
-  const missingCodes = useMemo(() => getMissingCodes(quantities), [quantities]);
+  const missingCodes = useMemo(() => stickers.filter((s) => (quantities[s.code] ?? 0) === 0).map((s) => s.code), [quantities]);
   const duplicateLines = useMemo(
     () => tradable.map((sticker) => `${sticker.code} x${getDuplicateCount(quantities, sticker.code)}`),
     [quantities, tradable]
   );
-  const visibleMissingCodes = showAllMissing ? missingCodes : missingCodes.slice(0, 36);
 
   const whatsAppMessage = useMemo(() => {
     const missingLine = missingCodes.slice(0, 120).join(", ") || "-";
@@ -149,85 +148,49 @@ export default function TradesPage() {
         </div>
       </Card>
 
-      <section className="grid min-w-0 gap-3 lg:grid-cols-2">
-        <Card>
-          <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.myDuplicates")}</h2>
-          {tradable.length === 0 ? (
-            <div className="mt-3">
-              <EmptyState
-                icon={Copy}
-                title={t("trades.noDuplicates")}
-                body={t("trades.noDuplicatesBody")}
-                actionLabel={t("trades.noDuplicatesAction")}
-                actionHref="/fill"
-              />
-            </div>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {tradable.slice(0, 8).map((sticker) => (
-                <div key={sticker.code} className="flex min-w-0 items-center justify-between gap-3 rounded-lg bg-field p-2 dark:bg-neutral-950">
-                  <StickerImage
-                    sticker={sticker}
-                    quantity={quantities[sticker.code] ?? 0}
-                    className="h-14 w-10 shrink-0"
-                    showTextPlaceholder={false}
-                    sizes="40px"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-black text-ink dark:text-white">{sticker.code} - {sticker.name}</p>
-                    <p className="truncate text-xs font-bold text-neutral-500 dark:text-neutral-400">
-                      <span className="mr-1">{getTeamIcon(sticker.team)}</span>{sticker.team}
-                    </p>
-                  </div>
-                  <Badge tone="gold" className="shrink-0">
-                    {t(
-                      getDuplicateCount(quantities, sticker.code) === 1 ? "status.duplicateOne" : "status.duplicateMany",
-                      { count: getDuplicateCount(quantities, sticker.code) }
-                    )}
-                  </Badge>
+      <Card>
+        <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.myDuplicates")}</h2>
+        {tradable.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState
+              icon={Copy}
+              title={t("trades.noDuplicates")}
+              body={t("trades.noDuplicatesBody")}
+              actionLabel={t("trades.noDuplicatesAction")}
+              actionHref="/fill"
+            />
+          </div>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {tradable.slice(0, 8).map((sticker) => (
+              <div key={sticker.code} className="flex min-w-0 items-center justify-between gap-3 rounded-lg bg-field p-2 dark:bg-neutral-950">
+                <StickerImage
+                  sticker={sticker}
+                  quantity={quantities[sticker.code] ?? 0}
+                  className="h-14 w-10 shrink-0"
+                  showTextPlaceholder={false}
+                  sizes="40px"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-ink dark:text-white">
+                    {sticker.code} - {sticker.name}
+                  </p>
+                  <p className="truncate text-xs font-bold text-neutral-500 dark:text-neutral-400">
+                    <span className="mr-1">{getTeamIcon(sticker.team)}</span>
+                    {sticker.team}
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        <Card>
-          <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.missingList")}</h2>
-          {missingCodes.length === 0 ? (
-            <div className="mt-3">
-              <EmptyState
-                icon={CheckCircle2}
-                title={t("trades.noMissing")}
-                body={t("trades.noMissingBody")}
-                actionLabel={t("trades.noMissingAction")}
-                actionHref="/collection"
-              />
-            </div>
-          ) : (
-            <>
-              <p className="mt-3 max-h-44 overflow-auto break-words rounded-lg bg-field p-3 font-mono text-xs font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-                {visibleMissingCodes.join(", ")}
-              </p>
-              {missingCodes.length > visibleMissingCodes.length ? (
-                <p className="mt-2 text-xs font-bold text-neutral-500 dark:text-neutral-400">
-                  {t("trades.missingPreview", { shown: visibleMissingCodes.length, total: missingCodes.length })}
-                </p>
-              ) : null}
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {missingCodes.length > 36 ? (
-                  <Button onClick={() => setShowAllMissing((current) => !current)}>
-                    {showAllMissing ? t("trades.showLess") : t("trades.showAll")}
-                  </Button>
-                ) : null}
-                <Button onClick={() => navigator.clipboard.writeText(missingCodes.join(", "))}>
-                  <Copy size={18} />
-                  {t("trades.copyFullMissing")}
-                </Button>
+                <Badge tone="gold" className="shrink-0">
+                  {t(
+                    getDuplicateCount(quantities, sticker.code) === 1 ? "status.duplicateOne" : "status.duplicateMany",
+                    { count: getDuplicateCount(quantities, sticker.code) }
+                  )}
+                </Badge>
               </div>
-            </>
-          )}
-        </Card>
-      </section>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card>
         <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.whatsappTitle")}</h2>
@@ -236,7 +199,11 @@ export default function TradesPage() {
             <button
               key={type}
               type="button"
-              className={messageType === type ? "min-h-10 shrink-0 rounded-lg bg-pitch px-3 text-sm font-black text-white" : "min-h-10 shrink-0 rounded-lg border border-line bg-white px-3 text-sm font-black text-neutral-700 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-300"}
+              className={
+                messageType === type
+                  ? "min-h-10 shrink-0 rounded-lg bg-pitch px-3 text-sm font-black text-white"
+                  : "min-h-10 shrink-0 rounded-lg border border-line bg-white px-3 text-sm font-black text-neutral-700 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-300"
+              }
               onClick={() => setMessageType(type)}
             >
               {t(`trades.messageType.${type}` as TranslationKey)}
@@ -256,10 +223,67 @@ export default function TradesPage() {
           </Button>
         ) : null}
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <Button onClick={copyMessage}><Copy size={18} />{copied ? t("common.copied") : t("trades.copyMessage")}</Button>
-          <Button onClick={shareMessage}><MessageCircle size={18} />{t("common.share")}</Button>
-          <Button onClick={openWhatsApp}><MessageCircle size={18} />{t("trades.openWhatsApp")}</Button>
+          <Button onClick={copyMessage}>
+            <Copy size={18} />
+            {copied ? t("common.copied") : t("trades.copyMessage")}
+          </Button>
+          <Button onClick={shareMessage}>
+            <MessageCircle size={18} />
+            {t("common.share")}
+          </Button>
+          <Button onClick={openWhatsApp}>
+            <MessageCircle size={18} />
+            {t("trades.openWhatsApp")}
+          </Button>
         </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.friendsTitle")}</h2>
+        {friends.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState
+              icon={UserPlus}
+              title={t("trades.noFriends")}
+              body={t("trades.noFriendsBody")}
+              actionLabel={t("trades.noFriendsAction")}
+              actionHref="/friend-qr"
+            />
+          </div>
+        ) : (
+          <div className="mt-3 grid gap-2">
+            {friends.map((friend) => {
+              const match = getTradeMatch(quantities, friend);
+              const possibleCount = match.iCanGive.length + match.friendCanGive.length;
+              return (
+                <article key={friend.id} className="rounded-lg bg-field p-3 dark:bg-neutral-950">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-black text-ink dark:text-white">{friend.name}</p>
+                      <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+                        {t("tradeQr.missingCount", { count: friend.missing.length })} ·{" "}
+                        {t("tradeQr.duplicateCount", { count: friend.duplicates.length })} ·{" "}
+                        {t("trades.possibleTrades", { count: possibleCount })}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:w-56">
+                      <Link
+                        href={`/friends/${encodeURIComponent(friend.id)}`}
+                        className="inline-flex min-h-10 items-center justify-center rounded-lg bg-pitch px-3 text-center text-sm font-black text-white"
+                      >
+                        {t("trades.viewMatches")}
+                      </Link>
+                      <Button className="min-h-10 px-2 text-xs" tone="danger" onClick={() => setRemoveFriendId(friend.id)}>
+                        <Trash2 size={15} />
+                        {t("trades.removeFriend")}
+                      </Button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -273,7 +297,11 @@ export default function TradesPage() {
         {formOpen ? (
           <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={submitTrade}>
             <TradeField label={t("trades.friendName")}>
-              <input value={friendName} onChange={(event) => setFriendName(event.target.value)} className="w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white" />
+              <input
+                value={friendName}
+                onChange={(event) => setFriendName(event.target.value)}
+                className="w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
+              />
             </TradeField>
             <TradeField label={t("trades.applyToCollection")}>
               <label className="flex min-h-11 items-center gap-2 rounded-lg bg-field px-3 font-bold text-ink dark:bg-neutral-950 dark:text-white">
@@ -282,16 +310,33 @@ export default function TradesPage() {
               </label>
             </TradeField>
             <TradeField label={t("trades.iGive")}>
-              <textarea value={giveText} onChange={(event) => setGiveText(event.target.value)} className="min-h-24 w-full rounded-lg border-line bg-field font-mono text-sm font-bold uppercase text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white" placeholder="MEX1 BRA14" />
+              <textarea
+                value={giveText}
+                onChange={(event) => setGiveText(event.target.value)}
+                className="min-h-24 w-full rounded-lg border-line bg-field font-mono text-sm font-bold uppercase text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
+                placeholder="MEX1 BRA14"
+              />
             </TradeField>
             <TradeField label={t("trades.iReceive")}>
-              <textarea value={receiveText} onChange={(event) => setReceiveText(event.target.value)} className="min-h-24 w-full rounded-lg border-line bg-field font-mono text-sm font-bold uppercase text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white" placeholder="BRA14 ARG17" />
+              <textarea
+                value={receiveText}
+                onChange={(event) => setReceiveText(event.target.value)}
+                className="min-h-24 w-full rounded-lg border-line bg-field font-mono text-sm font-bold uppercase text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
+                placeholder="BRA14 ARG17"
+              />
             </TradeField>
             <TradeField label={t("spending.note")} className="sm:col-span-2">
-              <textarea value={note} onChange={(event) => setNote(event.target.value)} className="min-h-20 w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white" />
+              <textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                className="min-h-20 w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
+              />
             </TradeField>
             {error ? <p className="rounded-lg bg-coral/10 p-3 text-sm font-bold text-coral sm:col-span-2">{error}</p> : null}
-            <Button tone="primary" type="submit" className="sm:col-span-2"><Check size={18} />{t("trades.saveTrade")}</Button>
+            <Button tone="primary" type="submit" className="sm:col-span-2">
+              <Check size={18} />
+              {t("trades.saveTrade")}
+            </Button>
           </form>
         ) : null}
       </Card>
@@ -322,14 +367,24 @@ export default function TradesPage() {
                     <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
                       {t("trades.iReceive")}: {trade.stickersReceived.join(", ") || "-"}
                     </p>
-                    {trade.undoneAt ? <Badge tone="danger" className="mt-2">{t("trades.undone")}</Badge> : null}
+                    {trade.undoneAt ? (
+                      <Badge tone="danger" className="mt-2">
+                        {t("trades.undone")}
+                      </Badge>
+                    ) : null}
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:w-40">
-                    <Button className="min-h-10 px-2 text-sm" disabled={!trade.appliedToCollection || Boolean(trade.undoneAt)} onClick={() => undoTradeHistory(trade.id)}>
-                      <RotateCcw size={16} />{t("trades.undo")}
+                    <Button
+                      className="min-h-10 px-2 text-sm"
+                      disabled={!trade.appliedToCollection || Boolean(trade.undoneAt)}
+                      onClick={() => undoTradeHistory(trade.id)}
+                    >
+                      <RotateCcw size={16} />
+                      {t("trades.undo")}
                     </Button>
                     <Button className="min-h-10 px-2 text-sm" tone="danger" onClick={() => deleteTradeHistory(trade.id)}>
-                      <Trash2 size={16} />{t("spending.deleteShort")}
+                      <Trash2 size={16} />
+                      {t("spending.deleteShort")}
                     </Button>
                   </div>
                 </div>
@@ -338,33 +393,6 @@ export default function TradesPage() {
           </div>
         )}
       </Card>
-
-      {friends.length > 0 ? (
-        <Card>
-          <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.friendsTitle")}</h2>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {friends.map((friend) => (
-              <div key={friend.id} className="rounded-lg bg-field p-3 dark:bg-neutral-950">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-black text-ink dark:text-white">{friend.name}</p>
-                    <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-                      {t("tradeQr.missingCount", { count: friend.missing.length })} · {t("tradeQr.duplicateCount", { count: friend.duplicates.length })}
-                    </p>
-                  </div>
-                  <Button className="min-h-9 shrink-0 px-2 text-xs" tone="danger" onClick={() => setRemoveFriendId(friend.id)}>
-                    <Trash2 size={15} />
-                    {t("trades.removeFriend")}
-                  </Button>
-                </div>
-                <Link href="/friend-qr" className="mt-2 inline-block text-sm font-black text-pitch">
-                  {t("trades.viewMatches")}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ) : null}
 
       <ConfirmDialog
         open={Boolean(removeFriendId)}

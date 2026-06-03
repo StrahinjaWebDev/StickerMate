@@ -71,6 +71,7 @@ type CollectionStore = {
   recentCodes: string[];
   entryHistory: EntryHistoryItem[];
   friends: TradeFriend[];
+  deletedFriendIds: string[];
   tradeDisplayName: string;
   tradeHistory: TradeHistoryItem[];
   spendingEntries: SpendingEntry[];
@@ -298,6 +299,7 @@ export const useCollectionStore = create<CollectionStore>()(
       recentCodes: [],
       entryHistory: [],
       friends: [],
+      deletedFriendIds: [],
       tradeDisplayName: "",
       tradeHistory: [],
       spendingEntries: [],
@@ -494,6 +496,7 @@ export const useCollectionStore = create<CollectionStore>()(
           recentCodes: [],
           entryHistory: [],
           friends: [],
+          deletedFriendIds: [],
           tradeDisplayName: "",
           tradeHistory: [],
           spendingEntries: [],
@@ -529,14 +532,18 @@ export const useCollectionStore = create<CollectionStore>()(
           friends:
             mode === "update" && existing
               ? state.friends.map((item) => (item.id === existing.id ? nextFriend : item))
-              : [nextFriend, ...state.friends]
+              : [nextFriend, ...state.friends],
+          deletedFriendIds: state.deletedFriendIds.filter((deletedId) => deletedId !== nextFriend.id)
         }));
 
         return nextFriend;
       },
       removeFriend: (id) =>
         set((state) => ({
-          friends: state.friends.filter((friend) => friend.id !== id)
+          friends: state.friends.filter((friend) => friend.id !== id),
+          deletedFriendIds: state.deletedFriendIds.includes(id)
+            ? state.deletedFriendIds
+            : [...state.deletedFriendIds, id]
         })),
       setDefaultCurrency: (currency) => set({ defaultCurrency: currency }),
       addSpendingEntry: (entry) => {
@@ -642,6 +649,7 @@ export const useCollectionStore = create<CollectionStore>()(
         recentCodes: state.recentCodes,
         entryHistory: state.entryHistory,
         friends: state.friends,
+        deletedFriendIds: state.deletedFriendIds,
         tradeDisplayName: state.tradeDisplayName,
         tradeHistory: state.tradeHistory,
         spendingEntries: state.spendingEntries,
