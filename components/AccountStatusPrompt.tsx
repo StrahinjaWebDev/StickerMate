@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Cloud, UserCircle } from "lucide-react";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/Primitives";
-import { getProfileInfo } from "@/lib/accountProfile";
+import { getGuestInitials, getProfileInfo } from "@/lib/accountProfile";
 import { signInWithGoogle, useAuthSyncStore } from "@/lib/authSyncStore";
+import { getGuestIdentity, type GuestIdentity } from "@/lib/guestProfiles";
 import { useI18n } from "@/hooks/useI18n";
 
 type AccountStatusPromptProps = {
@@ -22,6 +24,11 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
   const displayName = profileInfo?.displayName ?? profileInfo?.email ?? "";
   const backupUnavailable = status === "failed" || status === "disabled_missing_tables";
   const migrationPending = Boolean(mergePrompt);
+  const [guestIdentity, setGuestIdentity] = useState<GuestIdentity | null>(null);
+
+  useEffect(() => {
+    setGuestIdentity(getGuestIdentity());
+  }, []);
 
   if (variant === "chip") {
     if (!user) {
@@ -56,30 +63,34 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
   }
 
   if (!user) {
+    const guestName = guestIdentity?.name ?? t("account.localProfile");
+
     return (
-      <section
+      <div
         className={clsx(
-          "rounded-lg border border-pitch/20 bg-pitch/10 p-3 shadow-sm dark:border-pitch/30 dark:bg-pitch/15 sm:p-4",
+          "flex min-w-0 flex-col gap-3 rounded-lg border border-line bg-white p-3 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:flex-row sm:items-center sm:p-4",
           className
         )}
-        aria-label={t("account.signInForBackup")}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-pitch text-white">
-              <Cloud size={20} />
+        <Link
+          href="/more"
+          className="flex min-w-0 flex-1 items-center gap-3 transition hover:opacity-90 active:scale-[0.99]"
+          aria-label={t("account.openAccount")}
+        >
+          <MiniAvatar avatarUrl={null} initials={getGuestInitials(guestName)} size="lg" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-black text-ink dark:text-white">{guestName}</span>
+            <span className="mt-0.5 block truncate text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+              {t("account.localOnly")}
             </span>
-            <div className="min-w-0">
-              <p className="font-black text-ink dark:text-white">{t("account.signInForBackup")}</p>
-              <p className="mt-0.5 text-sm font-semibold leading-5 text-neutral-700 dark:text-neutral-300">{t("account.guestBody")}</p>
-            </div>
-          </div>
-          <Button className="w-full shrink-0 px-3 text-sm sm:w-auto" tone="primary" onClick={signInWithGoogle}>
-            <Cloud size={17} />
-            {t("account.signInGoogle")}
-          </Button>
-        </div>
-      </section>
+          </span>
+          <UserCircle className="shrink-0 text-pitch sm:hidden" size={21} />
+        </Link>
+        <Button className="w-full shrink-0 px-3 text-sm sm:w-auto" tone="neutral" onClick={signInWithGoogle}>
+          <Cloud size={17} />
+          {t("account.signInGoogle")}
+        </Button>
+      </div>
     );
   }
 
