@@ -52,6 +52,7 @@
   "account.retrySync": "Retry sync",
   "account.notConfigured": "Supabase is not configured yet. Add environment variables to enable online backup.",
   "account.authSuccess": "Google sign-in succeeded.",
+  "account.sessionExpired": "Your session expired. Please sign in again.",
   "account.googleAuthFailed": "Google sign-in failed. Check Supabase/Google OAuth settings and try again.",
   "account.retryGoogle": "Try again",
   "account.cloudEmptyTitle": "Save this collection online?",

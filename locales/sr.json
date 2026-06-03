@@ -52,6 +52,7 @@
   "account.retrySync": "Pokušaj ponovo",
   "account.notConfigured": "Supabase još nije podešen. Dodaj environment varijable da uključiš online backup.",
   "account.authSuccess": "Google prijava je uspela.",
+  "account.sessionExpired": "Sesija je istekla. Prijavi se ponovo.",
   "account.googleAuthFailed": "Google prijava nije uspela. Proveri Supabase/Google OAuth podešavanja i pokušaj ponovo.",
   "account.retryGoogle": "Pokušaj ponovo",
   "account.cloudEmptyTitle": "Sačuvati ovu kolekciju online?",

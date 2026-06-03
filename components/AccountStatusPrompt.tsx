@@ -1,15 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { Cloud, UserCircle } from "lucide-react";
 import { clsx } from "clsx";
-import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/Primitives";
 import { getProfileInfo } from "@/lib/accountProfile";
-import { getCloudSyncFailureKind, getCurrentUser, loadCloudCollection, subscribeToAuthChanges, type CloudSyncStatus } from "@/lib/cloudSync";
+import { signInWithGoogle, useAuthSyncStore } from "@/lib/authSyncStore";
 import { useI18n } from "@/hooks/useI18n";
-import { createClient } from "@/utils/supabase/client";
 
 type AccountStatusPromptProps = {
   variant?: "banner" | "chip";
@@ -18,63 +15,18 @@ type AccountStatusPromptProps = {
 
 export function AccountStatusPrompt({ variant = "banner", className }: AccountStatusPromptProps) {
   const { t } = useI18n();
-  const supabase = useMemo(() => createClient(), []);
-  const [user, setUser] = useState<User | null>(null);
-  const [status, setStatus] = useState<CloudSyncStatus>("idle");
-
-  const checkCloudStatus = useCallback(async (currentUser: User) => {
-    if (!supabase) {
-      setStatus("idle");
-      return;
-    }
-
-    setStatus("syncing");
-    try {
-      const cloud = await loadCloudCollection(supabase, currentUser.id);
-      setStatus(cloud ? "synced" : "idle");
-    } catch (error) {
-      setStatus(getCloudSyncFailureKind(error) === "missing_tables" ? "disabled_missing_tables" : "failed");
-    }
-  }, [supabase]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadUser() {
-      const currentUser = await getCurrentUser(supabase);
-      if (!active) return;
-      setUser(currentUser);
-      if (currentUser) void checkCloudStatus(currentUser);
-    }
-
-    void loadUser();
-    const unsubscribe = subscribeToAuthChanges(supabase, (nextUser) => {
-      setUser(nextUser);
-      if (nextUser) void checkCloudStatus(nextUser);
-      else setStatus("idle");
-    });
-
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [checkCloudStatus, supabase]);
-
-  async function signInWithGoogle() {
-    if (!supabase) return;
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`
-      }
-    });
-  }
+  const user = useAuthSyncStore((state) => state.user);
+  const status = useAuthSyncStore((state) => state.status);
 
   const statusLabel =
     status === "syncing"
       ? t("account.syncing")
+      : status === "dirty"
+        ? t("account.cloudStatusIdle")
       : status === "synced"
         ? t("account.savedOnline")
+        : status === "auth_expired"
+          ? t("account.sessionExpired")
         : status === "disabled_missing_tables"
           ? t("account.cloudStatusNotReady")
           : status === "failed"

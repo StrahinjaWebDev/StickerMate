@@ -16,9 +16,9 @@ import type {
   TradeHistoryItem
 } from "@/types/sticker";
 
-export const albumId = "panini_world_cup_2026";
+export const albumId = "fifa-world-cup-2026";
 
-export type CloudSyncStatus = "idle" | "syncing" | "synced" | "failed" | "disabled_missing_tables";
+export type CloudSyncStatus = "idle" | "dirty" | "syncing" | "synced" | "failed" | "auth_expired" | "disabled_missing_tables";
 
 export type CloudSyncFailureKind = "missing_tables" | "failed";
 
@@ -102,6 +102,13 @@ export function getCloudSyncFailureKind(error: unknown): CloudSyncFailureKind {
   }
 
   return "failed";
+}
+
+export function isInvalidRefreshTokenError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { name?: unknown; message?: unknown; code?: unknown; status?: unknown };
+  const text = `${String(maybeError.name ?? "")} ${String(maybeError.message ?? "")} ${String(maybeError.code ?? "")} ${String(maybeError.status ?? "")}`.toLowerCase();
+  return text.includes("invalid refresh token") || text.includes("refresh token not found");
 }
 
 function cleanQuantities(quantities: Record<string, number>) {
@@ -206,24 +213,6 @@ export function saveLocalSnapshot(snapshot: CloudSnapshot) {
     reviewCompleted: reviewState.completed,
     reviewUpdatedAt: reviewState.updatedAt
   });
-}
-
-export async function getCurrentUser(supabase: SupabaseClient | null): Promise<User | null> {
-  if (!supabase) return null;
-  const { data, error } = await supabase.auth.getUser();
-  if (error) return null;
-  return data.user;
-}
-
-export function subscribeToAuthChanges(
-  supabase: SupabaseClient | null,
-  onChange: (user: User | null) => void
-) {
-  if (!supabase) return () => {};
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-    onChange(session?.user ?? null);
-  });
-  return () => data.subscription.unsubscribe();
 }
 
 export async function loadCloudCollection(supabase: SupabaseClient, userId: string) {

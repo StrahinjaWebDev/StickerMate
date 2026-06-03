@@ -1,158 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Cloud, LogOut, RefreshCw } from "lucide-react";
 import { clsx } from "clsx";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { Button, Card } from "@/components/ui/Primitives";
-import {
-  getCloudSyncFailureKind,
-  getCurrentUser,
-  getLocalSnapshot,
-  hasMeaningfulLocalData,
-  loadCloudCollection,
-  mergeLocalAndCloud,
-  saveCloudCollection,
-  saveLocalSnapshot,
-  subscribeToAuthChanges,
-  syncNow,
-  type CloudSnapshot,
-  type CloudSyncStatus
-} from "@/lib/cloudSync";
 import { getGuestInitials, getProfileInfo } from "@/lib/accountProfile";
 import { getGuestIdentity, type GuestIdentity } from "@/lib/guestProfiles";
+import { resolveCloudMerge, runManualSync, signInWithGoogle, signOutLocally, useAuthSyncStore } from "@/lib/authSyncStore";
 import { useI18n } from "@/hooks/useI18n";
-import { useCollectionStore } from "@/stores/useCollectionStore";
-import { createClient } from "@/utils/supabase/client";
-
-type MergePrompt = {
-  cloud: CloudSnapshot | null;
-  reason: "cloud-empty" | "both-have-data";
-};
+import type { TranslationKey } from "@/lib/i18n";
 
 export function AccountSection() {
   const { language, t } = useI18n();
-  const supabase = useMemo(() => createClient(), []);
-  const [user, setUser] = useState<User | null>(null);
-  const [status, setStatus] = useState<CloudSyncStatus>("idle");
-  const [message, setMessage] = useState<string | null>(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
-  const [mergePrompt, setMergePrompt] = useState<MergePrompt | null>(null);
+  const user = useAuthSyncStore((state) => state.user);
+  const status = useAuthSyncStore((state) => state.status);
+  const messageKey = useAuthSyncStore((state) => state.messageKey);
+  const authMessageKey = useAuthSyncStore((state) => state.authMessageKey);
+  const lastSyncedAt = useAuthSyncStore((state) => state.lastSyncedAt);
+  const mergePrompt = useAuthSyncStore((state) => state.mergePrompt);
   const [authError, setAuthError] = useState(false);
+  const [localMessageKey, setLocalMessageKey] = useState<TranslationKey | null>(null);
   const [guestIdentity, setGuestIdentity] = useState<GuestIdentity | null>(null);
-  const syncInFlightRef = useRef(false);
-  const preparedUserIdRef = useRef<string | null>(null);
 
   const profileInfo = user ? getProfileInfo(user) : null;
-
-  const setSyncFailure = useCallback(
-    (error: unknown) => {
-      const failureKind = getCloudSyncFailureKind(error);
-      if (failureKind === "missing_tables") {
-        setStatus("disabled_missing_tables");
-        setMessage(t("account.cloudNotReady"));
-        return;
-      }
-
-      setStatus("failed");
-      setMessage(t("account.syncWarning"));
-    },
-    [t]
-  );
-
-  const runBackgroundSync = useCallback(
-    async (client: SupabaseClient, currentUser: User) => {
-      if (syncInFlightRef.current) return;
-      syncInFlightRef.current = true;
-      setStatus("syncing");
-      try {
-        await saveCloudCollection(client, currentUser, getLocalSnapshot());
-        setLastSyncedAt(new Date().toISOString());
-        setStatus("synced");
-        setMessage(null);
-      } catch (error) {
-        setSyncFailure(error);
-      } finally {
-        syncInFlightRef.current = false;
-      }
-    },
-    [setSyncFailure]
-  );
-
-  const prepareCloudState = useCallback(async (client: SupabaseClient, currentUser: User, force = false) => {
-    if (syncInFlightRef.current) return;
-    if (!force && preparedUserIdRef.current === currentUser.id) return;
-    syncInFlightRef.current = true;
-    preparedUserIdRef.current = currentUser.id;
-    setStatus("syncing");
-    try {
-      const local = getLocalSnapshot();
-      const cloud = await loadCloudCollection(client, currentUser.id);
-      const localHasData = hasMeaningfulLocalData(local);
-      const cloudHasData = cloud ? hasMeaningfulLocalData(cloud) : false;
-
-      if (!cloud && localHasData) {
-        setMergePrompt({ cloud: null, reason: "cloud-empty" });
-        setStatus("idle");
-        return;
-      }
-
-      if (cloud && localHasData && cloudHasData) {
-        setMergePrompt({ cloud, reason: "both-have-data" });
-        setStatus("idle");
-        return;
-      }
-
-      if (cloud && cloudHasData && !localHasData) {
-        saveLocalSnapshot(cloud);
-        setLastSyncedAt(cloud.updatedAt);
-      }
-
-      if (!cloud && !localHasData) {
-        await saveCloudCollection(client, currentUser, local);
-        setLastSyncedAt(local.updatedAt);
-      }
-
-      setStatus("synced");
-      setMessage(null);
-    } catch (error) {
-      setSyncFailure(error);
-    } finally {
-      syncInFlightRef.current = false;
-    }
-  }, [setSyncFailure]);
 
   useEffect(() => {
     setGuestIdentity(getGuestIdentity());
   }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadUser() {
-      const currentUser = await getCurrentUser(supabase);
-      if (!active) return;
-      setUser(currentUser);
-      if (currentUser && supabase) await prepareCloudState(supabase, currentUser);
-    }
-
-    loadUser();
-    const unsubscribe = subscribeToAuthChanges(supabase, (nextUser) => {
-      setUser(nextUser);
-      setMessage(null);
-      if (nextUser && supabase) void prepareCloudState(supabase, nextUser);
-      else {
-        setMergePrompt(null);
-        setStatus("idle");
-        preparedUserIdRef.current = null;
-      }
-    });
-
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [prepareCloudState, supabase]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -162,10 +36,11 @@ export function AccountSection() {
 
     if (hasAuthError) {
       setAuthError(true);
+      setLocalMessageKey(null);
     } else if (authStatus === "not-configured") {
-      setMessage(t("account.notConfigured"));
+      setLocalMessageKey("account.notConfigured");
     } else if (authStatus === "success") {
-      setMessage(t("account.authSuccess"));
+      setLocalMessageKey("account.authSuccess");
     }
 
     if (authStatus || hashParams.has("error")) {
@@ -173,115 +48,34 @@ export function AccountSection() {
       url.hash = "";
       window.history.replaceState(null, "", url.toString());
     }
-  }, [t]);
+  }, []);
 
-  useEffect(() => {
-    if (!supabase || !user || mergePrompt || status === "disabled_missing_tables" || status === "failed" || status === "syncing") {
-      return;
-    }
-
-    let syncTimer: ReturnType<typeof setTimeout> | null = null;
-    const unsubscribe = useCollectionStore.subscribe(() => {
-      if (syncTimer) clearTimeout(syncTimer);
-      syncTimer = setTimeout(() => {
-        void runBackgroundSync(supabase, user);
-      }, 1500);
-    });
-
-    return () => {
-      if (syncTimer) clearTimeout(syncTimer);
-      unsubscribe();
-    };
-  }, [mergePrompt, runBackgroundSync, status, supabase, user]);
-
-  async function signInWithGoogle() {
+  async function handleGoogleSignIn() {
     setAuthError(false);
-    setMessage(null);
-
-    if (!supabase) {
-      setStatus("failed");
-      setMessage(t("account.notConfigured"));
-      return;
-    }
-
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`
-      }
-    });
-  }
-
-  async function signOut() {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    setUser(null);
-    setMergePrompt(null);
-    setLastSyncedAt(null);
-    setMessage(null);
-    setStatus("idle");
-    preparedUserIdRef.current = null;
-  }
-
-  async function handleSyncNow() {
-    if (!supabase || !user) return;
-    if (syncInFlightRef.current) return;
-    syncInFlightRef.current = true;
-    setStatus("syncing");
-    try {
-      const snapshot = await syncNow(supabase, user);
-      setLastSyncedAt(snapshot.updatedAt);
-      setStatus("synced");
-      setMessage(t("account.syncSuccess"));
-    } catch (error) {
-      setSyncFailure(error);
-    } finally {
-      syncInFlightRef.current = false;
-    }
-  }
-
-  async function resolveMerge(action: "local" | "cloud" | "merge") {
-    if (!supabase || !user || !mergePrompt) return;
-    if (syncInFlightRef.current) return;
-    syncInFlightRef.current = true;
-    setStatus("syncing");
-    try {
-      const local = getLocalSnapshot();
-      const nextSnapshot =
-        action === "cloud" && mergePrompt.cloud
-          ? mergePrompt.cloud
-          : action === "merge" && mergePrompt.cloud
-            ? mergeLocalAndCloud(local, mergePrompt.cloud)
-            : local;
-
-      saveLocalSnapshot(nextSnapshot);
-      await saveCloudCollection(supabase, user, nextSnapshot);
-      setMergePrompt(null);
-      setLastSyncedAt(new Date().toISOString());
-      setStatus("synced");
-      setMessage(t("account.syncSuccess"));
-    } catch (error) {
-      setSyncFailure(error);
-    } finally {
-      syncInFlightRef.current = false;
-    }
+    setLocalMessageKey(null);
+    await signInWithGoogle();
   }
 
   const guestName = guestIdentity?.name ?? (language === "sr" ? "Lokalni Kolekcionar" : "Local Collector");
   const statusLabel =
     status === "syncing"
       ? t("account.syncing")
-      : status === "synced"
-        ? t("account.savedOnline")
-        : status === "disabled_missing_tables"
-          ? t("account.cloudStatusNotReady")
-          : status === "failed"
-            ? t("account.cloudStatusFailed")
-            : user
-              ? t("account.cloudStatusIdle")
-              : t("account.localOnly");
+      : status === "dirty"
+        ? t("account.cloudStatusIdle")
+        : status === "synced"
+          ? t("account.savedOnline")
+          : status === "auth_expired"
+            ? t("account.sessionExpired")
+            : status === "disabled_missing_tables"
+              ? t("account.cloudStatusNotReady")
+              : status === "failed"
+                ? t("account.cloudStatusFailed")
+                : user
+                  ? t("account.cloudStatusIdle")
+                  : t("account.localOnly");
   const statusTone =
-    status === "synced" ? "success" : status === "syncing" ? "syncing" : status === "failed" ? "failed" : status === "disabled_missing_tables" ? "warning" : "neutral";
+    status === "synced" ? "success" : status === "syncing" ? "syncing" : status === "failed" || status === "auth_expired" ? "failed" : status === "disabled_missing_tables" ? "warning" : "neutral";
+  const visibleMessageKey = authMessageKey ?? messageKey ?? localMessageKey;
 
   return (
     <Card>
@@ -292,16 +86,11 @@ export function AccountSection() {
         </div>
 
         {authError ? (
-          <div
-            role="alert"
-            className="rounded-lg border border-coral/25 bg-coral/10 p-3 text-sm font-bold text-coral dark:border-coral/40 dark:bg-coral/15"
-          >
-            <p>{t("account.googleAuthFailed")}</p>
-            <Button className="mt-3 w-full sm:w-auto" tone="primary" onClick={signInWithGoogle}>
-              <Cloud size={18} />
-              {t("account.retryGoogle")}
-            </Button>
-          </div>
+          <AccountWarning tone="danger" message={t("account.googleAuthFailed")} actionLabel={t("account.retryGoogle")} onAction={handleGoogleSignIn} />
+        ) : null}
+
+        {status === "auth_expired" ? (
+          <AccountWarning tone="danger" message={t("account.sessionExpired")} actionLabel={t("account.signInGoogle")} onAction={handleGoogleSignIn} />
         ) : null}
 
         {!user ? (
@@ -311,9 +100,7 @@ export function AccountSection() {
                 <FallbackAvatar initials={getGuestInitials(guestName)} localOnly />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("account.guestMode")}</p>
-                  <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">
-                    {t("account.localProfile")}
-                  </p>
+                  <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">{t("account.localProfile")}</p>
                   <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">{guestName}</p>
                   <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
                     {t("account.guestBody")}
@@ -326,7 +113,7 @@ export function AccountSection() {
             </div>
 
             <div className="rounded-lg border border-line p-3 dark:border-white/10">
-              <Button className="mt-3 w-full" tone="primary" onClick={signInWithGoogle}>
+              <Button className="mt-3 w-full" tone="primary" onClick={handleGoogleSignIn}>
                 <Cloud size={18} />
                 {t("account.signInGoogle")}
               </Button>
@@ -362,13 +149,13 @@ export function AccountSection() {
                   {mergePrompt.reason === "cloud-empty" ? t("account.cloudEmptyBody") : t("account.mergeBody")}
                 </p>
                 <div className="mt-3 grid gap-2">
-                <Button tone="primary" onClick={() => resolveMerge("local")}>
-                  {t("account.mergeLocal")}
-                </Button>
+                  <Button tone="primary" disabled={status === "syncing"} onClick={() => resolveCloudMerge("local")}>
+                    {t("account.mergeLocal")}
+                  </Button>
                   {mergePrompt.cloud ? (
                     <>
-                      <Button onClick={() => resolveMerge("cloud")}>{t("account.mergeCloud")}</Button>
-                      <Button onClick={() => resolveMerge("merge")}>{t("account.mergeBoth")}</Button>
+                      <Button disabled={status === "syncing"} onClick={() => resolveCloudMerge("cloud")}>{t("account.mergeCloud")}</Button>
+                      <Button disabled={status === "syncing"} onClick={() => resolveCloudMerge("merge")}>{t("account.mergeBoth")}</Button>
                     </>
                   ) : null}
                 </div>
@@ -376,23 +163,23 @@ export function AccountSection() {
             ) : null}
 
             {status === "disabled_missing_tables" ? (
-              <AccountWarning tone="warning" message={t("account.cloudNotReady")} actionLabel={t("account.retrySync")} onAction={handleSyncNow} />
+              <AccountWarning tone="warning" message={t("account.cloudNotReady")} actionLabel={t("account.retrySync")} onAction={runManualSync} />
             ) : null}
 
             {status === "failed" ? (
-              <AccountWarning tone="danger" message={t("account.syncWarning")} actionLabel={t("account.retrySync")} onAction={handleSyncNow} />
+              <AccountWarning tone="danger" message={t("account.syncWarning")} actionLabel={t("account.retrySync")} onAction={runManualSync} />
             ) : null}
 
             <div className="grid gap-2 sm:grid-cols-2">
               <Button
                 tone="primary"
-                onClick={handleSyncNow}
+                onClick={runManualSync}
                 disabled={status === "syncing" || Boolean(mergePrompt) || status === "disabled_missing_tables"}
               >
                 <RefreshCw size={18} />
                 {status === "syncing" ? t("account.syncing") : t("account.syncNow")}
               </Button>
-              <Button tone="danger" onClick={signOut}>
+              <Button tone="danger" onClick={signOutLocally}>
                 <LogOut size={18} />
                 {t("account.signOut")}
               </Button>
@@ -400,9 +187,9 @@ export function AccountSection() {
           </div>
         ) : null}
 
-        {message && status !== "disabled_missing_tables" && status !== "failed" ? (
+        {visibleMessageKey && status !== "disabled_missing_tables" && status !== "failed" && status !== "auth_expired" ? (
           <p className="rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-            {message}
+            {t(visibleMessageKey as TranslationKey)}
           </p>
         ) : null}
       </div>

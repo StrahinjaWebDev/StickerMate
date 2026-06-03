@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BarChart3, Handshake, Home, Layers3, MoreHorizontal, Sticker } from "lucide-react";
 import { clsx } from "clsx";
 import { AccountStatusPrompt } from "@/components/AccountStatusPrompt";
+import { AuthSyncController } from "@/components/AuthSyncController";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { GuestProfileHydrator } from "@/components/GuestProfileHydrator";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
@@ -73,6 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="flex-1 py-4 sm:py-6">{children}</main>
+      <AuthSyncController />
       <GuestProfileHydrator />
       <ServiceWorkerRegister />
 
