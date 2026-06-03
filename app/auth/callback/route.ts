@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
         status: error.status ? String(error.status) : null,
         message: error.message
       });
+      return redirectToAuthError(request);
     } catch {
       logAuthDebug("exchange failure", { name: "unexpected_exception" });
       return redirectToAuthError(request);

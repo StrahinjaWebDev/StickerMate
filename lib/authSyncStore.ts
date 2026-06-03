@@ -5,6 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import {
   getCloudSyncFailureKind,
   getLocalSnapshot,
+  getLocalSyncFingerprint,
   hasMeaningfulCloudData,
   hasMeaningfulLocalData,
   isInvalidRefreshTokenError,
@@ -17,7 +18,7 @@ import {
   type CloudSnapshot,
   type CloudSyncStatus
 } from "@/lib/cloudSync";
-import { useCollectionStore } from "@/stores/useCollectionStore";
+import { useCollectionStore, waitForCollectionHydration } from "@/stores/useCollectionStore";
 import { createClient } from "@/utils/supabase/client";
 
 type MergePrompt = {
@@ -196,7 +197,7 @@ async function applyCloudSnapshot(userId: string, cloud: CloudSnapshot) {
 }
 
 async function prepareCloudState(currentUser: User, force = false) {
-  if (!force && preparedUserId === currentUser.id) return null;
+  if (!force && preparedUserId === currentUser.id) return syncPromise ?? null;
 
   const supabase = getSupabase();
   if (!supabase) {
@@ -234,8 +235,8 @@ async function prepareCloudState(currentUser: User, force = false) {
       }
 
       if (!cloudHasData && !localHasData) {
-        await saveCloudCollection(supabase, currentUser, local);
-        markSynced(currentUser.id, local.updatedAt);
+        const cloudUpdatedAt = await saveCloudCollection(supabase, currentUser, local);
+        markSynced(currentUser.id, cloudUpdatedAt);
         prepareCompleted = true;
         return local;
       }
@@ -303,8 +304,8 @@ async function runAutoSync() {
     setAuthSyncState({ status: "syncing", messageKey: null });
     try {
       const snapshot = getLocalSnapshot();
-      await saveCloudCollection(supabase, user, snapshot);
-      markSynced(user.id, snapshot.updatedAt);
+      const cloudUpdatedAt = await saveCloudCollection(supabase, user, snapshot);
+      markSynced(user.id, cloudUpdatedAt);
       return snapshot;
     } catch (error) {
       setSyncFailure(error);
@@ -324,7 +325,13 @@ async function runAutoSync() {
 function ensureCollectionSubscription() {
   if (collectionUnsubscribe) return;
 
+  let lastFingerprint = getLocalSyncFingerprint();
+
   collectionUnsubscribe = useCollectionStore.subscribe(() => {
+    const fingerprint = getLocalSyncFingerprint();
+    if (fingerprint === lastFingerprint) return;
+    lastFingerprint = fingerprint;
+
     const { user, mergePrompt, status } = useAuthSyncStore.getState();
 
     if (!user || mergePrompt || suppressAutoSync || status === "auth_expired" || status === "disabled_missing_tables") {
@@ -360,6 +367,7 @@ export function initializeAuthSync() {
 
   void (async () => {
     try {
+      await waitForCollectionHydration();
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
 
@@ -404,7 +412,7 @@ export function initializeAuthSync() {
       prepareCompleted = false;
       sessionLocalEdited = false;
       window.setTimeout(() => {
-        void prepareCloudState(nextUser);
+        void waitForCollectionHydration().then(() => prepareCloudState(nextUser));
       }, 0);
     }
   });
@@ -418,6 +426,8 @@ export async function signInWithGoogle() {
     setAuthSyncState({ status: "failed", messageKey: "account.notConfigured" });
     return;
   }
+
+  if (typeof window === "undefined") return;
 
   await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -485,8 +495,8 @@ export async function resolveCloudMerge(action: "local" | "cloud" | "merge") {
 
       muteNextLocalStoreSync();
       saveLocalSnapshot(nextSnapshot);
-      await saveCloudCollection(supabase, user, nextSnapshot);
-      markSynced(user.id, nextSnapshot.updatedAt, { messageKey: "account.syncSuccess" });
+      const cloudUpdatedAt = await saveCloudCollection(supabase, user, nextSnapshot);
+      markSynced(user.id, cloudUpdatedAt, { messageKey: "account.syncSuccess" });
       sessionLocalEdited = false;
       return nextSnapshot;
     } catch (error) {

@@ -57,7 +57,10 @@ export default function FriendQrPage() {
     const data = new URLSearchParams(window.location.search).get("data");
     if (!data) return;
     urlParsedRef.current = true;
-    applyTradeInput(data);
+    const parsed = applyTradeInput(data);
+    if (parsed) {
+      window.history.replaceState(null, "", "/friend-qr");
+    }
   }, [applyTradeInput]);
 
   function parseJson(text = jsonText) {

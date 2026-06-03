@@ -90,7 +90,7 @@ export default function TradeQrPage() {
         <div className="mt-4 grid gap-4 sm:grid-cols-[300px_1fr] sm:items-start">
           <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
             {qrUrl ? (
-              <img src={qrUrl} alt={t("tradeQr.title")} className="mx-auto h-56 w-56 rounded bg-white p-2 sm:h-64 sm:w-64" />
+              <img src={qrUrl} alt={t("tradeQr.qrAlt", { name: displayName })} className="mx-auto h-56 w-56 rounded bg-white p-2 sm:h-64 sm:w-64" />
             ) : (
               <div className="mx-auto grid h-56 w-56 place-items-center rounded bg-white p-2 sm:h-64 sm:w-64">
                 <p className="px-4 text-center text-sm font-semibold text-neutral-500">{t("tradeQr.generating")}</p>
@@ -106,7 +106,7 @@ export default function TradeQrPage() {
               <Copy size={18} />
               {t("tradeQr.copyQrLink")}
             </Button>
-            <Button className="w-full" onClick={share}>
+            <Button className="w-full" onClick={share} disabled={!qrLink}>
               <Share2 size={18} />
               {t("tradeQr.share")}
             </Button>

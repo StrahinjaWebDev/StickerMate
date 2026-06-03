@@ -5,12 +5,16 @@ import {
   hydrateGuestSnapshot,
   saveGuestSnapshot
 } from "@/lib/guestProfiles";
+import { useAuthSyncStore } from "@/lib/authSyncStore";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export function GuestProfileHydrator() {
   const language = useCollectionStore((state) => state.language);
+  const user = useAuthSyncStore((state) => state.user);
 
   useEffect(() => {
+    if (user) return;
+
     hydrateGuestSnapshot(language);
 
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -25,7 +29,7 @@ export function GuestProfileHydrator() {
       if (saveTimer) clearTimeout(saveTimer);
       unsubscribe();
     };
-  }, [language]);
+  }, [language, user]);
 
   return null;
 }

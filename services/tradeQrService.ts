@@ -10,7 +10,7 @@ export function buildTradeProfilePayload(name: string, quantities: Record<string
     app: "StickerMate",
     type: "trade-profile",
     schemaVersion: 1,
-    name: name.trim() || "StickerMate",
+    name: name.trim().slice(0, 64) || "StickerMate",
     missing: stickers.filter((sticker) => getQuantity(quantities, sticker.code) === 0).map((sticker) => sticker.code),
     duplicates: stickers.filter((sticker) => getQuantity(quantities, sticker.code) > 1).map((sticker) => sticker.code),
     generatedAt: new Date().toISOString()
@@ -23,6 +23,9 @@ export function buildTradeQrLink(compactPayload: string, origin: string) {
 
 export function parseTradeProfilePayload(input: string): TradeProfilePayload {
   const normalized = normalizeTradeProfileInput(input);
+  if (!normalized.startsWith(`${compactPrefix}:`) && normalized.length > 8192) {
+    throw new Error("Invalid StickerMate trade QR payload.");
+  }
   const parsed = normalized.startsWith(`${compactPrefix}:`)
     ? decodeCompactTradeProfile(normalized)
     : (JSON.parse(normalized) as Partial<TradeProfilePayload>);

@@ -666,3 +666,16 @@ export const useCollectionStore = create<CollectionStore>()(
     }
   )
 );
+
+export function waitForCollectionHydration(): Promise<void> {
+  return new Promise((resolve) => {
+    if (useCollectionStore.persist.hasHydrated()) {
+      resolve();
+      return;
+    }
+    const unsub = useCollectionStore.persist.onFinishHydration(() => {
+      unsub();
+      resolve();
+    });
+  });
+}

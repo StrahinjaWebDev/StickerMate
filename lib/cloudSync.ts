@@ -326,7 +326,16 @@ export async function loadCloudCollection(supabase: SupabaseClient, userId: stri
   } satisfies CloudSnapshot;
 }
 
-export async function saveCloudCollection(supabase: SupabaseClient, user: User, snapshot = getLocalSnapshot()) {
+export function getLocalSyncFingerprint() {
+  const snapshot = getLocalSnapshot();
+  return JSON.stringify({ ...snapshot, updatedAt: "" });
+}
+
+export async function saveCloudCollection(
+  supabase: SupabaseClient,
+  user: User,
+  snapshot = getLocalSnapshot()
+): Promise<string> {
   const updatedAt = nowIso();
 
   const { error: profileError } = await supabase.from("profiles").upsert(
@@ -404,6 +413,8 @@ export async function saveCloudCollection(supabase: SupabaseClient, user: User, 
     );
     if (error) throw error;
   }
+
+  return updatedAt;
 }
 
 export function mergeLocalAndCloud(local: CloudSnapshot, cloud: CloudSnapshot) {
@@ -445,6 +456,6 @@ export async function syncNow(supabase: SupabaseClient, user: User) {
   const snapshot = cloud ? mergeLocalAndCloud(local, cloud) : local;
 
   saveLocalSnapshot(snapshot);
-  await saveCloudCollection(supabase, user, snapshot);
-  return snapshot;
+  const cloudUpdatedAt = await saveCloudCollection(supabase, user, snapshot);
+  return { ...snapshot, updatedAt: cloudUpdatedAt };
 }

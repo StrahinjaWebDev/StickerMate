@@ -19,6 +19,8 @@ export function FriendQrScanner({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanTimerRef = useRef<number | null>(null);
+  const scanInFlightRef = useRef(false);
+  const stopStreamRef = useRef<(() => void) | null>(null);
   const onScanRef = useRef(onScan);
   const onCloseRef = useRef(onClose);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +35,7 @@ export function FriendQrScanner({
     if (!open) {
       setError(null);
       setActive(false);
+      stopStreamRef.current = null;
       return;
     }
 
@@ -45,11 +48,14 @@ export function FriendQrScanner({
         window.clearInterval(scanTimerRef.current);
         scanTimerRef.current = null;
       }
+      scanInFlightRef.current = false;
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       if (videoRef.current) videoRef.current.srcObject = null;
       setActive(false);
     }
+
+    stopStreamRef.current = stopStream;
 
     async function startCamera() {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -78,12 +84,18 @@ export function FriendQrScanner({
         await video.play();
         setActive(true);
 
-        scanTimerRef.current = window.setInterval(async () => {
-          if (cancelled || !videoRef.current) return;
-          const data = await decodeQrFromVideoFrame(videoRef.current);
-          if (!data) return;
-          stopStream();
-          onScanRef.current(data);
+        scanTimerRef.current = window.setInterval(() => {
+          if (cancelled || !videoRef.current || scanInFlightRef.current) return;
+          scanInFlightRef.current = true;
+          void decodeQrFromVideoFrame(videoRef.current)
+            .then((data) => {
+              if (!data || cancelled) return;
+              stopStream();
+              onScanRef.current(data);
+            })
+            .finally(() => {
+              scanInFlightRef.current = false;
+            });
         }, 220);
       } catch (error) {
         if (error instanceof DOMException && error.name === "NotAllowedError") {
@@ -100,22 +112,29 @@ export function FriendQrScanner({
     return () => {
       cancelled = true;
       stopStream();
+      stopStreamRef.current = null;
     };
   }, [open, t]);
 
   function handleClose() {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
+    stopStreamRef.current?.();
     onCloseRef.current();
   }
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-ink/95 p-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="friend-qr-scanner-title"
+      className="fixed inset-0 z-50 flex flex-col bg-ink/95 p-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]"
+    >
       <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-base font-black text-white">{t("friendQr.scanCameraLong")}</p>
+          <p id="friend-qr-scanner-title" className="text-base font-black text-white">
+            {t("friendQr.scanCameraLong")}
+          </p>
           <p className="mt-1 text-sm font-semibold text-white/80">{t("friendQr.scanCameraHint")}</p>
         </div>
         <Button className="min-h-10 shrink-0 px-3" onClick={handleClose}>
@@ -133,7 +152,7 @@ export function FriendQrScanner({
         <p className="mx-auto mt-4 w-full max-w-lg rounded-lg bg-coral/15 p-3 text-sm font-bold text-coral">{error}</p>
       ) : (
         <p className="mx-auto mt-4 w-full max-w-lg text-center text-sm font-semibold text-white/75">
-          {active ? t("friendQr.scanCameraHint") : t("friendQr.cameraPermission")}
+          {active ? t("friendQr.scanCameraHint") : t("friendQr.cameraStarting")}
         </p>
       )}
     </div>

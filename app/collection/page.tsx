@@ -118,9 +118,9 @@ export default function CollectionPage() {
         </div>
         <BulkActions />
         {viewMode === "list" ? (
-          <StickerList list={sectionList} query={query} filter={filter} heightClassName="h-[calc(100dvh-19rem)] min-h-[320px] max-h-[720px]" />
+          <StickerList list={sectionList} query={query} filter={filter} heightClassName="h-[calc(100dvh-19rem-env(safe-area-inset-bottom))] min-h-[320px] max-h-[720px]" />
         ) : (
-          <StickerGrid list={sectionList} query={query} filter={filter} heightClassName="h-[calc(100dvh-19rem)] min-h-[320px] max-h-[720px]" />
+          <StickerGrid list={sectionList} query={query} filter={filter} heightClassName="h-[calc(100dvh-19rem-env(safe-area-inset-bottom))] min-h-[320px] max-h-[720px]" />
         )}
       </section>
     </div>

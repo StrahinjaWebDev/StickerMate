@@ -53,6 +53,7 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
         <button
           type="button"
           onClick={signInWithGoogle}
+          aria-label={t("account.saveOnline")}
           className={clsx(
             "hidden h-10 min-w-0 items-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-black text-ink shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 sm:inline-flex",
             className
