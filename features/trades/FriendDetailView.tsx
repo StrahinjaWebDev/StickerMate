@@ -1,19 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy, MessageCircle, Share2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Copy, MessageCircle, Share2 } from "lucide-react";
 import { Button, Card } from "@/components/ui/Primitives";
 import { EmptyState } from "@/components/EmptyState";
-import { StickerImage } from "@/features/stickers/StickerImage";
+import { FriendStickerRow } from "@/features/trades/FriendStickerRow";
+import {
+  FRIEND_LIST_PREVIEW_LIMIT,
+  friendListHref,
+  type FriendListType
+} from "@/features/trades/friendListTypes";
 import { useI18n } from "@/hooks/useI18n";
-import { stickerByCode } from "@/lib/stickers";
-import { getTeamIcon } from "@/lib/teamIcons";
+import { getDuplicateCount } from "@/lib/stickers";
 import { buildFriendTradeMessage, getTradeMatch } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend } from "@/types/sticker";
-
-const previewLimit = 40;
 
 export function FriendDetailView({ friend }: { friend: TradeFriend }) {
   const { language, t } = useI18n();
@@ -51,10 +53,7 @@ export function FriendDetailView({ friend }: { friend: TradeFriend }) {
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <Link
-        href="/trades"
-        className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-pitch"
-      >
+      <Link href="/trades" className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-pitch">
         <ArrowLeft size={18} />
         {t("friendDetail.backToTrades")}
       </Link>
@@ -93,26 +92,36 @@ export function FriendDetailView({ friend }: { friend: TradeFriend }) {
       </Card>
 
       <StickerTradeSection
+        friendId={friend.id}
+        listType="duplicates"
         title={t("friendDetail.friendDuplicates")}
         codes={friend.duplicates}
         emptyTitle={t("friendDetail.noFriendDuplicates")}
       />
       <StickerTradeSection
+        friendId={friend.id}
+        listType="missing"
         title={t("friendDetail.friendMissing")}
         codes={friend.missing}
         emptyTitle={t("friendDetail.noFriendMissing")}
       />
       <StickerTradeSection
+        friendId={friend.id}
+        listType="i-can-give"
         title={t("friendDetail.iCanGive")}
         codes={match.iCanGive}
         emptyTitle={t("friendDetail.noICanGive")}
         highlight
+        quantities={quantities}
       />
       <StickerTradeSection
+        friendId={friend.id}
+        listType="friend-can-give"
         title={t("friendDetail.friendCanGiveMe")}
         codes={match.friendCanGive}
         emptyTitle={t("friendDetail.noFriendCanGiveMe")}
         highlight
+        quantities={quantities}
       />
     </div>
   );
@@ -133,91 +142,75 @@ function StatBadge({ label, tone = "neutral" }: { label: string; tone?: "neutral
 }
 
 function StickerTradeSection({
+  friendId,
+  listType,
   title,
   codes,
   emptyTitle,
-  highlight = false
+  highlight = false,
+  quantities
 }: {
+  friendId: string;
+  listType: FriendListType;
   title: string;
   codes: string[];
   emptyTitle: string;
   highlight?: boolean;
+  quantities?: Record<string, number>;
 }) {
   const { t } = useI18n();
-  const [showAll, setShowAll] = useState(false);
-  const visibleCodes = showAll ? codes : codes.slice(0, previewLimit);
+  const previewCodes = codes.slice(0, FRIEND_LIST_PREVIEW_LIMIT);
+  const hasMore = codes.length > FRIEND_LIST_PREVIEW_LIMIT;
 
-  async function copyCodes() {
-    if (codes.length === 0) return;
-    await navigator.clipboard?.writeText(codes.join(", "));
+  function contextLabel(code: string) {
+    if (listType === "i-can-give" && quantities) {
+      return t("friendDetail.myDuplicateBadge", { count: getDuplicateCount(quantities, code) });
+    }
+    if (listType === "friend-can-give") {
+      return t("friendDetail.friendHasDuplicate");
+    }
+    return null;
   }
 
   return (
     <Card className={highlight ? "border-pitch/30" : undefined}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-black text-ink dark:text-white">{title}</h2>
-          <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-            {t("friendDetail.listCount", { count: codes.length })}
-          </p>
-        </div>
-        {codes.length > 0 ? (
-          <Button className="min-h-9 shrink-0 px-3 text-sm" onClick={copyCodes}>
-            <Copy size={16} />
-            {t("friendDetail.copyList")}
-          </Button>
-        ) : null}
+      <div>
+        <h2 className="text-lg font-black text-ink dark:text-white">{title}</h2>
+        <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+          {t("friendDetail.listCount", { count: codes.length })}
+        </p>
       </div>
 
       {codes.length === 0 ? (
         <p className="mt-3 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{emptyTitle}</p>
       ) : (
-        <>
-          <div className="mt-3 space-y-2">
-            {visibleCodes.map((code) => (
-              <StickerTradeItem key={code} code={code} />
+        <div className="mt-3 space-y-3">
+          <div className="space-y-1.5">
+            {previewCodes.map((code) => (
+              <FriendStickerRow key={code} code={code} contextLabel={contextLabel(code)} />
             ))}
           </div>
-          {codes.length > previewLimit ? (
-            <Button className="mt-3 min-h-10 px-3 text-sm" onClick={() => setShowAll((current) => !current)}>
-              {showAll ? t("trades.showLess") : t("trades.showAll")}
-            </Button>
+
+          {hasMore ? (
+            <>
+              <p className="text-xs font-semibold text-neutral-600 dark:text-neutral-400">
+                {t("friendDetail.previewSummary", {
+                  shown: previewCodes.length,
+                  total: codes.length
+                })}
+              </p>
+              <Link
+                href={friendListHref(friendId, listType)}
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-black text-ink shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 sm:w-auto"
+              >
+                {t("friendDetail.viewAll")}
+                <ArrowRight size={16} aria-hidden="true" />
+              </Link>
+            </>
           ) : null}
-        </>
+        </div>
       )}
     </Card>
-  );
-}
-
-function StickerTradeItem({ code }: { code: string }) {
-  const sticker = stickerByCode.get(code);
-  if (!sticker) {
-    return (
-      <div className="rounded-lg bg-field px-3 py-2 font-mono text-sm font-black text-ink dark:bg-neutral-950 dark:text-white">
-        {code}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex min-w-0 items-center gap-2 rounded-lg bg-field p-2 dark:bg-neutral-950">
-      <StickerImage
-        sticker={sticker}
-        quantity={1}
-        className="h-14 w-10 shrink-0"
-        showTextPlaceholder={false}
-        sizes="40px"
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black text-ink dark:text-white">
-          {sticker.code} · {sticker.name}
-        </p>
-        <p className="truncate text-xs font-bold text-neutral-500 dark:text-neutral-400">
-          <span className="mr-1">{getTeamIcon(sticker.team)}</span>
-          {sticker.team}
-        </p>
-      </div>
-    </div>
   );
 }
 
