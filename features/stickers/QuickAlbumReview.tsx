@@ -228,6 +228,7 @@ export function QuickAlbumReview() {
               className="aspect-[3/4] w-full max-h-[310px]"
               sizes="(max-width: 1024px) 70vw, 260px"
               priority
+              variant="detail"
             />
           </div>
 

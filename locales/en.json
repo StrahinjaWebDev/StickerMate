@@ -160,6 +160,7 @@
   "sticker.markOwned": "Mark Owned",
   "sticker.markDuplicate": "Mark Duplicate",
   "sticker.openImage": "Open image",
+  "sticker.imageUnavailable": "Sticker image unavailable for {code}",
   "empty.noStickers": "No stickers match this view",
   "empty.noStickersBody": "This means the current search and filter combination has no results. Try a broader search, switch to All, or clear the search field.",
   "empty.noDuplicates": "No duplicates yet",

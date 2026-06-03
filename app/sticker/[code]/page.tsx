@@ -43,6 +43,7 @@ export default function StickerDetailPage() {
             quantity={quantity}
             className="mx-auto aspect-[3/4] w-full max-w-72"
             sizes="(max-width: 768px) 288px, 280px"
+            variant="detail"
           />
           {sticker.imageUrl ? (
             <a

@@ -160,6 +160,7 @@
   "sticker.markOwned": "Označi da imam",
   "sticker.markDuplicate": "Označi kao duplikat",
   "sticker.openImage": "Otvori sliku",
+  "sticker.imageUnavailable": "Slika sličice {code} nije dostupna",
   "empty.noStickers": "Nema sličica za ovaj prikaz",
   "empty.noStickersBody": "Trenutna pretraga i filter nemaju rezultate. Probaj širu pretragu, prebaci filter na Sve ili obriši tekst iz pretrage.",
   "empty.noDuplicates": "Još nema duplikata",
