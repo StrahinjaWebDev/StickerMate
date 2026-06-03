@@ -45,11 +45,14 @@ export function StickerCard({
             className="aspect-[3/4] w-full"
             sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 180px"
           />
+          <span className="absolute left-1.5 top-1.5 z-[3] rounded bg-neutral-950/80 px-1.5 py-0.5 text-[10px] font-black leading-none text-white">
+            {sticker.code}
+          </span>
           <span
             className={clsx(
-              "absolute bottom-2 left-2 rounded-md px-2 py-1 text-[11px] font-black",
+              "absolute bottom-1.5 left-1.5 z-[3] rounded-md px-1.5 py-0.5 text-[10px] font-black leading-none",
               quantity === 0
-                ? "bg-neutral-950/75 text-white"
+                ? "bg-neutral-950/80 text-white"
                 : quantity === 1
                   ? "bg-pitch text-white"
                   : "bg-gold text-ink"
@@ -59,7 +62,6 @@ export function StickerCard({
           </span>
         </div>
         <div className="mt-2 min-w-0">
-          <p className="truncate text-xs font-black text-ink dark:text-white">{sticker.code}</p>
           <p className="truncate text-sm font-black text-ink dark:text-white">{sticker.name}</p>
           <p className="truncate text-xs font-semibold text-neutral-500 dark:text-neutral-400">
             <span className="mr-1">{getTeamIcon(sticker.team)}</span>
@@ -68,23 +70,23 @@ export function StickerCard({
         </div>
       </Link>
 
-      <div className="mt-2 grid grid-cols-[40px_1fr_40px] items-center gap-1">
+      <div className="mt-2 grid grid-cols-[36px_1fr_36px] items-center gap-1">
         <button
           type="button"
-          className="grid h-10 place-items-center rounded-md border border-line bg-field text-neutral-700 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-200"
+          className="grid h-9 place-items-center rounded-md border border-line bg-field text-neutral-700 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-200"
           onClick={onDecrement}
           aria-label={t("sticker.decrease", { code: sticker.code })}
         >
-          <Minus size={17} />
+          <Minus size={16} />
         </button>
         <span className="text-center text-sm font-black text-ink dark:text-white">{quantity}</span>
         <button
           type="button"
-          className="grid h-10 place-items-center rounded-md bg-pitch text-white"
+          className="grid h-9 place-items-center rounded-md bg-pitch text-white"
           onClick={onIncrement}
           aria-label={t("sticker.increase", { code: sticker.code })}
         >
-          <Plus size={17} />
+          <Plus size={16} />
         </button>
       </div>
     </article>

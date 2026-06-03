@@ -46,7 +46,7 @@ export function StickerGrid({
     count: rowCount,
     getScrollElement: () => parentRef.current,
     estimateSize: () => rowHeight,
-    overscan: 3
+    overscan: 5
   });
 
   if (filtered.length === 0) {

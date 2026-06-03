@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { GuideCard } from "@/components/GuideCard";
 import { BulkActions } from "@/features/stickers/BulkActions";
 import { FilterBar } from "@/features/stickers/FilterBar";
 import { StickerGrid } from "@/features/stickers/StickerGrid";
@@ -22,6 +21,8 @@ const filterLabelKeys: Record<StickerFilter, TranslationKey> = {
   missing: "filters.missing",
   duplicates: "filters.duplicates"
 };
+const resultsHeightClassName =
+  "h-[calc(100dvh-15rem-env(safe-area-inset-bottom))] min-h-[320px] max-h-[720px]";
 
 function sectionOptions() {
   const featured = featuredSections.filter((team) => teams.includes(team));
@@ -64,22 +65,15 @@ export default function CollectionPage() {
             owned: sectionStats.owned,
             total: sectionStats.total
           })
-      : t("filters.summaryFiltered", {
-          filter: t(filterLabelKeys[filter]),
-          section: selectedSectionLabel,
-          count: resultCount
-        });
+        : t("filters.summaryFiltered", {
+            filter: t(filterLabelKeys[filter]),
+            section: selectedSectionLabel,
+            count: resultCount
+          });
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-lg border border-line bg-white p-3 shadow-lift dark:border-white/10 dark:bg-neutral-900 sm:p-5">
-        <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("collection.title")}</h1>
-        <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t("collection.body")}</p>
-      </section>
-
-      <GuideCard guide="collection" titleKey="guide.collectionTitle" bodyKey="guide.collectionBody" />
-
-      <section className="space-y-2 pb-4">
+    <div className="space-y-3">
+      <section className="space-y-2 pb-2">
         <FilterBar query={query} filter={filter} onQueryChange={setQuery} onFilterChange={setFilter} />
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <label className="min-w-0">
@@ -100,7 +94,7 @@ export default function CollectionPage() {
           </label>
           <ViewModeSwitch value={viewMode} onChange={setViewMode} />
         </div>
-        <div className="flex flex-col gap-2 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 rounded-lg bg-field px-3 py-2 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300 sm:flex-row sm:items-center sm:justify-between">
           <span>{summary}</span>
           {section !== allSectionsValue || filter !== "all" || query.trim() ? (
             <button
@@ -118,9 +112,9 @@ export default function CollectionPage() {
         </div>
         <BulkActions />
         {viewMode === "list" ? (
-          <StickerList list={sectionList} query={query} filter={filter} heightClassName="h-[calc(100dvh-19rem-env(safe-area-inset-bottom))] min-h-[320px] max-h-[720px]" />
+          <StickerList list={sectionList} query={query} filter={filter} heightClassName={resultsHeightClassName} />
         ) : (
-          <StickerGrid list={sectionList} query={query} filter={filter} heightClassName="h-[calc(100dvh-19rem-env(safe-area-inset-bottom))] min-h-[320px] max-h-[720px]" />
+          <StickerGrid list={sectionList} query={query} filter={filter} heightClassName={resultsHeightClassName} />
         )}
       </section>
     </div>

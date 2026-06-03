@@ -40,8 +40,8 @@ export function StickerList({
   const virtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 132,
-    overscan: 10
+    estimateSize: () => 112,
+    overscan: 12
   });
 
   const applyPaint = useCallback(
