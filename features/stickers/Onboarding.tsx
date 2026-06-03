@@ -80,7 +80,7 @@ export function Onboarding() {
   }
 
   return (
-    <section className="mx-auto grid max-w-5xl items-center gap-6 py-8 lg:grid-cols-[1fr_0.8fr] lg:py-14">
+    <section className="mx-auto max-w-3xl py-8 lg:py-14">
       <div>
         <div className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm font-black text-pitch shadow-sm dark:border-white/10 dark:bg-neutral-900">
           <ClipboardList size={18} />
@@ -135,20 +135,6 @@ export function Onboarding() {
               </span>
             </span>
           </button>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-line bg-white p-5 shadow-lift dark:border-white/10 dark:bg-neutral-900">
-        <div className="rounded-lg bg-field p-4 dark:bg-neutral-950">
-          <p className="text-sm font-black text-neutral-500 dark:text-neutral-400">{t("onboarding.preview")}</p>
-          <div className="mt-4 space-y-2 font-mono text-sm font-bold">
-            {["BRA1", "BRA2", "BRA3", "ARG1", "POR15"].map((code) => (
-              <div key={code} className="flex items-center justify-between rounded-md bg-white px-3 py-3 dark:bg-neutral-900">
-                <span>{code}</span>
-                <span className="rounded-md bg-pitch px-2 py-1 text-xs text-white">{t("status.ownedCard")}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </section>

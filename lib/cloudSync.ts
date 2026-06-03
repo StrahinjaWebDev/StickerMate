@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { getEntryAmountRsd } from "@/lib/spending";
+import { getEntryAmountRsd, PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
 import { stickerByCode } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type {
@@ -136,8 +136,8 @@ export function getLocalSnapshot(): CloudSnapshot {
       language: state.language,
       viewMode: state.viewMode,
       defaultCurrency: state.defaultCurrency,
-      packPriceRsd: state.packPriceRsd,
-      stickersPerPack: state.stickersPerPack,
+      packPriceRsd: PACK_PRICE_RSD,
+      stickersPerPack: STICKERS_PER_PACK,
       tradeDisplayName: state.tradeDisplayName,
       friends: state.friends,
       recentCodes: state.recentCodes,
@@ -172,8 +172,8 @@ export function saveLocalSnapshot(snapshot: CloudSnapshot) {
     language: snapshot.settings.language ?? "sr",
     viewMode: snapshot.settings.viewMode ?? "list",
     defaultCurrency: snapshot.settings.defaultCurrency ?? "RSD",
-    packPriceRsd: snapshot.settings.packPriceRsd ?? 150,
-    stickersPerPack: snapshot.settings.stickersPerPack ?? 7,
+    packPriceRsd: PACK_PRICE_RSD,
+    stickersPerPack: STICKERS_PER_PACK,
     tradeDisplayName: snapshot.settings.tradeDisplayName ?? "",
     friends: snapshot.settings.friends ?? [],
     recentCodes: snapshot.settings.recentCodes ?? [],
@@ -244,8 +244,8 @@ export async function loadCloudCollection(supabase: SupabaseClient, userId: stri
       language: settings.language ?? "sr",
       viewMode: settings.viewMode ?? "list",
       defaultCurrency: settings.defaultCurrency ?? "RSD",
-      packPriceRsd: settings.packPriceRsd ?? 150,
-      stickersPerPack: settings.stickersPerPack ?? 7,
+      packPriceRsd: PACK_PRICE_RSD,
+      stickersPerPack: STICKERS_PER_PACK,
       tradeDisplayName: settings.tradeDisplayName ?? "",
       friends: settings.friends ?? [],
       recentCodes: settings.recentCodes ?? [],

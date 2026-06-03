@@ -9,8 +9,8 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { GuideCard } from "@/components/GuideCard";
 import { Button, Card } from "@/components/ui/Primitives";
 import { useI18n } from "@/hooks/useI18n";
-import { formatMoney } from "@/lib/spending";
-import { excludedVariantCount, fullChecklistCount, stickerCount } from "@/lib/stickers";
+import { formatMoney, PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
+import { stickerCount } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { ThemePreference } from "@/types/sticker";
 
@@ -25,10 +25,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [dialog, setDialog] = useState<null | "onboarding" | "reset">(null);
   const theme = useCollectionStore((state) => state.theme);
-  const packPriceRsd = useCollectionStore((state) => state.packPriceRsd);
-  const stickersPerPack = useCollectionStore((state) => state.stickersPerPack);
   const setTheme = useCollectionStore((state) => state.setTheme);
-  const setPackSettings = useCollectionStore((state) => state.setPackSettings);
   const setOnboarded = useCollectionStore((state) => state.setOnboarded);
   const resetCollection = useCollectionStore((state) => state.resetCollection);
   const resetReview = useCollectionStore((state) => state.resetReview);
@@ -98,34 +95,10 @@ export default function SettingsPage() {
         <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
           {t("settings.packSettingsBody")}
         </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label>
-            <span className="text-sm font-black text-ink dark:text-white">{t("spending.packPrice")}</span>
-            <input
-              value={packPriceRsd}
-              onChange={(event) => setPackSettings({ packPriceRsd: Number(event.target.value) || 150, stickersPerPack })}
-              className="mt-1 w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-              inputMode="decimal"
-              min="1"
-              type="number"
-            />
-          </label>
-          <label>
-            <span className="text-sm font-black text-ink dark:text-white">{t("spending.stickersPerPack")}</span>
-            <input
-              value={stickersPerPack}
-              onChange={(event) => setPackSettings({ packPriceRsd, stickersPerPack: Number(event.target.value) || 7 })}
-              className="mt-1 w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-              inputMode="numeric"
-              min="1"
-              type="number"
-            />
-          </label>
-        </div>
         <p className="mt-3 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-          {t("spending.packFormula", { stickers: stickersPerPack, price: formatMoney(packPriceRsd, language) })}
+          {t("spending.packFormula", { stickers: STICKERS_PER_PACK, price: formatMoney(PACK_PRICE_RSD, language) })}
           <span className="mt-1 block text-xs font-semibold text-neutral-500 dark:text-neutral-400">
-            {t("spending.baseRsdNote", { price: packPriceRsd })}
+            {t("spending.baseRsdNote", { price: PACK_PRICE_RSD })}
           </span>
         </p>
       </Card>
@@ -142,10 +115,8 @@ export default function SettingsPage() {
 
       <Card>
         <h2 className="text-lg font-black text-ink dark:text-white">{t("settings.dataInfoTitle")}</h2>
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <DataPoint label={t("settings.fullChecklistCount")} value={fullChecklistCount} />
+        <div className="mt-4 grid gap-2">
           <DataPoint label={t("settings.albumStickerCount")} value={stickerCount} />
-          <DataPoint label={t("settings.excludedVariantCount")} value={excludedVariantCount} />
         </div>
         <p className="mt-4 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
           {t("settings.albumScopeNote")}

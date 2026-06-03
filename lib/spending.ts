@@ -4,6 +4,9 @@ export const spendingCurrencies: SpendingCurrency[] = ["RSD"];
 export const defaultPackPriceRsd = 150;
 export const defaultStickersPerPack = 7;
 export const rsdPerEur = 117;
+export const PACK_PRICE_RSD = defaultPackPriceRsd;
+export const STICKERS_PER_PACK = defaultStickersPerPack;
+export const EUR_RATE_RSD = rsdPerEur;
 
 export function calculatePackSpending(packsCount: number, packPrice = defaultPackPriceRsd) {
   return Math.max(0, Math.floor(packsCount)) * packPrice;

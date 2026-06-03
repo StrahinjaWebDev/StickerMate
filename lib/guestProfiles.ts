@@ -1,21 +1,27 @@
 "use client";
 
 import { albumId, getLocalSnapshot, saveLocalSnapshot, type CloudSnapshot } from "@/lib/cloudSync";
+import { generateGuestName } from "@/lib/guestNames";
+import { PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
 import type { LanguageCode } from "@/types/sticker";
 
-export type GuestProfile = {
+export type GuestIdentity = {
   id: string;
   name: string;
   createdAt: string;
   updatedAt: string;
 };
 
-export type GuestProfilesState = {
+type LegacyGuestProfile = GuestIdentity;
+
+type LegacyGuestProfilesState = {
   activeId: string;
-  profiles: GuestProfile[];
+  profiles: LegacyGuestProfile[];
 };
 
-const META_KEY = "stickermate-guest-profiles";
+const IDENTITY_KEY = "stickermate-local-guest";
+const MIGRATION_KEY = "stickermate-local-guest-migrated";
+const LEGACY_META_KEY = "stickermate-guest-profiles";
 const PROFILE_KEY_PREFIX = "stickermate-guest-profile:";
 
 function isBrowser() {
@@ -30,14 +36,9 @@ function profileKey(id: string) {
   return `${PROFILE_KEY_PREFIX}${id}`;
 }
 
-function createId() {
-  return `guest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-export function formatGuestProfileName(name: string, language: LanguageCode) {
-  const match = /^(?:Guest|Gost) (\d+)$/i.exec(name.trim());
-  if (!match) return name;
-  return `${language === "sr" ? "Gost" : "Guest"} ${match[1]}`;
+function createGuestId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return `guest_${crypto.randomUUID()}`;
+  return `guest_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function emptySnapshot(language: LanguageCode): CloudSnapshot {
@@ -49,8 +50,8 @@ function emptySnapshot(language: LanguageCode): CloudSnapshot {
       language,
       viewMode: "list",
       defaultCurrency: "RSD",
-      packPriceRsd: 150,
-      stickersPerPack: 7,
+      packPriceRsd: PACK_PRICE_RSD,
+      stickersPerPack: STICKERS_PER_PACK,
       tradeDisplayName: "",
       friends: [],
       recentCodes: [],
@@ -66,31 +67,27 @@ function emptySnapshot(language: LanguageCode): CloudSnapshot {
   };
 }
 
-function readMeta(): GuestProfilesState | null {
+function readIdentity(): GuestIdentity | null {
   if (!isBrowser()) return null;
 
   try {
-    const raw = window.localStorage.getItem(META_KEY);
+    const raw = window.localStorage.getItem(IDENTITY_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<GuestProfilesState>;
-    if (!parsed.activeId || !Array.isArray(parsed.profiles) || parsed.profiles.length === 0) return null;
+    const parsed = JSON.parse(raw) as Partial<GuestIdentity>;
+    if (!parsed.id || !parsed.name || !parsed.createdAt || !parsed.updatedAt) return null;
     return {
-      activeId: parsed.activeId,
-      profiles: parsed.profiles.filter((profile): profile is GuestProfile => {
-        return Boolean(profile?.id && profile.name && profile.createdAt && profile.updatedAt);
-      })
+      id: parsed.id,
+      name: parsed.name,
+      createdAt: parsed.createdAt,
+      updatedAt: parsed.updatedAt
     };
   } catch {
     return null;
   }
 }
 
-function writeMeta(state: GuestProfilesState) {
-  window.localStorage.setItem(META_KEY, JSON.stringify(state));
-}
-
-function writeSnapshot(profileId: string, snapshot: CloudSnapshot) {
-  window.localStorage.setItem(profileKey(profileId), JSON.stringify({ ...snapshot, updatedAt: nowIso() }));
+function writeIdentity(identity: GuestIdentity) {
+  window.localStorage.setItem(IDENTITY_KEY, JSON.stringify(identity));
 }
 
 function readSnapshot(profileId: string) {
@@ -103,112 +100,69 @@ function readSnapshot(profileId: string) {
   }
 }
 
-export function ensureGuestProfiles(language: LanguageCode): GuestProfilesState {
+function writeSnapshot(profileId: string, snapshot: CloudSnapshot) {
+  window.localStorage.setItem(profileKey(profileId), JSON.stringify({ ...snapshot, updatedAt: nowIso() }));
+}
+
+function readLegacyActiveProfile() {
+  try {
+    const raw = window.localStorage.getItem(LEGACY_META_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<LegacyGuestProfilesState>;
+    if (!parsed.activeId || !Array.isArray(parsed.profiles)) return null;
+    const active = parsed.profiles.find((profile) => profile.id === parsed.activeId);
+    return active ? { active, snapshot: readSnapshot(active.id) } : null;
+  } catch {
+    return null;
+  }
+}
+
+export function ensureGuestIdentity(): GuestIdentity {
   if (!isBrowser()) {
-    const id = createId();
-    return {
-      activeId: id,
-      profiles: [{ id, name: "Guest 1", createdAt: nowIso(), updatedAt: nowIso() }]
-    };
+    const now = nowIso();
+    return { id: createGuestId(), name: generateGuestName(), createdAt: now, updatedAt: now };
   }
 
-  const existing = readMeta();
-  if (existing?.profiles.length) {
-    if (!existing.profiles.some((profile) => profile.id === existing.activeId)) {
-      const repaired = { ...existing, activeId: existing.profiles[0].id };
-      writeMeta(repaired);
-      return repaired;
-    }
-    return existing;
-  }
+  const existing = readIdentity();
+  if (existing) return existing;
 
-  const id = createId();
   const now = nowIso();
-  const initial = {
-    activeId: id,
-    profiles: [{ id, name: `${language === "sr" ? "Gost" : "Guest"} 1`, createdAt: now, updatedAt: now }]
-  };
-
-  writeMeta(initial);
-  writeSnapshot(id, getLocalSnapshot());
-  return initial;
-}
-
-export function getGuestProfilesState(language: LanguageCode) {
-  return ensureGuestProfiles(language);
-}
-
-export function saveActiveGuestSnapshot(snapshot = getLocalSnapshot()) {
-  if (!isBrowser()) return;
-  const state = readMeta();
-  if (!state) return;
-  writeSnapshot(state.activeId, snapshot);
-  writeMeta({
-    ...state,
-    profiles: state.profiles.map((profile) =>
-      profile.id === state.activeId ? { ...profile, updatedAt: snapshot.updatedAt ?? nowIso() } : profile
-    )
-  });
-}
-
-export function loadGuestProfile(profileId: string, language: LanguageCode) {
-  if (!isBrowser()) return ensureGuestProfiles(language);
-  const state = ensureGuestProfiles(language);
-  const profile = state.profiles.find((item) => item.id === profileId);
-  if (!profile) return state;
-
-  saveActiveGuestSnapshot();
-  const nextState = { ...state, activeId: profileId };
-  writeMeta(nextState);
-  saveLocalSnapshot(readSnapshot(profileId) ?? emptySnapshot(language));
-  return nextState;
-}
-
-export function createGuestProfile(language: LanguageCode) {
-  const state = ensureGuestProfiles(language);
-  saveActiveGuestSnapshot();
-  const now = nowIso();
-  const profile: GuestProfile = {
-    id: createId(),
-    name: `${language === "sr" ? "Gost" : "Guest"} ${state.profiles.length + 1}`,
+  const legacy = readLegacyActiveProfile();
+  const identity = {
+    id: createGuestId(),
+    name: legacy?.active.name && !/^(?:Guest|Gost) \d+$/i.test(legacy.active.name) ? legacy.active.name : generateGuestName(),
     createdAt: now,
     updatedAt: now
   };
-  const nextState = { activeId: profile.id, profiles: [...state.profiles, profile] };
-  writeMeta(nextState);
-  writeSnapshot(profile.id, emptySnapshot(language));
-  saveLocalSnapshot(emptySnapshot(language));
-  return nextState;
+
+  writeIdentity(identity);
+  writeSnapshot(identity.id, legacy?.snapshot ?? getLocalSnapshot());
+  return identity;
 }
 
-export function renameGuestProfile(profileId: string, name: string, language: LanguageCode) {
-  const state = ensureGuestProfiles(language);
-  const trimmed = name.trim();
-  if (!trimmed) return state;
-  const nextState = {
-    ...state,
-    profiles: state.profiles.map((profile) =>
-      profile.id === profileId ? { ...profile, name: trimmed, updatedAt: nowIso() } : profile
-    )
-  };
-  writeMeta(nextState);
-  return nextState;
-}
+export function hydrateGuestSnapshot(language: LanguageCode) {
+  if (!isBrowser()) return ensureGuestIdentity();
+  const identity = ensureGuestIdentity();
+  const migrated = window.localStorage.getItem(MIGRATION_KEY);
+  const snapshot = readSnapshot(identity.id);
 
-export function deleteGuestProfile(profileId: string, language: LanguageCode) {
-  const state = ensureGuestProfiles(language);
-  if (state.profiles.length <= 1) return state;
-
-  const nextProfiles = state.profiles.filter((profile) => profile.id !== profileId);
-  const nextActiveId = state.activeId === profileId ? nextProfiles[0].id : state.activeId;
-  const nextState = { activeId: nextActiveId, profiles: nextProfiles };
-
-  window.localStorage.removeItem(profileKey(profileId));
-  writeMeta(nextState);
-
-  if (state.activeId === profileId) {
-    saveLocalSnapshot(readSnapshot(nextActiveId) ?? emptySnapshot(language));
+  if (!migrated && snapshot) {
+    saveLocalSnapshot(snapshot);
+    window.localStorage.setItem(MIGRATION_KEY, "true");
+    return identity;
   }
 
-  return nextState;
+  if (!snapshot) writeSnapshot(identity.id, getLocalSnapshot() ?? emptySnapshot(language));
+  return identity;
+}
+
+export function getGuestIdentity() {
+  return ensureGuestIdentity();
+}
+
+export function saveGuestSnapshot(snapshot = getLocalSnapshot()) {
+  if (!isBrowser()) return;
+  const identity = ensureGuestIdentity();
+  writeSnapshot(identity.id, snapshot);
+  writeIdentity({ ...identity, updatedAt: snapshot.updatedAt ?? nowIso() });
 }

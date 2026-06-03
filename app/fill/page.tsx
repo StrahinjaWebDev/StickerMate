@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, Keyboard, Layers3, Save, Sticker, Wallet } from "lucide-react";
+import { ArrowRight, Keyboard, Layers3, Save, Sticker, Wallet, X } from "lucide-react";
 import { Button, Card } from "@/components/ui/Primitives";
 import { ImportPreview } from "@/features/stickers/ImportPreview";
 import { useI18n } from "@/hooks/useI18n";
-import { calculatePackSpending, calculatePackStickers, formatMoney } from "@/lib/spending";
+import { calculatePackSpending, calculatePackStickers, formatMoney, PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
 import { extractStickerCodeCandidates, validateStickerCodes } from "@/services/stickerCodeService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { ImportSummary } from "@/types/sticker";
@@ -18,21 +18,20 @@ function today() {
 export default function FillPage() {
   const { language, t } = useI18n();
   const addConfirmedCodes = useCollectionStore((state) => state.addConfirmedCodes);
-  const packPriceRsd = useCollectionStore((state) => state.packPriceRsd);
-  const stickersPerPack = useCollectionStore((state) => state.stickersPerPack);
   const [codesText, setCodesText] = useState("");
   const [packsText, setPacksText] = useState("");
   const [note, setNote] = useState("");
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [entryOpen, setEntryOpen] = useState(false);
 
   const validation = useMemo(
     () => validateStickerCodes(extractStickerCodeCandidates(codesText)),
     [codesText]
   );
   const packsCount = Math.max(0, Math.floor(Number(packsText) || 0));
-  const packAmount = calculatePackSpending(packsCount, packPriceRsd);
-  const packStickers = calculatePackStickers(packsCount, stickersPerPack);
+  const packAmount = calculatePackSpending(packsCount);
+  const packStickers = calculatePackStickers(packsCount);
 
   function saveEntry() {
     if (validation.validCodes.length === 0) {
@@ -58,8 +57,10 @@ export default function FillPage() {
 
     setSummary(result);
     setMessage(t("entry.saved"));
+    setCodesText("");
     setPacksText("");
     setNote("");
+    setEntryOpen(false);
   }
 
   return (
@@ -77,7 +78,7 @@ export default function FillPage() {
           body={t("fill.quickBody")}
           primary
         />
-        <a href="#new-entry" className="flex min-h-20 items-center gap-3 rounded-lg border border-line bg-white p-3 shadow-sm transition active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900">
+        <button type="button" onClick={() => setEntryOpen((open) => !open)} className="flex min-h-20 items-center gap-3 rounded-lg border border-line bg-white p-3 text-left shadow-sm transition active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-pitch text-white">
             <Sticker size={20} />
           </span>
@@ -86,7 +87,7 @@ export default function FillPage() {
             <span className="mt-1 block text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">{t("fill.newEntryBody")}</span>
           </span>
           <ArrowRight className="shrink-0 text-pitch" size={18} />
-        </a>
+        </button>
         <FillChoice
           href="/collection"
           icon={<Keyboard size={22} />}
@@ -95,13 +96,26 @@ export default function FillPage() {
         />
       </section>
 
-      <Card className="scroll-mt-24" id="new-entry">
+      {entryOpen ? (
+        <Card className="scroll-mt-24" id="new-entry">
         <div>
-          <div>
-            <h2 className="text-xl font-black text-ink dark:text-white">{t("entry.title")}</h2>
-            <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
-              {t("entry.body")}
-            </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black text-ink dark:text-white">{t("entry.title")}</h2>
+              <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
+                {t("entry.body")}
+              </p>
+            </div>
+            <Button
+              className="min-h-10 px-3 text-sm"
+              onClick={() => {
+                setEntryOpen(false);
+                setMessage(null);
+              }}
+            >
+              <X size={17} />
+              {t("common.cancel")}
+            </Button>
           </div>
         </div>
 
@@ -120,8 +134,8 @@ export default function FillPage() {
           </summary>
           <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
             {t("entry.packSpendingBody", {
-              stickers: stickersPerPack,
-              price: formatMoney(packPriceRsd, language)
+              stickers: STICKERS_PER_PACK,
+              price: formatMoney(PACK_PRICE_RSD, language)
             })}
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -142,7 +156,7 @@ export default function FillPage() {
                 {packsCount > 0 ? formatMoney(packAmount, language) : "-"}
               </p>
               <p className="mt-1 text-xs font-bold text-neutral-500 dark:text-neutral-400">
-                {packsCount > 0 ? t("spending.stickersValue", { count: packStickers }) : t("spending.packFormula", { stickers: stickersPerPack, price: formatMoney(packPriceRsd, language) })}
+                {packsCount > 0 ? t("spending.stickersValue", { count: packStickers }) : t("spending.packFormula", { stickers: STICKERS_PER_PACK, price: formatMoney(PACK_PRICE_RSD, language) })}
               </p>
             </div>
             <label className="sm:col-span-2">
@@ -156,7 +170,6 @@ export default function FillPage() {
           </div>
         </details>
 
-        {message ? <p className="mt-3 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{message}</p> : null}
         {validation.validCodes.length > 0 ? (
           <p className="mt-3 text-sm font-bold text-pitch">{t("entry.validCount", { count: validation.validCodes.length })}</p>
         ) : null}
@@ -164,8 +177,10 @@ export default function FillPage() {
           <Save size={19} />
           {t("entry.save")}
         </Button>
-        {summary ? <ImportPreview summary={summary} /> : null}
-      </Card>
+        </Card>
+      ) : null}
+      {message ? <p className="rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{message}</p> : null}
+      {summary ? <ImportPreview summary={summary} /> : null}
     </div>
   );
 }

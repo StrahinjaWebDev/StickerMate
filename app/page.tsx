@@ -128,7 +128,7 @@ export default function HomePage() {
           {(teamPreview.length > 0 ? teamPreview : stickersByTeam.slice(0, 4).map((group) => ({ team: group.team, stats: getStats(quantities, group.stickers) }))).map(({ team, stats }) => (
             <Link
               key={team}
-              href={`/team/${encodeURIComponent(team)}`}
+              href={`/collection?section=${encodeURIComponent(team)}`}
               className="rounded-lg bg-field p-3 transition active:scale-[0.98] dark:bg-neutral-950"
             >
               <p className="truncate text-sm font-black text-ink dark:text-white">

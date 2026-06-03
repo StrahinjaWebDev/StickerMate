@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
 import { getStats, stickerByCode, stickers } from "@/lib/stickers";
 import type {
   EntryHistoryItem,
@@ -98,7 +99,6 @@ type CollectionStore = {
   setTradeDisplayName: (name: string) => void;
   upsertFriend: (friend: Omit<TradeFriend, "id" | "importedAt">, mode: "update" | "create") => TradeFriend;
   setDefaultCurrency: (currency: SpendingCurrency) => void;
-  setPackSettings: (settings: { packPriceRsd: number; stickersPerPack: number }) => void;
   addSpendingEntry: (entry: SpendingInput) => SpendingEntry;
   updateSpendingEntry: (id: string, entry: SpendingInput) => void;
   deleteSpendingEntry: (id: string) => void;
@@ -301,8 +301,8 @@ export const useCollectionStore = create<CollectionStore>()(
       tradeHistory: [],
       spendingEntries: [],
       defaultCurrency: "RSD",
-      packPriceRsd: 150,
-      stickersPerPack: 7,
+      packPriceRsd: PACK_PRICE_RSD,
+      stickersPerPack: STICKERS_PER_PACK,
       dismissedGuides: {},
       reviewCurrentIndex: 0,
       reviewCompleted: false,
@@ -452,14 +452,8 @@ export const useCollectionStore = create<CollectionStore>()(
           tradeHistory: Array.isArray(maybePayload.tradeHistory)
             ? sanitizeTradeHistory(maybePayload.tradeHistory)
             : get().tradeHistory,
-          packPriceRsd:
-            typeof maybePayload.settings?.packPriceRsd === "number" && maybePayload.settings.packPriceRsd > 0
-              ? Math.round(maybePayload.settings.packPriceRsd * 100) / 100
-              : get().packPriceRsd,
-          stickersPerPack:
-            typeof maybePayload.settings?.stickersPerPack === "number" && maybePayload.settings.stickersPerPack > 0
-              ? Math.floor(maybePayload.settings.stickersPerPack)
-              : get().stickersPerPack,
+          packPriceRsd: PACK_PRICE_RSD,
+          stickersPerPack: STICKERS_PER_PACK,
           reviewCurrentIndex:
             typeof maybePayload.review?.currentIndex === "number"
               ? Math.max(0, Math.min(stickers.length, Math.floor(maybePayload.review.currentIndex)))
@@ -480,8 +474,6 @@ export const useCollectionStore = create<CollectionStore>()(
           viewMode,
           language,
           defaultCurrency,
-          packPriceRsd,
-          stickersPerPack,
           spendingEntries,
           tradeHistory,
           reviewCurrentIndex,
@@ -494,7 +486,7 @@ export const useCollectionStore = create<CollectionStore>()(
           exportedAt: new Date().toISOString(),
           quantities,
           stats: getStats(quantities, stickers),
-          settings: { theme, viewMode, language, defaultCurrency, packPriceRsd, stickersPerPack },
+          settings: { theme, viewMode, language, defaultCurrency, packPriceRsd: PACK_PRICE_RSD, stickersPerPack: STICKERS_PER_PACK },
           spendingEntries,
           tradeHistory,
           review: {
@@ -515,8 +507,8 @@ export const useCollectionStore = create<CollectionStore>()(
           tradeHistory: [],
           spendingEntries: [],
           defaultCurrency: "RSD",
-          packPriceRsd: 150,
-          stickersPerPack: 7,
+          packPriceRsd: PACK_PRICE_RSD,
+          stickersPerPack: STICKERS_PER_PACK,
           viewMode: "list",
           dismissedGuides: {},
           reviewCurrentIndex: 0,
@@ -552,11 +544,6 @@ export const useCollectionStore = create<CollectionStore>()(
         return nextFriend;
       },
       setDefaultCurrency: (currency) => set({ defaultCurrency: currency }),
-      setPackSettings: ({ packPriceRsd, stickersPerPack }) =>
-        set({
-          packPriceRsd: Math.max(1, Math.round(packPriceRsd * 100) / 100),
-          stickersPerPack: Math.max(1, Math.floor(stickersPerPack))
-        }),
       addSpendingEntry: (entry) => {
         const nextEntry = buildSpendingEntry(entry);
         set((state) => ({ spendingEntries: [nextEntry, ...state.spendingEntries] }));

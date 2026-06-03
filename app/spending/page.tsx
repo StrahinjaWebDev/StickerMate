@@ -8,7 +8,7 @@ import { GuideCard } from "@/components/GuideCard";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { useI18n } from "@/hooks/useI18n";
 import type { TranslationKey } from "@/lib/i18n";
-import { calculatePackSpending, calculatePackStickers, getEntryAmountRsd, getSpendingStats, formatMoney } from "@/lib/spending";
+import { calculatePackSpending, calculatePackStickers, getEntryAmountRsd, getSpendingStats, formatMoney, PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
 import { getStats, stickers } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { SpendingCategory, SpendingEntry } from "@/types/sticker";
@@ -58,8 +58,6 @@ export default function SpendingPage() {
   const { language, t } = useI18n();
   const quantities = useCollectionStore((state) => state.quantities);
   const spendingEntries = useCollectionStore((state) => state.spendingEntries);
-  const packPriceRsd = useCollectionStore((state) => state.packPriceRsd);
-  const stickersPerPack = useCollectionStore((state) => state.stickersPerPack);
   const addSpendingEntry = useCollectionStore((state) => state.addSpendingEntry);
   const updateSpendingEntry = useCollectionStore((state) => state.updateSpendingEntry);
   const deleteSpendingEntry = useCollectionStore((state) => state.deleteSpendingEntry);
@@ -110,7 +108,7 @@ export default function SpendingPage() {
     event.preventDefault();
     const packsCount = form.packsCount ? Math.max(0, Math.floor(Number(form.packsCount))) : 0;
     const manualAmount = form.amount ? Number(form.amount) : 0;
-    const amount = manualAmount > 0 ? manualAmount : form.category === "packs" ? calculatePackSpending(packsCount, packPriceRsd) : 0;
+    const amount = manualAmount > 0 ? manualAmount : form.category === "packs" ? calculatePackSpending(packsCount) : 0;
     if (!Number.isFinite(amount) || amount <= 0) {
       setError(t("spending.amountError"));
       return;
@@ -127,7 +125,7 @@ export default function SpendingPage() {
       category: form.category,
       date: form.date,
       packsCount,
-      stickersCount: form.stickersCount ? Number(form.stickersCount) : packsCount ? calculatePackStickers(packsCount, stickersPerPack) : undefined,
+      stickersCount: form.stickersCount ? Number(form.stickersCount) : packsCount ? calculatePackStickers(packsCount) : undefined,
       note: form.note
     };
 
@@ -213,12 +211,12 @@ export default function SpendingPage() {
                 type="number"
               />
               <span className="mt-1 block text-xs font-bold text-neutral-500 dark:text-neutral-400">
-                {t("spending.packFormula", { stickers: stickersPerPack, price: formatMoney(packPriceRsd, language) })}
+                {t("spending.packFormula", { stickers: STICKERS_PER_PACK, price: formatMoney(PACK_PRICE_RSD, language) })}
               </span>
             </FormField>
             <FormField label={t("spending.autoCalculation")}>
               <div className="rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-                {t("spending.total")}: {formatMoney(calculatePackSpending(Number(form.packsCount) || 0, packPriceRsd), language)}
+                {t("spending.total")}: {formatMoney(calculatePackSpending(Number(form.packsCount) || 0), language)}
               </div>
             </FormField>
             <FormField label={t("spending.category")}>

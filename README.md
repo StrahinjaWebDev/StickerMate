@@ -20,7 +20,7 @@ Sticker images and checklist data are used only for personal tracking and refere
 - Quick Album Fill for one-card-at-a-time setup with saved progress
 - Fill screen with New Entry for multi-code paste and optional pack spending
 - Quantity-based collection tracking: missing, owned, and duplicates
-- Dedicated Collection screen with search, filters, list view, and grid view
+- Dedicated Collection screen with search, status filters, section/team dropdown, list view, and grid view
 - Teams/Reprezentacije page with progress and compact team icons
 - Dashboard statistics with completion progress
 - Instant search by code, player/name, or team
@@ -33,7 +33,7 @@ Sticker images and checklist data are used only for personal tracking and refere
 - Privacy-scoped trade QR generation
 - Friend QR import with immediate trade matching
 - Manual spending tracking for album, packs, bundles, and individual sticker purchases
-- Settings for theme, pack defaults, reset, and onboarding replay
+- Settings for theme, reset, fixed pack-cost reference, and onboarding replay
 - Dismissible in-app help cards and a dedicated Help page
 - LocalStorage autosave for collection data, language, theme, view mode, and review progress
 - PWA-ready manifest and service worker
@@ -100,6 +100,8 @@ The source checklist lives in [data/stickers.json](./data/stickers.json). The fu
 
 The app derives teams, lookup maps, search data, statistics, review order, and image metadata from the active album sticker set.
 
+All user-facing collection progress, missing counts, duplicate counts, review progress, trade lists, spending context, and dashboard statistics use the 980 standard stickers only. The additional imported variant records are retained only for reference/lookup safety and do not count toward completion.
+
 Each sticker is normalized to:
 
 ```ts
@@ -143,7 +145,18 @@ The Fill screen is the main place for updating the album. It offers:
 - New Entry for codes from newly opened stickers
 - Manual Edit through the Collection page
 
-New Entry accepts multiple sticker codes separated by spaces, commas, tabs, or new lines. It validates against the active 980-sticker album dataset and can optionally create a linked spending entry for opened packs.
+The New Entry form is collapsed by default to keep the mobile page short. Tapping New Entry opens the paste form; saving a valid entry collapses it again and shows the import summary. New Entry accepts multiple sticker codes separated by spaces, commas, tabs, or new lines. It validates against the active 980-sticker album dataset and can optionally create a linked spending entry for opened packs.
+
+## Collection Section Filter
+
+The Collection page combines four filters in order:
+
+1. The standard 980-sticker album set
+2. Selected section/team/country
+3. Status filter: all, owned, missing, or duplicates
+4. Search query
+
+Section options are generated from the sticker data, with album sections such as We Are Panini, FIFA World Cup 2026, Host Countries and Cities, and FIFA World Cup History kept near the top. Country/team sections are sorted alphabetically and use the same compact icons/flags as the Teams page. Team cards open Collection with that section preselected.
 
 ## Image System
 
@@ -198,9 +211,13 @@ StickerMate includes a web app manifest and a production-only service worker reg
 
 In development, the app unregisters local StickerMate service workers and clears StickerMate caches so localhost does not get stuck with stale chunks. If local styling ever looks stale during development, stop the dev server, delete `.next`, hard refresh the browser, and run `npm run dev` again.
 
-## Guest Profiles
+## Guest Mode
 
-Guest mode is local-only and works without Supabase. StickerMate creates `Guest 1` / `Gost 1` by default, and users can add, switch, rename, or delete guest profiles from Account/Nalog. Each guest profile stores its own quantities, trades, spending entries, settings, onboarding/help state, and Quick Album Fill review progress in LocalStorage.
+Guest mode is local-only and works without Supabase. On first visit, StickerMate creates one stable local guest identity for the current browser/device. The identity uses an internal id like `guest_<uuid>` and a friendly generated Serbian nickname such as `Album Majstor 7284`.
+
+The generated guest identity is saved in LocalStorage and reused on future visits. There is no manual guest switching, renaming, adding, or deleting. If browser data is cleared, a new local guest identity can be generated.
+
+Guest data remains local-first. Google login is optional; signing in never deletes the local guest collection automatically. When local data and cloud data both exist, the Account card asks whether to save local data online, load cloud data, or merge both.
 
 ## Optional Supabase Cloud Sync
 
@@ -240,7 +257,7 @@ Do not commit `.env.local`. Google Client ID and Google Client Secret are config
 
 First login never deletes local data automatically. If cloud data and local data both exist, the Settings account card asks whether to save local data online, load cloud data, or merge both.
 
-If `docs/supabase-schema.sql` has not been run yet, StickerMate still works normally in guest/localStorage mode. Signed-in users will see a friendly "cloud save is not ready" message and cloud sync will stay disabled until the schema exists.
+If `docs/supabase-schema.sql` has not been run yet, StickerMate still works normally in guest/localStorage mode. Signed-in users will see a compact "cloud save is not ready" status while the collection remains safely stored locally. The app does not keep retrying cloud sync in a loop when the schema is missing.
 
 ### Google Auth Troubleshooting
 
@@ -269,7 +286,7 @@ The QR payload intentionally excludes full collection data, settings, entry hist
 
 StickerMate includes a local spending ledger for collectors who want to track how much money they personally spent on the album. Spending is deliberately manual: trades, QR imports, and friend comparisons never add money automatically.
 
-Spending is stored internally in Serbian dinars. Serbian UI displays RSD, while English UI displays an EUR equivalent using the fixed app rate `1 EUR = 117 RSD`. There are no live exchange-rate calls.
+Spending is stored internally in Serbian dinars. Serbian UI displays RSD, while English UI displays an EUR equivalent using the fixed app rate `1 EUR = 117 RSD`. There are no live exchange-rate calls and no other currency display.
 
 Each spending entry stores:
 
@@ -297,11 +314,13 @@ Default pack calculation:
 1 pack = 7 stickers = 150 RSD
 ```
 
-Backups include `spendingEntries`, pack settings, and language/theme preferences. Old backups without spending data still import successfully.
+Pack price and stickers per pack are fixed app assumptions, not user-editable settings. Old backups with custom pack settings still import successfully, but StickerMate normalizes pack calculations back to 150 RSD and 7 stickers.
+
+Backups include `spendingEntries` and language/theme preferences. Old backups without spending data still import successfully.
 
 ## Roadmap
 
-- Cloud sync with user accounts
+- Cloud sync polish and conflict-resolution testing
 - Friend list polish and richer collection comparison
 - Shareable trade links
 - Spending charts and budget summaries

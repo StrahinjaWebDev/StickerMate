@@ -33,7 +33,9 @@ export function QuickAlbumReview() {
   const quantity = sticker ? getQuantity(quantities, sticker.code) : 0;
   const duplicateCount = sticker ? getDuplicateCount(quantities, sticker.code) : 0;
   const duplicateCountLabel =
-    duplicateCount === 0 ? t("review.noDuplicates") : t("review.duplicateCount", { count: duplicateCount });
+    duplicateCount === 0
+      ? t("review.noDuplicates")
+      : t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount });
   const isComplete = reviewCompleted || currentIndex >= stickers.length;
 
   useEffect(() => {

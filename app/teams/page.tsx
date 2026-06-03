@@ -59,7 +59,7 @@ export default function TeamsPage() {
           {teams.map(({ team, stats }) => (
             <Link
               key={team}
-              href={`/team/${encodeURIComponent(team)}`}
+              href={`/collection?section=${encodeURIComponent(team)}`}
               className="min-w-0 rounded-lg border border-line bg-white p-4 shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:hover:bg-neutral-800"
             >
               <div className="flex items-start justify-between gap-3">

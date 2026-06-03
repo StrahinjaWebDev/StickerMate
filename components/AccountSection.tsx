@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Cloud, LogOut, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Cloud, LogOut, RefreshCw } from "lucide-react";
 import { clsx } from "clsx";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { Button, Card } from "@/components/ui/Primitives";
@@ -19,15 +19,7 @@ import {
   type CloudSnapshot,
   type CloudSyncStatus
 } from "@/lib/cloudSync";
-import {
-  createGuestProfile,
-  deleteGuestProfile,
-  formatGuestProfileName,
-  getGuestProfilesState,
-  loadGuestProfile,
-  renameGuestProfile,
-  type GuestProfilesState
-} from "@/lib/guestProfiles";
+import { getGuestIdentity, type GuestIdentity } from "@/lib/guestProfiles";
 import { useI18n } from "@/hooks/useI18n";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import { createClient } from "@/utils/supabase/client";
@@ -85,8 +77,7 @@ function getProfileInfo(user: User): ProfileInfo {
 }
 
 function getGuestInitials(name: string) {
-  const match = /(\d+)/.exec(name);
-  return match ? `G${match[1]}` : getInitials(name, "guest");
+  return getInitials(name, "guest");
 }
 
 export function AccountSection() {
@@ -98,11 +89,10 @@ export function AccountSection() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [mergePrompt, setMergePrompt] = useState<MergePrompt | null>(null);
   const [authError, setAuthError] = useState(false);
-  const [guestState, setGuestState] = useState<GuestProfilesState | null>(null);
+  const [guestIdentity, setGuestIdentity] = useState<GuestIdentity | null>(null);
   const syncInFlightRef = useRef(false);
   const preparedUserIdRef = useRef<string | null>(null);
 
-  const activeGuest = guestState?.profiles.find((profile) => profile.id === guestState.activeId);
   const profileInfo = user ? getProfileInfo(user) : null;
 
   const setSyncFailure = useCallback(
@@ -178,8 +168,8 @@ export function AccountSection() {
   }, [setSyncFailure]);
 
   useEffect(() => {
-    setGuestState(getGuestProfilesState(language));
-  }, [language]);
+    setGuestIdentity(getGuestIdentity());
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -322,30 +312,7 @@ export function AccountSection() {
     }
   }
 
-  function handleSwitchGuest(profileId: string) {
-    setGuestState(loadGuestProfile(profileId, language));
-  }
-
-  function handleAddGuest() {
-    setGuestState(createGuestProfile(language));
-  }
-
-  function handleRenameGuest() {
-    if (!activeGuest) return;
-    const nextName = window.prompt(t("account.renameGuestPrompt"), formatGuestProfileName(activeGuest.name, language));
-    if (!nextName) return;
-    setGuestState(renameGuestProfile(activeGuest.id, nextName, language));
-  }
-
-  function handleDeleteGuest() {
-    if (!activeGuest) return;
-    if (!window.confirm(t("account.deleteGuestConfirm", { name: formatGuestProfileName(activeGuest.name, language) }))) {
-      return;
-    }
-    setGuestState(deleteGuestProfile(activeGuest.id, language));
-  }
-
-  const guestName = activeGuest ? formatGuestProfileName(activeGuest.name, language) : formatGuestProfileName("Guest 1", language);
+  const guestName = guestIdentity?.name ?? (language === "sr" ? "Lokalni Kolekcionar" : "Local Collector");
   const statusLabel =
     status === "syncing"
       ? t("account.syncing")
@@ -390,56 +357,20 @@ export function AccountSection() {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("account.guestMode")}</p>
                   <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">
-                    {t("account.currentProfile", { name: guestName })}
+                    {t("account.localProfile")}
                   </p>
+                  <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">{guestName}</p>
                   <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
                     {t("account.guestBody")}
                   </p>
+                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
+                    {t("account.guestGooglePrompt")}
+                  </p>
                 </div>
               </div>
-
-              {guestState && activeGuest ? (
-                <div className="mt-4 space-y-3">
-                  {guestState.profiles.length > 1 ? (
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">
-                        {t("account.switchGuest")}
-                      </span>
-                      <select
-                        value={guestState.activeId}
-                        onChange={(event) => handleSwitchGuest(event.target.value)}
-                        className="w-full rounded-lg border-line bg-white text-sm font-bold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-900 dark:text-white"
-                      >
-                        {guestState.profiles.map((profile) => (
-                          <option key={profile.id} value={profile.id}>
-                            {formatGuestProfileName(profile.name, language)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <Button onClick={handleAddGuest}>
-                      <Plus size={18} />
-                      {t("account.addGuest")}
-                    </Button>
-                    <Button onClick={handleRenameGuest}>
-                      <Pencil size={18} />
-                      {t("account.renameGuest")}
-                    </Button>
-                    <Button tone="danger" onClick={handleDeleteGuest} disabled={guestState.profiles.length <= 1}>
-                      <Trash2 size={18} />
-                      {t("account.deleteGuest")}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
             </div>
 
             <div className="rounded-lg border border-line p-3 dark:border-white/10">
-              <p className="text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
-                {t("account.guestSignedOut")}
-              </p>
               <Button className="mt-3 w-full" tone="primary" onClick={signInWithGoogle}>
                 <Cloud size={18} />
                 {t("account.signInGoogle")}
@@ -476,9 +407,9 @@ export function AccountSection() {
                   {mergePrompt.reason === "cloud-empty" ? t("account.cloudEmptyBody") : t("account.mergeBody")}
                 </p>
                 <div className="mt-3 grid gap-2">
-                  <Button tone="primary" onClick={() => resolveMerge("local")}>
-                    {t("account.mergeLocal")}
-                  </Button>
+                <Button tone="primary" onClick={() => resolveMerge("local")}>
+                  {t("account.mergeLocal")}
+                </Button>
                   {mergePrompt.cloud ? (
                     <>
                       <Button onClick={() => resolveMerge("cloud")}>{t("account.mergeCloud")}</Button>
@@ -612,7 +543,7 @@ function AccountWarning({
     <div
       role="alert"
       className={clsx(
-        "rounded-lg border p-3 text-sm font-bold",
+        "rounded-lg border p-3 text-sm font-semibold leading-6",
         tone === "warning" && "border-gold/40 bg-gold/15 text-yellow-800 dark:text-gold",
         tone === "danger" && "border-coral/25 bg-coral/10 text-coral dark:border-coral/40 dark:bg-coral/15"
       )}

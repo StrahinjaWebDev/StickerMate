@@ -2,9 +2,8 @@
 
 import { useEffect } from "react";
 import {
-  ensureGuestProfiles,
-  loadGuestProfile,
-  saveActiveGuestSnapshot
+  hydrateGuestSnapshot,
+  saveGuestSnapshot
 } from "@/lib/guestProfiles";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
@@ -12,14 +11,13 @@ export function GuestProfileHydrator() {
   const language = useCollectionStore((state) => state.language);
 
   useEffect(() => {
-    const state = ensureGuestProfiles(language);
-    loadGuestProfile(state.activeId, language);
+    hydrateGuestSnapshot(language);
 
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
     const unsubscribe = useCollectionStore.subscribe(() => {
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
-        saveActiveGuestSnapshot();
+        saveGuestSnapshot();
       }, 400);
     });
 

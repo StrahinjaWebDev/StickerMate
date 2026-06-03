@@ -13,12 +13,18 @@ export const allStickers: Sticker[] = source.stickers.map((sticker) => {
     imageSource: "laststicker"
   };
 });
+export const standardAlbumStickerCount = 980;
 export const fullChecklistCount = source.canonicalCount || allStickers.length;
 export const excludedVariantStickers = allStickers.filter((sticker) => !isAlbumSticker(sticker));
-export const stickers: Sticker[] = allStickers.filter(isAlbumSticker);
+export const standardAlbumStickers: Sticker[] = allStickers.filter(isAlbumSticker);
+export const stickers: Sticker[] = standardAlbumStickers;
 export const stickerCount = stickers.length;
 export const excludedVariantCount = excludedVariantStickers.length;
 export const edition = source.edition;
+
+if (stickerCount !== standardAlbumStickerCount) {
+  throw new Error(`StickerMate standard album must contain ${standardAlbumStickerCount} stickers, found ${stickerCount}.`);
+}
 
 export const stickerByCode = new Map(stickers.map((sticker) => [sticker.code.toUpperCase(), sticker]));
 export const allStickerByCode = new Map(allStickers.map((sticker) => [normalizeStickerCode(sticker.code), sticker]));
@@ -38,6 +44,10 @@ export function getSticker(code: string) {
 
 export function getAnySticker(code: string) {
   return allStickerByCode.get(normalizeStickerCode(code));
+}
+
+export function getStandardAlbumStickers() {
+  return standardAlbumStickers;
 }
 
 export function isAlbumSticker(sticker: Pick<Sticker, "code">) {
