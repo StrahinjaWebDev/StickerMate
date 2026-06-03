@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, CircleOff, Layers3, Wallet } from "lucide-react";
 import { AccountStatusPrompt } from "@/components/AccountStatusPrompt";
 import { ProgressBar } from "@/components/ProgressBar";
 import { ShareAppButton } from "@/components/ShareAppButton";
+import { Onboarding } from "@/features/stickers/Onboarding";
 import { RecentStickers } from "@/features/stickers/RecentStickers";
 import { StatsCards } from "@/features/stickers/StatsCards";
 import { useI18n } from "@/hooks/useI18n";
@@ -19,6 +20,16 @@ export default function HomePage() {
   const reviewCurrentIndex = useCollectionStore((state) => state.reviewCurrentIndex);
   const reviewCompleted = useCollectionStore((state) => state.reviewCompleted);
   const { language, t } = useI18n();
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    if (useCollectionStore.persist.hasHydrated()) {
+      setHydrated(true);
+      return;
+    }
+
+    return useCollectionStore.persist.onFinishHydration(() => setHydrated(true));
+  }, []);
 
   const stats = useMemo(() => getStats(quantities, stickers), [quantities]);
   const spendingEstimate = useMemo(() => getEstimatedSpendingFromCollection(quantities), [quantities]);
@@ -34,6 +45,14 @@ export default function HomePage() {
     () => stickersByTeam.slice(0, 4).map((group) => ({ team: group.team, stats: getStats(quantities, group.stickers) })),
     [quantities]
   );
+
+  if (!hydrated) {
+    return <div className="min-h-48" aria-busy="true" />;
+  }
+
+  if (stats.owned === 0) {
+    return <Onboarding />;
+  }
 
   return (
     <div className="space-y-5">

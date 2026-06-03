@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, ClipboardList, Keyboard, Layers3, RotateCcw } from "lucide-react";
 import { QuickAlbumReview } from "@/features/stickers/QuickAlbumReview";
@@ -11,7 +12,6 @@ export function Onboarding() {
   const [mode, setMode] = useState<"welcome" | "review" | "reviewChoice">("welcome");
   const reviewCurrentIndex = useCollectionStore((state) => state.reviewCurrentIndex);
   const reviewCompleted = useCollectionStore((state) => state.reviewCompleted);
-  const setOnboarded = useCollectionStore((state) => state.setOnboarded);
   const resetReview = useCollectionStore((state) => state.resetReview);
   const { t } = useI18n();
 
@@ -109,10 +109,9 @@ export function Onboarding() {
               </span>
             </span>
           </button>
-          <button
-            type="button"
+          <Link
+            href="/fill"
             className="flex min-h-28 items-start gap-3 rounded-lg border border-line bg-white p-4 text-left text-ink shadow-sm transition active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:text-white"
-            onClick={() => setOnboarded(true)}
           >
             <Keyboard className="mt-0.5 shrink-0 text-pitch" size={22} />
             <span>
@@ -121,11 +120,10 @@ export function Onboarding() {
                 {t("onboarding.manualSetupBody")}
               </span>
             </span>
-          </button>
-          <button
-            type="button"
+          </Link>
+          <Link
+            href="/collection"
             className="flex min-h-28 items-start gap-3 rounded-lg border border-line px-4 py-4 text-left text-neutral-700 transition active:scale-[0.98] dark:border-white/10 dark:text-neutral-300"
-            onClick={() => setOnboarded(true)}
           >
             <ArrowRight className="mt-0.5 shrink-0 text-neutral-500 dark:text-neutral-400" size={22} />
             <span>
@@ -134,7 +132,7 @@ export function Onboarding() {
                 {t("onboarding.skipBody")}
               </span>
             </span>
-          </button>
+          </Link>
         </div>
       </div>
     </section>
