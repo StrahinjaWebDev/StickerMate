@@ -14,12 +14,9 @@ export const allStickers: Sticker[] = source.stickers.map((sticker) => {
   };
 });
 export const standardAlbumStickerCount = 980;
-export const fullChecklistCount = source.canonicalCount || allStickers.length;
-export const excludedVariantStickers = allStickers.filter((sticker) => !isAlbumSticker(sticker));
 export const standardAlbumStickers: Sticker[] = allStickers.filter(isAlbumSticker);
 export const stickers: Sticker[] = standardAlbumStickers;
 export const stickerCount = stickers.length;
-export const excludedVariantCount = excludedVariantStickers.length;
 export const edition = source.edition;
 
 if (stickerCount !== standardAlbumStickerCount) {

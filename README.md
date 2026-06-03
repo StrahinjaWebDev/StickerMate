@@ -94,6 +94,14 @@ npm run build
 
 StickerMate is a standard Next.js application and can be deployed to Vercel or any platform that supports Next.js. The app does not require a backend for its current local-only mode.
 
+Set `NEXT_PUBLIC_SITE_URL` to the production origin, for example:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://your-app.vercel.app
+```
+
+This value is used for canonical URLs, the sitemap, robots metadata and social sharing previews.
+
 ## Data Structure
 
 The source checklist lives in [data/stickers.json](./data/stickers.json). The full imported checklist contains 1,034 canonical codes. StickerMate filters the active album tracker to the 980 standard stickers and excludes the 54 collector variants whose codes end with lowercase `s`.
@@ -211,6 +219,12 @@ StickerMate includes a web app manifest and a production-only service worker reg
 
 In development, the app unregisters local StickerMate service workers and clears StickerMate caches so localhost does not get stuck with stale chunks. If local styling ever looks stale during development, stop the dev server, delete `.next`, hard refresh the browser, and run `npm run dev` again.
 
+## SEO And Metadata
+
+StickerMate defines root metadata in `app/layout.tsx`, page-level metadata layouts for the main public routes, a generated Open Graph image in `app/opengraph-image.tsx`, a PWA manifest in `app/manifest.ts`, and generated `robots.txt` / `sitemap.xml` routes.
+
+Public SEO routes include Dashboard, Collection, Fill, Trades, Teams, Duplicates, Spending, More, About and Help. Account/settings, QR utility pages, auth callbacks, sticker detail pages and team detail URLs are excluded from the sitemap or marked as utility/private where appropriate so user-specific state is not exposed in metadata.
+
 ## Guest Mode
 
 Guest mode is local-only and works without Supabase. On first visit, StickerMate creates one stable local guest identity for the current browser/device. The identity uses an internal id like `guest_<uuid>` and a friendly generated Serbian nickname such as `Album Majstor 7284`.
@@ -314,7 +328,7 @@ Default pack calculation:
 1 pack = 7 stickers = 150 RSD
 ```
 
-Pack price and stickers per pack are fixed app assumptions, not user-editable settings. Old backups with custom pack settings still import successfully, but StickerMate normalizes pack calculations back to 150 RSD and 7 stickers.
+Pack cost and pack size are fixed app assumptions, not user-editable settings. Old backups with custom pack settings still import successfully, but StickerMate normalizes pack calculations back to 150 RSD and 7 stickers.
 
 Backups include `spendingEntries` and language/theme preferences. Old backups without spending data still import successfully.
 

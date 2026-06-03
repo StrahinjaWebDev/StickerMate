@@ -1,4 +1,4 @@
-const CACHE_NAME = "stickermate-v4";
+const CACHE_NAME = "stickermate-v5";
 const APP_SHELL = ["/icon.svg", "/manifest.webmanifest", "/opengraph-image"];
 
 self.addEventListener("install", (event) => {

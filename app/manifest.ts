@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "StickerMate",
     short_name: "StickerMate",
-    description: "Track your FIFA World Cup 2026 sticker album, duplicates, trades and pack spending.",
+    description: "Track your FIFA World Cup 2026 Panini sticker album, missing stickers, duplicates, trades and collection progress.",
     start_url: "/",
     scope: "/",
     display: "standalone",
@@ -13,6 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#f7f7f4",
     theme_color: "#156f5b",
     categories: ["sports", "utilities", "productivity"],
+    lang: "sr",
     icons: [
       {
         src: "/icon.svg",
