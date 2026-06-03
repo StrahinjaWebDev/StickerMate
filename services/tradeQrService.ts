@@ -68,16 +68,32 @@ type JsQrDecoder = (
   options?: { inversionAttempts?: "dontInvert" | "onlyInvert" | "attemptBoth" }
 ) => { data: string } | null;
 
+export class QrImageNotFoundError extends Error {
+  constructor() {
+    super("QR not found in image");
+    this.name = "QrImageNotFoundError";
+  }
+}
+
 export async function readQrFromImageFile(file: File) {
+  if (!isSupportedQrImageFile(file)) {
+    throw new QrImageNotFoundError();
+  }
+
   const jsQR = (await import("jsqr")).default as JsQrDecoder;
   const bitmap = await createImageBitmap(file);
   try {
     const data = decodeQrFromBitmap(jsQR, bitmap);
-    if (!data) throw new Error("QR not found in image");
+    if (!data) throw new QrImageNotFoundError();
     return data;
   } finally {
     bitmap.close();
   }
+}
+
+function isSupportedQrImageFile(file: File) {
+  if (file.type.startsWith("image/")) return true;
+  return /\.(png|jpe?g|webp)$/i.test(file.name);
 }
 
 export async function decodeQrFromVideoFrame(video: HTMLVideoElement) {

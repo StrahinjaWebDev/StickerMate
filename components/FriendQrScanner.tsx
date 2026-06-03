@@ -20,17 +20,25 @@ export function FriendQrScanner({
   const streamRef = useRef<MediaStream | null>(null);
   const scanTimerRef = useRef<number | null>(null);
   const onScanRef = useRef(onScan);
+  const onCloseRef = useRef(onClose);
   const [error, setError] = useState<string | null>(null);
+  const [active, setActive] = useState(false);
 
   useEffect(() => {
     onScanRef.current = onScan;
-  }, [onScan]);
+    onCloseRef.current = onClose;
+  }, [onClose, onScan]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setError(null);
+      setActive(false);
+      return;
+    }
 
     let cancelled = false;
     setError(null);
+    setActive(false);
 
     function stopStream() {
       if (scanTimerRef.current !== null) {
@@ -40,6 +48,7 @@ export function FriendQrScanner({
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       if (videoRef.current) videoRef.current.srcObject = null;
+      setActive(false);
     }
 
     async function startCamera() {
@@ -60,10 +69,14 @@ export function FriendQrScanner({
 
         streamRef.current = stream;
         const video = videoRef.current;
-        if (!video) return;
+        if (!video) {
+          stopStream();
+          return;
+        }
 
         video.srcObject = stream;
         await video.play();
+        setActive(true);
 
         scanTimerRef.current = window.setInterval(async () => {
           if (cancelled || !videoRef.current) return;
@@ -72,8 +85,13 @@ export function FriendQrScanner({
           stopStream();
           onScanRef.current(data);
         }, 220);
-      } catch {
-        setError(t("friendQr.cameraDenied"));
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "NotAllowedError") {
+          setError(t("friendQr.cameraPermission"));
+        } else {
+          setError(t("friendQr.cameraUnavailable"));
+        }
+        stopStream();
       }
     }
 
@@ -85,30 +103,38 @@ export function FriendQrScanner({
     };
   }, [open, t]);
 
+  function handleClose() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    onCloseRef.current();
+  }
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-ink/95 p-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-3">
-        <div>
-          <p className="text-base font-black text-white">{t("friendQr.scanCamera")}</p>
+        <div className="min-w-0">
+          <p className="text-base font-black text-white">{t("friendQr.scanCameraLong")}</p>
           <p className="mt-1 text-sm font-semibold text-white/80">{t("friendQr.scanCameraHint")}</p>
         </div>
-        <Button className="min-h-10 shrink-0 px-3" onClick={onClose}>
+        <Button className="min-h-10 shrink-0 px-3" onClick={handleClose}>
           <X size={18} />
           {t("common.cancel")}
         </Button>
       </div>
 
       <div className="relative mx-auto mt-4 w-full max-w-lg flex-1 overflow-hidden rounded-lg border border-white/20 bg-black">
-        <video ref={videoRef} className="h-full w-full object-cover" playsInline muted aria-label={t("friendQr.scanCamera")} />
+        <video ref={videoRef} className="h-full w-full object-cover" playsInline muted aria-label={t("friendQr.scanCameraLong")} />
         <div className="pointer-events-none absolute inset-8 rounded-lg border-2 border-white/70" aria-hidden="true" />
       </div>
 
       {error ? (
         <p className="mx-auto mt-4 w-full max-w-lg rounded-lg bg-coral/15 p-3 text-sm font-bold text-coral">{error}</p>
       ) : (
-        <p className="mx-auto mt-4 w-full max-w-lg text-center text-sm font-semibold text-white/75">{t("friendQr.scanCameraHint")}</p>
+        <p className="mx-auto mt-4 w-full max-w-lg text-center text-sm font-semibold text-white/75">
+          {active ? t("friendQr.scanCameraHint") : t("friendQr.cameraPermission")}
+        </p>
       )}
     </div>
   );

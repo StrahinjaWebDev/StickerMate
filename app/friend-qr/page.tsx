@@ -7,9 +7,11 @@ import { FriendQrScanner } from "@/components/FriendQrScanner";
 import { Button, Card } from "@/components/ui/Primitives";
 import { GuideCard } from "@/components/GuideCard";
 import { useI18n } from "@/hooks/useI18n";
-import { getTradeMatch, parseTradeProfilePayload, readQrFromImageFile } from "@/services/tradeQrService";
+import { getTradeMatch, parseTradeProfilePayload, QrImageNotFoundError, readQrFromImageFile } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend, TradeProfilePayload } from "@/types/sticker";
+
+const galleryAccept = "image/png,image/jpeg,image/jpg,image/webp,image/*";
 
 export default function FriendQrPage() {
   const uploadRef = useRef<HTMLInputElement | null>(null);
@@ -22,6 +24,7 @@ export default function FriendQrPage() {
   const [friend, setFriend] = useState<TradeFriend | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [processingImage, setProcessingImage] = useState(false);
   const existingFriend = payload
     ? friends.find((item) => item.name.toLowerCase() === payload.name.toLowerCase())
     : undefined;
@@ -83,12 +86,16 @@ export default function FriendQrPage() {
     event.target.value = "";
     if (!file) return;
 
+    setProcessingImage(true);
+    setMessage(null);
     try {
       const text = await readQrFromImageFile(file);
       applyTradeInput(text);
-    } catch {
+    } catch (error) {
       setPayload(null);
-      setMessage(t("friendQr.qrNotFound"));
+      setMessage(error instanceof QrImageNotFoundError ? t("friendQr.imageInvalid") : t("friendQr.imageInvalid"));
+    } finally {
+      setProcessingImage(false);
     }
   }
 
@@ -134,32 +141,39 @@ export default function FriendQrPage() {
       <GuideCard guide="friendQr" titleKey="guide.friendQrTitle" bodyKey="guide.friendQrBody" />
 
       <Card>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Button tone="primary" onClick={() => setScannerOpen(true)}>
             <Camera size={18} />
             {t("friendQr.scanCamera")}
           </Button>
-          <Button onClick={() => uploadRef.current?.click()}>
+          <Button onClick={() => uploadRef.current?.click()} disabled={processingImage}>
             <ImageUp size={18} />
-            {t("friendQr.uploadQr")}
+            {processingImage ? t("friendQr.processingImage") : t("friendQr.uploadImage")}
           </Button>
           <Button onClick={pasteFromClipboard}>
             <ClipboardPaste size={18} />
-            {t("friendQr.pasteClipboard")}
-          </Button>
-          <Button onClick={() => parseJson()}>
-            <QrCode size={18} />
-            {t("friendQr.importFriend")}
+            {t("friendQr.pasteLinkButton")}
           </Button>
         </div>
-        <input ref={uploadRef} className="hidden" type="file" accept="image/*" capture="environment" onChange={handleQrImage} />
+        <input
+          ref={uploadRef}
+          className="hidden"
+          type="file"
+          accept={galleryAccept}
+          onChange={handleQrImage}
+          aria-label={t("friendQr.uploadImageLong")}
+        />
         <textarea
           value={jsonText}
           onChange={(event) => setJsonText(event.target.value)}
-          className="mt-4 min-h-32 w-full rounded-lg border-line bg-field font-mono text-xs text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white sm:min-h-40"
-          placeholder={t("friendQr.pasteLink")}
-          aria-label={t("friendQr.pasteLink")}
+          className="mt-4 min-h-28 w-full rounded-lg border-line bg-field font-mono text-xs text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white sm:min-h-32"
+          placeholder={t("friendQr.pastePlaceholder")}
+          aria-label={t("friendQr.pastePlaceholder")}
         />
+        <Button className="mt-2 w-full sm:w-auto" onClick={() => parseJson()}>
+          <QrCode size={18} />
+          {t("friendQr.importFriend")}
+        </Button>
 
         {payload ? (
           <div className="mt-4 rounded-lg bg-field p-3 dark:bg-neutral-950">
