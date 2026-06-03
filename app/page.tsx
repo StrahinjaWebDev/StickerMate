@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { ArrowRight, CircleOff, Layers3, Shield, Sticker, Wallet } from "lucide-react";
+import { AccountStatusPrompt } from "@/components/AccountStatusPrompt";
 import { ProgressBar } from "@/components/ProgressBar";
 import { GuideCard } from "@/components/GuideCard";
 import { ShareAppButton } from "@/components/ShareAppButton";
@@ -62,6 +63,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      <AccountStatusPrompt />
       <GuideCard guide="dashboard" titleKey="guide.dashboardTitle" bodyKey="guide.dashboardBody" />
       <StatsCards stats={stats} />
       <section className="grid gap-3 sm:grid-cols-3">

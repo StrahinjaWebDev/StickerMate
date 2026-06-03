@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, Handshake, Home, Layers3, MoreHorizontal, Sticker } from "lucide-react";
 import { clsx } from "clsx";
+import { AccountStatusPrompt } from "@/components/AccountStatusPrompt";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { GuestProfileHydrator } from "@/components/GuestProfileHydrator";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
@@ -45,6 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
+            <AccountStatusPrompt variant="chip" />
             <nav className="hidden items-center gap-1 rounded-lg border border-line bg-white p-1 shadow-sm dark:border-white/10 dark:bg-neutral-900 lg:flex">
               {navItems.map((item) => {
                 const Icon = item.icon;

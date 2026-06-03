@@ -78,7 +78,13 @@ export default function FillPage() {
           body={t("fill.quickBody")}
           primary
         />
-        <button type="button" onClick={() => setEntryOpen((open) => !open)} className="flex min-h-20 items-center gap-3 rounded-lg border border-line bg-white p-3 text-left shadow-sm transition active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900">
+        <button
+          type="button"
+          onClick={() => setEntryOpen(true)}
+          aria-controls="new-entry"
+          aria-expanded={entryOpen}
+          className="flex min-h-20 items-center gap-3 rounded-lg border border-line bg-white p-3 text-left shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+        >
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-pitch text-white">
             <Sticker size={20} />
           </span>
