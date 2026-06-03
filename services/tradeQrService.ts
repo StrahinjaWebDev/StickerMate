@@ -61,6 +61,70 @@ export async function encodeTradeProfileForQr(payload: TradeProfilePayload) {
   ].join(":");
 }
 
+type JsQrDecoder = (
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  options?: { inversionAttempts?: "dontInvert" | "onlyInvert" | "attemptBoth" }
+) => { data: string } | null;
+
+export async function readQrFromImageFile(file: File) {
+  const jsQR = (await import("jsqr")).default as JsQrDecoder;
+  const bitmap = await createImageBitmap(file);
+  try {
+    const data = decodeQrFromBitmap(jsQR, bitmap);
+    if (!data) throw new Error("QR not found in image");
+    return data;
+  } finally {
+    bitmap.close();
+  }
+}
+
+export async function decodeQrFromVideoFrame(video: HTMLVideoElement) {
+  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
+    return null;
+  }
+
+  const jsQR = (await import("jsqr")).default as JsQrDecoder;
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return null;
+
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const image = context.getImageData(0, 0, canvas.width, canvas.height);
+  return jsQR(image.data, canvas.width, canvas.height, { inversionAttempts: "attemptBoth" })?.data ?? null;
+}
+
+function decodeQrFromBitmap(jsQR: JsQrDecoder, bitmap: ImageBitmap) {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return null;
+
+  const scales = [1, 0.7, 0.5];
+  const maxDim = 1400;
+
+  for (const scale of scales) {
+    let width = Math.max(120, Math.floor(bitmap.width * scale));
+    let height = Math.max(120, Math.floor(bitmap.height * scale));
+    if (Math.max(width, height) > maxDim) {
+      const ratio = maxDim / Math.max(width, height);
+      width = Math.floor(width * ratio);
+      height = Math.floor(height * ratio);
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    context.drawImage(bitmap, 0, 0, width, height);
+    const image = context.getImageData(0, 0, width, height);
+    const code = jsQR(image.data, width, height, { inversionAttempts: "attemptBoth" });
+    if (code?.data) return code.data;
+  }
+
+  return null;
+}
+
 export function getTradeMatch(quantities: Record<string, number>, friend: Pick<TradeFriend, "missing" | "duplicates">) {
   const friendMissing = new Set(friend.missing);
   const friendDuplicates = new Set(friend.duplicates);

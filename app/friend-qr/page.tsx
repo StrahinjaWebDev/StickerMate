@@ -1,12 +1,13 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Copy, ImageUp, QrCode, Save } from "lucide-react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Camera, ClipboardPaste, Copy, ImageUp, QrCode, Save } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { FriendQrScanner } from "@/components/FriendQrScanner";
 import { Button, Card } from "@/components/ui/Primitives";
 import { GuideCard } from "@/components/GuideCard";
 import { useI18n } from "@/hooks/useI18n";
-import { getTradeMatch, parseTradeProfilePayload } from "@/services/tradeQrService";
+import { getTradeMatch, parseTradeProfilePayload, readQrFromImageFile } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend, TradeProfilePayload } from "@/types/sticker";
 
@@ -20,44 +21,44 @@ export default function FriendQrPage() {
   const [payload, setPayload] = useState<TradeProfilePayload | null>(null);
   const [friend, setFriend] = useState<TradeFriend | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const existingFriend = payload
     ? friends.find((item) => item.name.toLowerCase() === payload.name.toLowerCase())
     : undefined;
   const match = useMemo(() => (friend ? getTradeMatch(quantities, friend) : null), [friend, quantities]);
   const urlParsedRef = useRef(false);
 
+  const applyTradeInput = useCallback(
+    (text: string) => {
+      setJsonText(text);
+      try {
+        const nextPayload = parseTradeProfilePayload(text);
+        setPayload(nextPayload);
+        setMessage(
+          friends.find((item) => item.name.toLowerCase() === nextPayload.name.toLowerCase())
+            ? t("friendQr.existing")
+            : null
+        );
+        return nextPayload;
+      } catch {
+        setPayload(null);
+        setMessage(t("friendQr.invalid"));
+        return null;
+      }
+    },
+    [friends, t]
+  );
+
   useEffect(() => {
     if (urlParsedRef.current) return;
     const data = new URLSearchParams(window.location.search).get("data");
     if (!data) return;
     urlParsedRef.current = true;
-    setJsonText(data);
-    try {
-      const nextPayload = parseTradeProfilePayload(data);
-      setPayload(nextPayload);
-      setMessage(
-        friends.find((item) => item.name.toLowerCase() === nextPayload.name.toLowerCase())
-          ? t("friendQr.existing")
-          : null
-      );
-    } catch {
-      setPayload(null);
-      setMessage(t("friendQr.invalid"));
-    }
-  }, [friends, t]);
+    applyTradeInput(data);
+  }, [applyTradeInput]);
 
   function parseJson(text = jsonText) {
-    try {
-      const nextPayload = parseTradeProfilePayload(text);
-      const exists = friends.find((item) => item.name.toLowerCase() === nextPayload.name.toLowerCase());
-      setPayload(nextPayload);
-      setMessage(exists ? t("friendQr.existing") : null);
-      return nextPayload;
-    } catch {
-      setPayload(null);
-      setMessage(t("friendQr.invalid"));
-      return null;
-    }
+    return applyTradeInput(text);
   }
 
   function importFriend(mode: "update" | "create") {
@@ -83,12 +84,35 @@ export default function FriendQrPage() {
     if (!file) return;
 
     try {
-      const text = await readQrFromImage(file);
-      setJsonText(text);
-      parseJson(text);
+      const text = await readQrFromImageFile(file);
+      applyTradeInput(text);
     } catch {
-      setMessage(t("friendQr.invalid"));
+      setPayload(null);
+      setMessage(t("friendQr.qrNotFound"));
     }
+  }
+
+  async function pasteFromClipboard() {
+    if (!navigator.clipboard?.readText) {
+      setMessage(t("friendQr.pasteFailed"));
+      return;
+    }
+
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setMessage(t("friendQr.pasteEmpty"));
+        return;
+      }
+      applyTradeInput(text);
+    } catch {
+      setMessage(t("friendQr.pasteFailed"));
+    }
+  }
+
+  function handleScan(data: string) {
+    setScannerOpen(false);
+    applyTradeInput(data);
   }
 
   async function copyWhatsApp() {
@@ -110,12 +134,20 @@ export default function FriendQrPage() {
       <GuideCard guide="friendQr" titleKey="guide.friendQrTitle" bodyKey="guide.friendQrBody" />
 
       <Card>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button tone="primary" onClick={() => setScannerOpen(true)}>
+            <Camera size={18} />
+            {t("friendQr.scanCamera")}
+          </Button>
           <Button onClick={() => uploadRef.current?.click()}>
             <ImageUp size={18} />
             {t("friendQr.uploadQr")}
           </Button>
-          <Button tone="primary" onClick={() => parseJson()}>
+          <Button onClick={pasteFromClipboard}>
+            <ClipboardPaste size={18} />
+            {t("friendQr.pasteClipboard")}
+          </Button>
+          <Button onClick={() => parseJson()}>
             <QrCode size={18} />
             {t("friendQr.importFriend")}
           </Button>
@@ -177,6 +209,8 @@ export default function FriendQrPage() {
           )}
         </Card>
       ) : null}
+
+      <FriendQrScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={handleScan} />
     </div>
   );
 }
@@ -197,19 +231,4 @@ function MatchList({ title, codes, countText }: { title: string; codes: string[]
       </div>
     </div>
   );
-}
-
-async function readQrFromImage(file: File) {
-  const jsQR = (await import("jsqr")).default;
-  const bitmap = await createImageBitmap(file);
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Canvas unavailable");
-  context.drawImage(bitmap, 0, 0);
-  const image = context.getImageData(0, 0, canvas.width, canvas.height);
-  const code = jsQR(image.data, image.width, image.height);
-  if (!code?.data) throw new Error("QR not found");
-  return code.data;
 }
