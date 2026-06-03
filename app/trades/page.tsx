@@ -50,7 +50,6 @@ export default function TradesPage() {
   const [friendName, setFriendName] = useState("");
   const [giveText, setGiveText] = useState("");
   const [receiveText, setReceiveText] = useState("");
-  const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showFullMessage, setShowFullMessage] = useState(false);
   const previewLimit = useDuplicatePreviewLimit();
@@ -122,13 +121,11 @@ export default function TradesPage() {
       friendName,
       stickersGiven: given,
       stickersReceived: received,
-      note,
       appliedToCollection: true
     });
     setFriendName("");
     setGiveText("");
     setReceiveText("");
-    setNote("");
     setError(null);
     setFormOpen(false);
   }
@@ -360,13 +357,6 @@ export default function TradesPage() {
                 placeholder="BRA14 ARG17"
               />
             </TradeField>
-            <TradeField label={t("spending.note")} className="sm:col-span-2">
-              <textarea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                className="min-h-20 w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-              />
-            </TradeField>
             {error ? <p className="rounded-lg bg-coral/10 p-3 text-sm font-bold text-coral sm:col-span-2">{error}</p> : null}
             <Button tone="primary" type="submit" className="sm:col-span-2">
               <Check size={18} />
@@ -402,6 +392,11 @@ export default function TradesPage() {
                     <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
                       {t("trades.iReceive")}: {trade.stickersReceived.join(", ") || "-"}
                     </p>
+                    {trade.note ? (
+                      <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+                        {t("spending.note")}: {trade.note}
+                      </p>
+                    ) : null}
                     {trade.undoneAt ? (
                       <Badge tone="danger" className="mt-2">
                         {t("trades.undone")}
