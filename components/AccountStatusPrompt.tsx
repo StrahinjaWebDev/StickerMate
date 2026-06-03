@@ -17,35 +17,9 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
   const { t } = useI18n();
   const user = useAuthSyncStore((state) => state.user);
   const status = useAuthSyncStore((state) => state.status);
-  const messageKey = useAuthSyncStore((state) => state.messageKey);
-  const mergePrompt = useAuthSyncStore((state) => state.mergePrompt);
-
-  const statusLabel =
-    status === "syncing"
-      ? messageKey === "account.loadingOnline"
-        ? t("account.loadingOnline")
-        : t("account.syncing")
-      : status === "dirty"
-        ? t("account.waitingToSync")
-      : status === "synced"
-        ? t("account.savedOnline")
-        : status === "auth_expired"
-          ? t("account.sessionExpired")
-        : status === "disabled_missing_tables"
-          ? t("account.cloudStatusFailed")
-          : status === "failed"
-            ? t("account.cloudStatusFailed")
-            : status === "idle"
-              ? user
-                ? mergePrompt
-                  ? t("account.chooseSync")
-                  : t("account.savedOnline")
-                : t("account.localOnly")
-              : user
-                ? t("account.savedOnline")
-                : t("account.localOnly");
   const profileInfo = user ? getProfileInfo(user) : null;
   const displayName = profileInfo?.displayName ?? profileInfo?.email ?? "";
+  const backupUnavailable = status === "failed" || status === "disabled_missing_tables";
 
   if (variant === "chip") {
     if (!user) {
@@ -53,29 +27,28 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
         <button
           type="button"
           onClick={signInWithGoogle}
-          aria-label={t("account.saveOnline")}
+          aria-label={t("account.signInForBackup")}
           className={clsx(
             "hidden h-10 min-w-0 items-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-black text-ink shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 sm:inline-flex",
             className
           )}
         >
           <Cloud size={17} />
-          <span className="hidden md:inline">{t("account.saveOnline")}</span>
+          <span className="hidden md:inline">{t("account.signInForBackup")}</span>
         </button>
       );
     }
 
     return (
       <Link
-        href="/settings"
+        href="/more"
         className={clsx(
           "hidden h-10 min-w-0 items-center gap-2 rounded-lg border border-line bg-white px-2 text-sm font-black text-ink shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 sm:inline-flex",
           className
         )}
       >
         <MiniAvatar avatarUrl={profileInfo?.avatarUrl ?? null} initials={profileInfo?.initials ?? "U"} />
-        <span className="hidden max-w-28 truncate xl:inline">{displayName}</span>
-        <span className="max-w-32 truncate text-xs text-neutral-500 dark:text-neutral-400">{statusLabel}</span>
+        <span className="hidden max-w-32 truncate xl:inline">{displayName}</span>
       </Link>
     );
   }
@@ -87,7 +60,7 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
           "rounded-lg border border-pitch/20 bg-pitch/10 p-3 shadow-sm dark:border-pitch/30 dark:bg-pitch/15 sm:p-4",
           className
         )}
-        aria-label={t("account.saveOnline")}
+        aria-label={t("account.signInForBackup")}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
@@ -95,10 +68,8 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
               <Cloud size={20} />
             </span>
             <div className="min-w-0">
-              <p className="font-black text-ink dark:text-white">{t("account.saveOnline")}</p>
-              <p className="mt-0.5 text-sm font-semibold leading-5 text-neutral-700 dark:text-neutral-300">
-                {t("account.localDataShort")}
-              </p>
+              <p className="font-black text-ink dark:text-white">{t("account.signInForBackup")}</p>
+              <p className="mt-0.5 text-sm font-semibold leading-5 text-neutral-700 dark:text-neutral-300">{t("account.guestBody")}</p>
             </div>
           </div>
           <Button className="w-full shrink-0 px-3 text-sm sm:w-auto" tone="primary" onClick={signInWithGoogle}>
@@ -112,7 +83,7 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
 
   return (
     <Link
-      href="/settings"
+      href="/more"
       className={clsx(
         "flex min-w-0 items-center gap-3 rounded-lg border border-line bg-white p-3 text-ink shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 sm:p-4",
         className
@@ -123,7 +94,7 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
       <span className="min-w-0 flex-1">
         <span className="block truncate font-black">{t("account.signedInCompact", { name: displayName })}</span>
         <span className="mt-0.5 block truncate text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-          {statusLabel} · {t("account.openAccount")}
+          {backupUnavailable ? t("account.backupUnavailable") : t("account.onlineBackupEnabled")}
         </span>
       </span>
       <UserCircle className="shrink-0 text-pitch" size={21} />

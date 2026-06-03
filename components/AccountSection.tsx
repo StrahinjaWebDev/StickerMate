@@ -10,19 +10,22 @@ import { resolveCloudMerge, runManualSync, signInWithGoogle, signOutLocally, use
 import { useI18n } from "@/hooks/useI18n";
 import type { TranslationKey } from "@/lib/i18n";
 
+const isDev = process.env.NODE_ENV === "development";
+
 export function AccountSection() {
   const { language, t } = useI18n();
   const user = useAuthSyncStore((state) => state.user);
   const status = useAuthSyncStore((state) => state.status);
   const messageKey = useAuthSyncStore((state) => state.messageKey);
   const authMessageKey = useAuthSyncStore((state) => state.authMessageKey);
-  const lastSyncedAt = useAuthSyncStore((state) => state.lastSyncedAt);
   const mergePrompt = useAuthSyncStore((state) => state.mergePrompt);
   const [authError, setAuthError] = useState(false);
   const [localMessageKey, setLocalMessageKey] = useState<TranslationKey | null>(null);
   const [guestIdentity, setGuestIdentity] = useState<GuestIdentity | null>(null);
 
   const profileInfo = user ? getProfileInfo(user) : null;
+  const backupUnavailable = status === "failed" || status === "disabled_missing_tables";
+  const backupEnabled = Boolean(user) && !backupUnavailable && status !== "auth_expired";
 
   useEffect(() => {
     setGuestIdentity(getGuestIdentity());
@@ -57,77 +60,43 @@ export function AccountSection() {
   }
 
   const guestName = guestIdentity?.name ?? (language === "sr" ? "Lokalni Kolekcionar" : "Local Collector");
-  const statusLabel =
-    status === "syncing"
-      ? messageKey === "account.loadingOnline"
-        ? t("account.loadingOnline")
-        : t("account.syncing")
-      : status === "dirty"
-        ? t("account.waitingToSync")
-        : status === "synced"
-          ? t("account.savedOnline")
-          : status === "auth_expired"
-            ? t("account.sessionExpired")
-            : status === "disabled_missing_tables"
-              ? t("account.cloudStatusFailed")
-              : status === "failed"
-                ? t("account.cloudStatusFailed")
-                : status === "idle"
-                  ? user
-                    ? mergePrompt
-                      ? t("account.chooseSync")
-                      : t("account.savedOnline")
-                    : t("account.localOnly")
-                  : user
-                    ? t("account.savedOnline")
-                    : t("account.localOnly");
-  const statusTone =
-    status === "synced" ? "success" : status === "syncing" ? "syncing" : status === "failed" || status === "auth_expired" ? "failed" : status === "disabled_missing_tables" ? "warning" : "neutral";
   const visibleMessageKey = authMessageKey ?? messageKey ?? localMessageKey;
 
   return (
     <Card>
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-black text-ink dark:text-white">{t("account.title")}</h2>
-          <StatusPill label={statusLabel} tone={statusTone} />
-        </div>
+        <h2 className="text-lg font-black text-ink dark:text-white">{t("account.title")}</h2>
 
         {authError ? (
-          <AccountWarning tone="danger" message={t("account.googleAuthFailed")} actionLabel={t("account.retryGoogle")} onAction={handleGoogleSignIn} />
+          <InlineNotice message={t("account.googleAuthFailed")} actionLabel={t("account.retryGoogle")} onAction={handleGoogleSignIn} />
         ) : null}
 
         {status === "auth_expired" ? (
-          <AccountWarning tone="danger" message={t("account.sessionExpired")} actionLabel={t("account.signInGoogle")} onAction={handleGoogleSignIn} />
+          <InlineNotice message={t("account.sessionExpired")} actionLabel={t("account.signInGoogle")} onAction={handleGoogleSignIn} />
         ) : null}
 
         {!user ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
               <div className="flex min-w-0 items-center gap-3">
                 <FallbackAvatar initials={getGuestInitials(guestName)} localOnly />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("account.guestMode")}</p>
-                  <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">{guestName}</p>
-                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
-                    {t("account.guestBody")}
-                  </p>
+                  {guestIdentity ? (
+                    <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">{guestName}</p>
+                  ) : null}
+                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">{t("account.guestBody")}</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-lg border border-line p-3 dark:border-white/10">
-              <p className="text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
-                {t("account.guestGooglePrompt")}
-              </p>
-              <Button className="mt-3 w-full" tone="primary" onClick={handleGoogleSignIn}>
-                <Cloud size={18} />
-                {t("account.signInGoogle")}
-              </Button>
-            </div>
+            <Button className="w-full" tone="primary" onClick={handleGoogleSignIn}>
+              <Cloud size={18} />
+              {t("account.signInForBackup")}
+            </Button>
           </div>
         ) : profileInfo ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
               <div className="flex min-w-0 items-center gap-3">
                 <ProfileAvatar avatarUrl={profileInfo.avatarUrl} initials={profileInfo.initials} alt={profileInfo.displayName ?? profileInfo.email} />
@@ -139,11 +108,12 @@ export function AccountSection() {
                   <p className={clsx("break-words text-sm font-bold text-neutral-600 dark:text-neutral-300", profileInfo.displayName && "mt-1")}>
                     {profileInfo.email}
                   </p>
+                  {backupEnabled ? (
+                    <p className="mt-2 inline-flex rounded-md bg-pitch/10 px-2 py-1 text-xs font-black text-pitch">
+                      {t("account.onlineBackupEnabled")}
+                    </p>
+                  ) : null}
                 </div>
-              </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <InfoRow label={t("account.cloudSaveStatus")} value={statusLabel} />
-                <InfoRow label={t("account.lastSynced")} value={lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "-"} />
               </div>
             </div>
 
@@ -153,9 +123,7 @@ export function AccountSection() {
                   {mergePrompt.reason === "cloud-empty" ? t("account.saveOnlineTitle") : t("account.mergeTitle")}
                 </p>
                 {mergePrompt.reason === "cloud-empty" ? null : (
-                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-700 dark:text-neutral-300">
-                    {t("account.mergeBody")}
-                  </p>
+                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-700 dark:text-neutral-300">{t("account.mergeBody")}</p>
                 )}
                 <div className="mt-3 grid gap-2">
                   {mergePrompt.reason === "cloud-empty" ? (
@@ -179,35 +147,28 @@ export function AccountSection() {
               </div>
             ) : null}
 
-            {status === "disabled_missing_tables" ? (
-              <AccountWarning tone="warning" message={t("account.cloudNotReady")} actionLabel={t("account.retrySync")} onAction={runManualSync} />
+            {backupUnavailable ? (
+              <p className="text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">{t("account.backupUnavailable")}</p>
             ) : null}
 
-            {status === "failed" ? (
-              <AccountWarning tone="danger" message={t("account.syncWarning")} actionLabel={t("account.retrySync")} onAction={runManualSync} />
-            ) : null}
+            <Button className="w-full" tone="danger" onClick={signOutLocally}>
+              <LogOut size={18} />
+              {t("account.signOut")}
+            </Button>
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button
-                onClick={runManualSync}
-                disabled={status === "syncing" || Boolean(mergePrompt) || status === "disabled_missing_tables"}
-              >
+            {isDev ? (
+              <Button className="w-full" onClick={runManualSync} disabled={status === "syncing" || Boolean(mergePrompt)}>
                 <RefreshCw size={18} />
-                {status === "syncing" ? t("account.syncing") : t("account.syncNowFallback")}
+                Dev sync
               </Button>
-              <Button tone="danger" onClick={signOutLocally}>
-                <LogOut size={18} />
-                {t("account.signOut")}
-              </Button>
-            </div>
+            ) : null}
           </div>
         ) : null}
 
         {visibleMessageKey &&
         visibleMessageKey !== "account.loadingOnline" &&
-        status !== "disabled_missing_tables" &&
-        status !== "failed" &&
-        status !== "auth_expired" ? (
+        status !== "auth_expired" &&
+        !authError ? (
           <p className="rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
             {t(visibleMessageKey as TranslationKey)}
           </p>
@@ -258,61 +219,19 @@ function FallbackAvatar({ initials, localOnly = false }: { initials: string; loc
   );
 }
 
-function StatusPill({
-  label,
-  tone
-}: {
-  label: string;
-  tone: "neutral" | "success" | "syncing" | "warning" | "failed";
-}) {
-  return (
-    <span
-      className={clsx(
-        "shrink-0 rounded-md px-2.5 py-1 text-xs font-black",
-        tone === "neutral" && "bg-field text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300",
-        tone === "success" && "bg-pitch/10 text-pitch",
-        tone === "syncing" && "bg-gold/15 text-yellow-800 dark:text-gold",
-        tone === "warning" && "bg-gold/15 text-yellow-800 dark:text-gold",
-        tone === "failed" && "bg-coral/10 text-coral"
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-white p-3 dark:bg-neutral-900">
-      <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{label}</p>
-      <p className="mt-1 break-words text-sm font-black text-ink dark:text-white">{value}</p>
-    </div>
-  );
-}
-
-function AccountWarning({
-  tone,
+function InlineNotice({
   message,
   actionLabel,
   onAction
 }: {
-  tone: "warning" | "danger";
   message: string;
   actionLabel: string;
   onAction: () => void;
 }) {
   return (
-    <div
-      role="alert"
-      className={clsx(
-        "rounded-lg border p-3 text-sm font-semibold leading-6",
-        tone === "warning" && "border-gold/40 bg-gold/15 text-yellow-800 dark:text-gold",
-        tone === "danger" && "border-coral/25 bg-coral/10 text-coral dark:border-coral/40 dark:bg-coral/15"
-      )}
-    >
+    <div className="rounded-lg border border-coral/25 bg-coral/10 p-3 text-sm font-semibold leading-6 text-coral dark:border-coral/40 dark:bg-coral/15">
       <p>{message}</p>
       <Button className="mt-3 w-full sm:w-auto" onClick={onAction}>
-        <RefreshCw size={18} />
         {actionLabel}
       </Button>
     </div>
