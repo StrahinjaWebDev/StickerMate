@@ -94,13 +94,13 @@ npm run build
 
 StickerMate is a standard Next.js application and can be deployed to Vercel or any platform that supports Next.js. The app does not require a backend for its current local-only mode.
 
-Set `NEXT_PUBLIC_SITE_URL` to the production origin, for example:
+Set `NEXT_PUBLIC_SITE_URL` to the production origin:
 
 ```bash
-NEXT_PUBLIC_SITE_URL=https://your-app.vercel.app
+NEXT_PUBLIC_SITE_URL=https://stickermate.app
 ```
 
-This value is used for canonical URLs, the sitemap, robots metadata and social sharing previews.
+This value is used for canonical URLs, the sitemap, robots metadata and social sharing previews. Client share links and QR codes use the current browser origin so local development and Vercel preview URLs keep working when opened directly.
 
 ## Data Structure
 
@@ -223,7 +223,7 @@ In development, the app unregisters local StickerMate service workers and clears
 
 StickerMate defines root metadata in `app/layout.tsx`, page-level metadata layouts for the main public routes, a generated Open Graph image in `app/opengraph-image.tsx`, a PWA manifest in `app/manifest.ts`, and generated `robots.txt` / `sitemap.xml` routes.
 
-Public SEO routes include Dashboard, Collection, Fill, Trades, Teams, Duplicates, Spending, More, About and Help. Account/settings, QR utility pages, auth callbacks, sticker detail pages and team detail URLs are excluded from the sitemap or marked as utility/private where appropriate so user-specific state is not exposed in metadata.
+Public SEO routes indexed in the sitemap are the home page, About and Help. Collection, trades, QR tools, account/settings, auth callbacks, sticker detail pages, team detail URLs and friend comparison pages are marked `noindex` or excluded from the sitemap so user-specific app state is not exposed in search metadata.
 
 ## Guest Mode
 
@@ -252,7 +252,7 @@ Create a local environment file from `.env.example`:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-NEXT_PUBLIC_SITE_URL=
+NEXT_PUBLIC_SITE_URL=https://stickermate.app
 ```
 
 Do not commit `.env.local`. Google Client ID and Google Client Secret are configured in the Supabase Dashboard under Authentication -> Providers -> Google. Never put the Google Client Secret in source code or in `NEXT_PUBLIC_*` variables.
@@ -264,7 +264,9 @@ Do not commit `.env.local`. Google Client ID and Google Client Secret are config
 3. Enable Google provider in Supabase Authentication.
 4. Add the Google Client ID and Secret in the Supabase Dashboard.
 5. Add the Supabase callback URL to Google OAuth Authorized redirect URIs.
-6. Add local and production app URLs in Supabase Auth URL configuration.
+6. Add local and production app URLs in Supabase Auth URL configuration:
+   - Site URL: `https://stickermate.app`
+   - Redirect URLs: `http://localhost:3000/**` and `https://stickermate.app/**` (add any Vercel preview URL only if you still need it for testing)
 7. Run `docs/supabase-schema.sql` in the Supabase SQL Editor before using cloud sync. The production StickerMate beta schema has been applied manually in Supabase.
 8. Deploy to Vercel with the same public Supabase environment variables.
 9. If Google OAuth consent is in testing mode, add every allowed Google account as a test user.
@@ -284,7 +286,7 @@ If Google opens correctly but Supabase redirects back with `Unable to exchange e
 - Google Client Secret mismatch: regenerate the secret in Google Cloud and paste the current value into Supabase Authentication -> Providers -> Google.
 - Missing Supabase callback URL: Google OAuth Authorized redirect URIs must include the exact Supabase callback URL, for example `https://<project-ref>.supabase.co/auth/v1/callback`.
 - Google OAuth testing mode: if the consent screen is in testing, add the Google account as a test user.
-- Wrong Supabase URL configuration: Supabase Site URL should match production, and Redirect URLs should include local and production app URLs such as `http://localhost:3000/**` and `https://your-app.vercel.app/**`.
+- Wrong Supabase URL configuration: Supabase Site URL should match production (`https://stickermate.app`), and Redirect URLs should include `http://localhost:3000/**` and `https://stickermate.app/**`.
 - Stale Vercel environment: after changing `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, or `NEXT_PUBLIC_SITE_URL`, redeploy the Vercel app.
 
 Do not place the Google Client Secret, Supabase service-role key, or any private OAuth credentials in frontend code or committed files.

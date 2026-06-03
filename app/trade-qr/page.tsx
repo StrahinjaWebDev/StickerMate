@@ -10,6 +10,7 @@ import { getProfileInfo } from "@/lib/accountProfile";
 import { useAuthSyncStore } from "@/lib/authSyncStore";
 import { getGuestIdentity, type GuestIdentity } from "@/lib/guestProfiles";
 import { useI18n } from "@/hooks/useI18n";
+import { getClientPublicOrigin } from "@/lib/seo";
 import { buildTradeProfilePayload, buildTradeQrLink, encodeTradeProfileForQr } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
@@ -42,7 +43,7 @@ export default function TradeQrPage() {
     async function renderQr() {
       const QRCode = (await import("qrcode")).default;
       const compactPayload = await encodeTradeProfileForQr(payload);
-      const link = buildTradeQrLink(compactPayload, window.location.origin);
+      const link = buildTradeQrLink(compactPayload, getClientPublicOrigin());
       const dataUrl = await QRCode.toDataURL(link, { errorCorrectionLevel: "M", margin: 1, width: 280 });
       if (!cancelled) {
         setQrLink(link);

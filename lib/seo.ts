@@ -5,7 +5,22 @@ const appDescription =
   "Track your FIFA World Cup 2026 Panini sticker album, missing stickers, duplicates, trades and collection progress.";
 
 export function getSiteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL.replace(/\/$/, "")}`;
+  }
+  return "http://localhost:3000";
+}
+
+/** Client-side origin for share links and QR codes. Uses the current browser origin so local dev and Vercel previews keep working. */
+export function getClientPublicOrigin() {
+  if (typeof window === "undefined") {
+    return getSiteUrl();
+  }
+  return window.location.origin;
 }
 
 export function pageMetadata({

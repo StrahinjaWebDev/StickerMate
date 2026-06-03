@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Share2 } from "lucide-react";
 import { Button } from "@/components/ui/Primitives";
 import { useI18n } from "@/hooks/useI18n";
+import { getClientPublicOrigin } from "@/lib/seo";
 
 async function copyText(text: string) {
   if (navigator.clipboard?.writeText) {
@@ -27,7 +28,7 @@ export function ShareAppButton({ className }: { className?: string }) {
   const [copied, setCopied] = useState(false);
 
   async function handleShare() {
-    const url = window.location.origin;
+    const url = getClientPublicOrigin();
     const title = "StickerMate";
     const text = t("shareApp.text");
 
