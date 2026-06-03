@@ -70,9 +70,15 @@ export function AccountSection() {
               ? t("account.cloudStatusFailed")
               : status === "failed"
                 ? t("account.cloudStatusFailed")
-                : user
-                  ? t("account.waitingToSync")
-                  : t("account.localOnly");
+                : status === "idle"
+                  ? user
+                    ? mergePrompt
+                      ? t("account.chooseSync")
+                      : t("account.savedOnline")
+                    : t("account.localOnly")
+                  : user
+                    ? t("account.savedOnline")
+                    : t("account.localOnly");
   const statusTone =
     status === "synced" ? "success" : status === "syncing" ? "syncing" : status === "failed" || status === "auth_expired" ? "failed" : status === "disabled_missing_tables" ? "warning" : "neutral";
   const visibleMessageKey = authMessageKey ?? messageKey ?? localMessageKey;

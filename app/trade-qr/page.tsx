@@ -89,7 +89,13 @@ export default function TradeQrPage() {
 
         <div className="mt-4 grid gap-4 sm:grid-cols-[300px_1fr] sm:items-start">
           <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
-            {qrUrl ? <img src={qrUrl} alt={t("tradeQr.title")} className="mx-auto h-64 w-64 rounded bg-white p-2" /> : null}
+            {qrUrl ? (
+              <img src={qrUrl} alt={t("tradeQr.title")} className="mx-auto h-56 w-56 rounded bg-white p-2 sm:h-64 sm:w-64" />
+            ) : (
+              <div className="mx-auto grid h-56 w-56 place-items-center rounded bg-white p-2 sm:h-64 sm:w-64">
+                <p className="px-4 text-center text-sm font-semibold text-neutral-500">{t("tradeQr.generating")}</p>
+              </div>
+            )}
           </div>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">

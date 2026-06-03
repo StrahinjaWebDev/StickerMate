@@ -31,9 +31,13 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
           ? t("account.cloudStatusFailed")
           : status === "failed"
             ? t("account.cloudStatusFailed")
-            : user
-              ? t("account.waitingToSync")
-              : t("account.localOnly");
+            : status === "idle"
+              ? user
+                ? t("account.savedOnline")
+                : t("account.localOnly")
+              : user
+                ? t("account.savedOnline")
+                : t("account.localOnly");
   const profileInfo = user ? getProfileInfo(user) : null;
   const displayName = profileInfo?.displayName ?? profileInfo?.email ?? "";
 

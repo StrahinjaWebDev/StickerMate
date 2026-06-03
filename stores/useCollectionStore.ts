@@ -98,6 +98,7 @@ type CollectionStore = {
   selectMany: (codes: string[]) => void;
   setTradeDisplayName: (name: string) => void;
   upsertFriend: (friend: Omit<TradeFriend, "id" | "importedAt">, mode: "update" | "create") => TradeFriend;
+  removeFriend: (id: string) => void;
   setDefaultCurrency: (currency: SpendingCurrency) => void;
   addSpendingEntry: (entry: SpendingInput) => SpendingEntry;
   updateSpendingEntry: (id: string, entry: SpendingInput) => void;
@@ -543,6 +544,10 @@ export const useCollectionStore = create<CollectionStore>()(
 
         return nextFriend;
       },
+      removeFriend: (id) =>
+        set((state) => ({
+          friends: state.friends.filter((friend) => friend.id !== id)
+        })),
       setDefaultCurrency: (currency) => set({ defaultCurrency: currency }),
       addSpendingEntry: (entry) => {
         const nextEntry = buildSpendingEntry(entry);

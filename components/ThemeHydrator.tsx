@@ -5,6 +5,7 @@ import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export function ThemeHydrator() {
   const theme = useCollectionStore((state) => state.theme);
+  const language = useCollectionStore((state) => state.language);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -12,7 +13,8 @@ export function ThemeHydrator() {
     const shouldUseDark = theme === "dark" || (theme === "system" && systemDark);
 
     root.classList.toggle("dark", shouldUseDark);
-  }, [theme]);
+    root.lang = language;
+  }, [language, theme]);
 
   return null;
 }

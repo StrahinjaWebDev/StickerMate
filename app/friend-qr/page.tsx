@@ -24,10 +24,13 @@ export default function FriendQrPage() {
     ? friends.find((item) => item.name.toLowerCase() === payload.name.toLowerCase())
     : undefined;
   const match = useMemo(() => (friend ? getTradeMatch(quantities, friend) : null), [friend, quantities]);
+  const urlParsedRef = useRef(false);
 
   useEffect(() => {
+    if (urlParsedRef.current) return;
     const data = new URLSearchParams(window.location.search).get("data");
     if (!data) return;
+    urlParsedRef.current = true;
     setJsonText(data);
     try {
       const nextPayload = parseTradeProfilePayload(data);
@@ -46,8 +49,9 @@ export default function FriendQrPage() {
   function parseJson(text = jsonText) {
     try {
       const nextPayload = parseTradeProfilePayload(text);
+      const exists = friends.find((item) => item.name.toLowerCase() === nextPayload.name.toLowerCase());
       setPayload(nextPayload);
-      setMessage(existingFriend ? t("friendQr.existing") : null);
+      setMessage(exists ? t("friendQr.existing") : null);
       return nextPayload;
     } catch {
       setPayload(null);
@@ -97,7 +101,7 @@ export default function FriendQrPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <Card className="shadow-lift">
-        <h1 className="text-3xl font-black text-ink dark:text-white">{t("friendQr.title")}</h1>
+        <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("friendQr.title")}</h1>
         <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
           {t("friendQr.subtitle")}
         </p>
@@ -120,9 +124,9 @@ export default function FriendQrPage() {
         <textarea
           value={jsonText}
           onChange={(event) => setJsonText(event.target.value)}
-          className="mt-4 min-h-48 w-full rounded-lg border-line bg-field font-mono text-xs text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-          placeholder={t("friendQr.pasteJson")}
-          aria-label={t("friendQr.pasteJson")}
+          className="mt-4 min-h-32 w-full rounded-lg border-line bg-field font-mono text-xs text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white sm:min-h-40"
+          placeholder={t("friendQr.pasteLink")}
+          aria-label={t("friendQr.pasteLink")}
         />
 
         {payload ? (

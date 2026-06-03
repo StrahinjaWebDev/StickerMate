@@ -26,7 +26,7 @@ export default function MorePage() {
       <Card className="shadow-lift">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-black text-ink dark:text-white">{t("more.title")}</h1>
+            <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("more.title")}</h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
               {t("more.body")}
             </p>

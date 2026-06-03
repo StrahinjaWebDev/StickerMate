@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
-import { Check, CheckCircle2, Copy, History, MessageCircle, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Check, CheckCircle2, Copy, History, MessageCircle, Plus, QrCode, RotateCcw, Trash2, UserPlus } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { GuideCard } from "@/components/GuideCard";
@@ -24,6 +25,7 @@ export default function TradesPage() {
   const addTradeHistory = useCollectionStore((state) => state.addTradeHistory);
   const deleteTradeHistory = useCollectionStore((state) => state.deleteTradeHistory);
   const undoTradeHistory = useCollectionStore((state) => state.undoTradeHistory);
+  const removeFriend = useCollectionStore((state) => state.removeFriend);
   const [messageType, setMessageType] = useState<"missing" | "duplicates" | "both">("both");
   const [copied, setCopied] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -114,11 +116,36 @@ export default function TradesPage() {
   return (
     <div className="space-y-5">
       <section className="rounded-lg border border-line bg-white p-4 shadow-lift dark:border-white/10 dark:bg-neutral-900 sm:p-5">
-        <h1 className="text-3xl font-black text-ink dark:text-white">{t("trades.title")}</h1>
+        <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("trades.title")}</h1>
         <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t("trades.body")}</p>
       </section>
 
       <GuideCard guide="trades" titleKey="guide.tradesTitle" bodyKey="guide.tradesBody" />
+
+      <Card>
+        <h2 className="text-lg font-black text-ink dark:text-white">{t("trades.qrSectionTitle")}</h2>
+        <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">{t("trades.qrSectionBody")}</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <Link
+            href="/trade-qr"
+            className="flex min-h-14 items-center gap-3 rounded-lg border border-line bg-field px-3 text-ink transition active:scale-[0.98] dark:border-white/10 dark:bg-neutral-950 dark:text-white"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-pitch text-white">
+              <QrCode size={18} />
+            </span>
+            <span className="font-black">{t("trades.myQr")}</span>
+          </Link>
+          <Link
+            href="/friend-qr"
+            className="flex min-h-14 items-center gap-3 rounded-lg border border-line bg-field px-3 text-ink transition active:scale-[0.98] dark:border-white/10 dark:bg-neutral-950 dark:text-white"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-pitch text-white">
+              <UserPlus size={18} />
+            </span>
+            <span className="font-black">{t("trades.scanFriend")}</span>
+          </Link>
+        </div>
+      </Card>
 
       <section className="grid min-w-0 gap-3 lg:grid-cols-2">
         <Card>
@@ -316,10 +343,21 @@ export default function TradesPage() {
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {friends.map((friend) => (
               <div key={friend.id} className="rounded-lg bg-field p-3 dark:bg-neutral-950">
-                <p className="font-black text-ink dark:text-white">{friend.name}</p>
-                <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-                  {t("tradeQr.missingCount", { count: friend.missing.length })} · {t("tradeQr.duplicateCount", { count: friend.duplicates.length })}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-black text-ink dark:text-white">{friend.name}</p>
+                    <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+                      {t("tradeQr.missingCount", { count: friend.missing.length })} · {t("tradeQr.duplicateCount", { count: friend.duplicates.length })}
+                    </p>
+                  </div>
+                  <Button className="min-h-9 shrink-0 px-2 text-xs" tone="danger" onClick={() => removeFriend(friend.id)}>
+                    <Trash2 size={15} />
+                    {t("trades.removeFriend")}
+                  </Button>
+                </div>
+                <Link href="/friend-qr" className="mt-2 inline-block text-sm font-black text-pitch">
+                  {t("trades.viewMatches")}
+                </Link>
               </div>
             ))}
           </div>

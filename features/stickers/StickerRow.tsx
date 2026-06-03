@@ -41,7 +41,7 @@ export function StickerRow({
     <div
       data-sticker-code={sticker.code}
       className={clsx(
-        "grid min-h-[136px] grid-cols-[40px_54px_minmax(0,1fr)] gap-2 rounded-lg border bg-white p-2.5 shadow-sm dark:bg-neutral-900 sm:min-h-[104px] sm:grid-cols-[44px_56px_minmax(0,1fr)_112px] sm:p-3",
+        "grid min-h-[128px] grid-cols-[40px_54px_minmax(0,1fr)] gap-2 rounded-lg border bg-white p-2.5 shadow-sm dark:bg-neutral-900 sm:min-h-[104px] sm:grid-cols-[44px_56px_minmax(0,1fr)_112px] sm:p-3",
         selected ? "border-pitch ring-2 ring-pitch/20" : "border-line dark:border-white/10"
       )}
     >

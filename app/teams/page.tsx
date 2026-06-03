@@ -29,7 +29,7 @@ export default function TeamsPage() {
   return (
     <div className="space-y-5">
       <Card className="shadow-lift">
-        <h1 className="text-3xl font-black text-ink dark:text-white">{t("teams.title")}</h1>
+        <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("teams.title")}</h1>
         <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
           {t("teams.body")}
         </p>
