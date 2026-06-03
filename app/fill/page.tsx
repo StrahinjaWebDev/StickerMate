@@ -2,24 +2,18 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, Keyboard, Layers3, Save, Sticker, Wallet, X } from "lucide-react";
+import { ArrowRight, Keyboard, Layers3, Save, Sticker, X } from "lucide-react";
 import { Button, Card } from "@/components/ui/Primitives";
 import { ImportPreview } from "@/features/stickers/ImportPreview";
 import { useI18n } from "@/hooks/useI18n";
-import { calculatePackSpending, calculatePackStickers, formatMoney, PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
 import { extractStickerCodeCandidates, validateStickerCodes } from "@/services/stickerCodeService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { ImportSummary } from "@/types/sticker";
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export default function FillPage() {
-  const { language, t } = useI18n();
+  const { t } = useI18n();
   const addConfirmedCodes = useCollectionStore((state) => state.addConfirmedCodes);
   const [codesText, setCodesText] = useState("");
-  const [packsText, setPacksText] = useState("");
   const [note, setNote] = useState("");
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -29,9 +23,6 @@ export default function FillPage() {
     () => validateStickerCodes(extractStickerCodeCandidates(codesText)),
     [codesText]
   );
-  const packsCount = Math.max(0, Math.floor(Number(packsText) || 0));
-  const packAmount = calculatePackSpending(packsCount);
-  const packStickers = calculatePackStickers(packsCount);
 
   function saveEntry() {
     if (validation.validCodes.length === 0) {
@@ -39,26 +30,10 @@ export default function FillPage() {
       return;
     }
 
-    const result = addConfirmedCodes(
-      validation.validCodes,
-      note || t("entry.note"),
-      packsCount > 0
-        ? {
-            date: today(),
-            amount: packAmount,
-            currency: "RSD",
-            category: "packs",
-            packsCount,
-            stickersCount: packStickers,
-            note: note || t("entry.note")
-          }
-        : undefined
-    );
-
+    const result = addConfirmedCodes(validation.validCodes, note || t("entry.note"));
     setSummary(result);
     setMessage(t("entry.saved"));
     setCodesText("");
-    setPacksText("");
     setNote("");
     setEntryOpen(false);
   }
@@ -133,48 +108,14 @@ export default function FillPage() {
           aria-label={t("entry.codesLabel")}
         />
 
-        <details className="mt-4 rounded-lg border border-line bg-field p-3 dark:border-white/10 dark:bg-neutral-950">
-          <summary className="flex cursor-pointer items-center gap-2 text-sm font-black text-ink dark:text-white">
-            <Wallet size={17} />
-            {t("entry.packSpending")}
-          </summary>
-          <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
-            {t("entry.packSpendingBody", {
-              stickers: STICKERS_PER_PACK,
-              price: formatMoney(PACK_PRICE_RSD, language)
-            })}
-          </p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label>
-              <span className="text-sm font-black text-ink dark:text-white">{t("spending.packsOptional")}</span>
-              <input
-                value={packsText}
-                onChange={(event) => setPacksText(event.target.value)}
-                className="mt-1 w-full rounded-lg border-line bg-white font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-900 dark:text-white"
-                inputMode="numeric"
-                min="0"
-                type="number"
-              />
-            </label>
-            <div className="rounded-lg bg-white p-3 dark:bg-neutral-900">
-              <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("spending.autoCalculation")}</p>
-              <p className="mt-1 text-lg font-black text-ink dark:text-white">
-                {packsCount > 0 ? formatMoney(packAmount, language) : "-"}
-              </p>
-              <p className="mt-1 text-xs font-bold text-neutral-500 dark:text-neutral-400">
-                {packsCount > 0 ? t("spending.stickersValue", { count: packStickers }) : t("spending.packFormula", { stickers: STICKERS_PER_PACK, price: formatMoney(PACK_PRICE_RSD, language) })}
-              </p>
-            </div>
-            <label className="sm:col-span-2">
-              <span className="text-sm font-black text-ink dark:text-white">{t("spending.note")}</span>
-              <textarea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                className="mt-1 min-h-20 w-full rounded-lg border-line bg-white font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-900 dark:text-white"
-              />
-            </label>
-          </div>
-        </details>
+        <label className="mt-4 block">
+          <span className="text-sm font-black text-ink dark:text-white">{t("spending.note")}</span>
+          <textarea
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            className="mt-1 min-h-20 w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
+          />
+        </label>
 
         {validation.validCodes.length > 0 ? (
           <p className="mt-3 text-sm font-bold text-pitch">{t("entry.validCount", { count: validation.validCodes.length })}</p>

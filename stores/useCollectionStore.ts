@@ -89,7 +89,7 @@ type CollectionStore = {
   increment: (code: string) => void;
   decrement: (code: string) => void;
   markMany: (codes: string[], quantity: number | "increment" | "decrement") => void;
-  addConfirmedCodes: (codes: string[], note: string, spending?: Omit<SpendingInput, "linkedEntryId">) => ImportSummary;
+  addConfirmedCodes: (codes: string[], note: string) => ImportSummary;
   importPayload: (payload: unknown) => { ok: true } | { ok: false; errorKey: "settings.importInvalidError" | "settings.importMissingQuantitiesError" };
   exportPayload: () => ExportPayload;
   resetCollection: () => void;
@@ -340,7 +340,7 @@ export const useCollectionStore = create<CollectionStore>()(
               quantity === 0 || quantity === "decrement" ? state.recentCodes : mergeRecent(state.recentCodes, codes)
           };
         }),
-      addConfirmedCodes: (codes, note, spending) => {
+      addConfirmedCodes: (codes, note) => {
         const seen = new Set<string>();
         const newCodes = new Set<string>();
         const duplicateCodes = new Set<string>();
@@ -382,17 +382,7 @@ export const useCollectionStore = create<CollectionStore>()(
           return {
             quantities: next,
             recentCodes: mergeRecent(state.recentCodes, Array.from(seen)),
-            entryHistory: historyItem ? [historyItem, ...state.entryHistory].slice(0, 50) : state.entryHistory,
-            spendingEntries:
-              historyItem && spending && cleanMoney(spending.amount) > 0
-                ? [
-                    buildSpendingEntry({
-                      ...spending,
-                      linkedEntryId: historyItem.id
-                    }),
-                    ...state.spendingEntries
-                  ]
-                : state.spendingEntries
+            entryHistory: historyItem ? [historyItem, ...state.entryHistory].slice(0, 50) : state.entryHistory
           };
         });
 

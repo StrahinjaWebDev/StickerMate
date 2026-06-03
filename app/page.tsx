@@ -11,7 +11,7 @@ import { Onboarding } from "@/features/stickers/Onboarding";
 import { RecentStickers } from "@/features/stickers/RecentStickers";
 import { StatsCards } from "@/features/stickers/StatsCards";
 import { useI18n } from "@/hooks/useI18n";
-import { formatMoney, getSpendingStats } from "@/lib/spending";
+import { formatMoney, getEstimatedSpendingFromCollection } from "@/lib/spending";
 import { getStats, stickers, stickersByTeam } from "@/lib/stickers";
 import { getTeamIcon } from "@/lib/teamIcons";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -19,16 +19,12 @@ import { useCollectionStore } from "@/stores/useCollectionStore";
 export default function HomePage() {
   const onboarded = useCollectionStore((state) => state.onboarded);
   const quantities = useCollectionStore((state) => state.quantities);
-  const spendingEntries = useCollectionStore((state) => state.spendingEntries);
   const reviewCurrentIndex = useCollectionStore((state) => state.reviewCurrentIndex);
   const reviewCompleted = useCollectionStore((state) => state.reviewCompleted);
   const { language, t } = useI18n();
 
   const stats = useMemo(() => getStats(quantities, stickers), [quantities]);
-  const spendingStats = useMemo(
-    () => getSpendingStats(spendingEntries, stats.owned),
-    [spendingEntries, stats.owned]
-  );
+  const spendingEstimate = useMemo(() => getEstimatedSpendingFromCollection(quantities), [quantities]);
   const teamPreview = useMemo(
     () =>
       stickersByTeam
@@ -82,15 +78,12 @@ export default function HomePage() {
           <span className="min-w-0">
             <span className="block font-black">{t("spending.spent")}</span>
             <span className="mt-0.5 block text-sm font-semibold text-neutral-600 dark:text-neutral-300">
-              {t("spending.costPerSticker")}:{" "}
-              {spendingStats.costPerOwnedStickerRsd
-                ? formatMoney(spendingStats.costPerOwnedStickerRsd, language)
-                : "-"}
+              {t("spending.homeSubtitle")}
             </span>
           </span>
         </span>
         <span className="text-2xl font-black text-ink dark:text-white">
-          {formatMoney(spendingStats.totalSpentRsd, language)}
+          {formatMoney(spendingEstimate.totalSpentRsd, language)}
         </span>
       </Link>
       {!reviewCompleted && reviewCurrentIndex > 0 ? (
