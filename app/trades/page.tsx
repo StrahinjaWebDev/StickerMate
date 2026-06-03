@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
-import { Check, Copy, History, MessageCircle, Plus, QrCode, RotateCcw, Trash2, UserPlus } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ArrowRight, Check, Copy, History, MessageCircle, Plus, QrCode, RotateCcw, Trash2, UserPlus } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
@@ -17,6 +17,20 @@ import { useCollectionStore } from "@/stores/useCollectionStore";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function useDuplicatePreviewLimit() {
+  const [limit, setLimit] = useState(4);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 640px)");
+    const update = () => setLimit(media.matches ? 6 : 4);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return limit;
 }
 
 export default function TradesPage() {
@@ -39,6 +53,7 @@ export default function TradesPage() {
   const [applyToCollection, setApplyToCollection] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFullMessage, setShowFullMessage] = useState(false);
+  const previewLimit = useDuplicatePreviewLimit();
 
   const tradable = useMemo(
     () => stickers.filter((sticker) => getTradableCount(quantities, sticker.code) > 0),
@@ -47,6 +62,11 @@ export default function TradesPage() {
   const missingCodes = useMemo(() => stickers.filter((s) => (quantities[s.code] ?? 0) === 0).map((s) => s.code), [quantities]);
   const duplicateLines = useMemo(
     () => tradable.map((sticker) => `${sticker.code} x${getDuplicateCount(quantities, sticker.code)}`),
+    [quantities, tradable]
+  );
+  const previewStickers = useMemo(() => tradable.slice(0, previewLimit), [previewLimit, tradable]);
+  const tradableCopyCount = useMemo(
+    () => tradable.reduce((sum, sticker) => sum + getDuplicateCount(quantities, sticker.code), 0),
     [quantities, tradable]
   );
 
@@ -149,7 +169,7 @@ export default function TradesPage() {
       </Card>
 
       <Card>
-        <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.myDuplicates")}</h2>
+        <h2 className="text-lg font-black text-ink dark:text-white sm:text-xl">{t("trades.myDuplicates")}</h2>
         {tradable.length === 0 ? (
           <div className="mt-3">
             <EmptyState
@@ -161,33 +181,55 @@ export default function TradesPage() {
             />
           </div>
         ) : (
-          <div className="mt-3 space-y-2">
-            {tradable.slice(0, 8).map((sticker) => (
-              <div key={sticker.code} className="flex min-w-0 items-center justify-between gap-3 rounded-lg bg-field p-2 dark:bg-neutral-950">
-                <StickerImage
-                  sticker={sticker}
-                  quantity={quantities[sticker.code] ?? 0}
-                  className="h-14 w-10 shrink-0"
-                  showTextPlaceholder={false}
-                  sizes="40px"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-black text-ink dark:text-white">
-                    {sticker.code} - {sticker.name}
-                  </p>
-                  <p className="truncate text-xs font-bold text-neutral-500 dark:text-neutral-400">
-                    <span className="mr-1">{getTeamIcon(sticker.team)}</span>
-                    {sticker.team}
-                  </p>
-                </div>
-                <Badge tone="gold" className="shrink-0">
-                  {t(
-                    getDuplicateCount(quantities, sticker.code) === 1 ? "status.duplicateOne" : "status.duplicateMany",
-                    { count: getDuplicateCount(quantities, sticker.code) }
-                  )}
-                </Badge>
-              </div>
-            ))}
+          <div className="mt-3 space-y-3">
+            <div className="space-y-1.5">
+              {previewStickers.map((sticker) => {
+                const duplicateCount = getDuplicateCount(quantities, sticker.code);
+                return (
+                  <div
+                    key={sticker.code}
+                    className="flex min-w-0 items-center gap-2.5 rounded-lg bg-field p-2 dark:bg-neutral-950 sm:gap-3"
+                  >
+                    <StickerImage
+                      sticker={sticker}
+                      quantity={quantities[sticker.code] ?? 0}
+                      className="h-12 w-9 shrink-0 sm:h-14 sm:w-10"
+                      showTextPlaceholder={false}
+                      sizes="40px"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-black text-ink dark:text-white">
+                        <span className="text-neutral-500 dark:text-neutral-400">{sticker.code}</span> {sticker.name}
+                      </p>
+                      <p className="truncate text-xs font-bold text-neutral-500 dark:text-neutral-400">
+                        <span className="mr-1">{getTeamIcon(sticker.team)}</span>
+                        {sticker.team}
+                      </p>
+                    </div>
+                    <Badge tone="gold" className="shrink-0 whitespace-nowrap text-[11px]">
+                      {t(duplicateCount === 1 ? "status.duplicateOne" : "status.duplicateMany", { count: duplicateCount })}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+
+            {tradable.length > previewLimit ? (
+              <p className="text-xs font-semibold text-neutral-600 dark:text-neutral-400">
+                {t("trades.duplicatesPreviewSummary", {
+                  shown: previewStickers.length,
+                  total: tradableCopyCount
+                })}
+              </p>
+            ) : null}
+
+            <Link
+              href="/duplicates"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-black text-ink shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 sm:w-auto"
+            >
+              {t("trades.viewAllDuplicates")}
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
           </div>
         )}
       </Card>
