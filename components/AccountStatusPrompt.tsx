@@ -22,17 +22,17 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
     status === "syncing"
       ? t("account.syncing")
       : status === "dirty"
-        ? t("account.cloudStatusIdle")
+        ? t("account.waitingToSync")
       : status === "synced"
         ? t("account.savedOnline")
         : status === "auth_expired"
           ? t("account.sessionExpired")
         : status === "disabled_missing_tables"
-          ? t("account.cloudStatusNotReady")
+          ? t("account.cloudStatusFailed")
           : status === "failed"
             ? t("account.cloudStatusFailed")
             : user
-              ? t("account.cloudStatusIdle")
+              ? t("account.waitingToSync")
               : t("account.localOnly");
   const profileInfo = user ? getProfileInfo(user) : null;
   const displayName = profileInfo?.displayName ?? profileInfo?.email ?? "";

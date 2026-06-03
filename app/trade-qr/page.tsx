@@ -6,6 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Copy, RefreshCcw, Share2 } from "lucide-react";
 import { Button, Card } from "@/components/ui/Primitives";
 import { GuideCard } from "@/components/GuideCard";
+import { getProfileInfo } from "@/lib/accountProfile";
+import { useAuthSyncStore } from "@/lib/authSyncStore";
+import { getGuestIdentity, type GuestIdentity } from "@/lib/guestProfiles";
 import { useI18n } from "@/hooks/useI18n";
 import { buildTradeProfilePayload, encodeTradeProfileForQr } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -13,16 +16,27 @@ import { useCollectionStore } from "@/stores/useCollectionStore";
 export default function TradeQrPage() {
   const { t } = useI18n();
   const quantities = useCollectionStore((state) => state.quantities);
-  const tradeDisplayName = useCollectionStore((state) => state.tradeDisplayName);
-  const setTradeDisplayName = useCollectionStore((state) => state.setTradeDisplayName);
+  const user = useAuthSyncStore((state) => state.user);
+  const [guestIdentity, setGuestIdentity] = useState<GuestIdentity | null>(null);
   const [qrUrl, setQrUrl] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState(() => new Date().toISOString());
+  const displayName = useMemo(() => {
+    if (user) {
+      const profile = getProfileInfo(user);
+      return profile.displayName || t("tradeQr.userFallback");
+    }
+    return guestIdentity?.name || t("tradeQr.userFallback");
+  }, [guestIdentity, t, user]);
   const payload = useMemo(
-    () => ({ ...buildTradeProfilePayload(tradeDisplayName || "StickerMate", quantities), generatedAt }),
-    [generatedAt, quantities, tradeDisplayName]
+    () => ({ ...buildTradeProfilePayload(displayName, quantities), generatedAt }),
+    [displayName, generatedAt, quantities]
   );
   const payloadJson = useMemo(() => JSON.stringify(payload, null, 2), [payload]);
+
+  useEffect(() => {
+    setGuestIdentity(getGuestIdentity());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,27 +68,19 @@ export default function TradeQrPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <Card className="shadow-lift">
-        <h1 className="text-3xl font-black text-ink dark:text-white">{t("tradeQr.title")}</h1>
-        <p className="mt-2 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-          {t("tradeQr.privacy")}
-        </p>
+        <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("tradeQr.title")}</h1>
+        <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">{t("tradeQr.privacy")}</p>
       </Card>
 
       <GuideCard guide="tradeQr" titleKey="guide.tradeQrTitle" bodyKey="guide.tradeQrBody" />
 
       <Card>
-        <label className="text-sm font-black text-ink dark:text-white" htmlFor="trade-name">
-          {t("tradeQr.name")}
-        </label>
-        <input
-          id="trade-name"
-          value={tradeDisplayName}
-          onChange={(event) => setTradeDisplayName(event.target.value)}
-          className="mt-2 min-h-12 w-full rounded-lg border-line bg-field px-3 font-bold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-          placeholder="Marko"
-        />
+        <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
+          <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("tradeQr.sharedAs")}</p>
+          <p className="mt-1 break-words text-base font-black text-ink dark:text-white">{displayName}</p>
+        </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-[300px_1fr] sm:items-start">
+        <div className="mt-4 grid gap-4 sm:grid-cols-[300px_1fr] sm:items-start">
           <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
             {qrUrl ? <img src={qrUrl} alt={t("tradeQr.title")} className="mx-auto h-64 w-64 rounded bg-white p-2" /> : null}
           </div>

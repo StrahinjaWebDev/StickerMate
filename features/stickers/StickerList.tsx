@@ -40,7 +40,7 @@ export function StickerList({
   const virtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 146,
+    estimateSize: () => 138,
     overscan: 10
   });
 

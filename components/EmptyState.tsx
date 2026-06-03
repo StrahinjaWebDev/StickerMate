@@ -17,15 +17,15 @@ export function EmptyState({
   onAction?: () => void;
 }) {
   const actionClassName =
-    "mt-5 inline-flex min-h-11 items-center justify-center rounded-lg bg-pitch px-4 text-sm font-black text-white shadow-sm transition hover:bg-pitch/90 active:scale-[0.98]";
+    "mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-pitch px-4 text-sm font-black text-white shadow-sm transition hover:bg-pitch/90 active:scale-[0.98]";
 
   return (
-    <div className="grid min-h-64 place-items-center rounded-lg border border-dashed border-line bg-white/60 p-8 text-center dark:border-white/10 dark:bg-neutral-900/50">
+    <div className="grid min-h-48 place-items-center rounded-lg border border-dashed border-line bg-white/60 p-5 text-center dark:border-white/10 dark:bg-neutral-900/50 sm:min-h-56 sm:p-7">
       <div>
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-neutral-100 text-pitch dark:bg-neutral-800">
-          <Icon size={24} />
+        <span className="mx-auto grid h-11 w-11 place-items-center rounded-lg bg-neutral-100 text-pitch dark:bg-neutral-800">
+          <Icon size={22} />
         </span>
-        <h2 className="mt-4 text-lg font-black text-ink dark:text-white">{title}</h2>
+        <h2 className="mt-3 text-base font-black text-ink dark:text-white sm:text-lg">{title}</h2>
         <p className="mt-2 max-w-sm text-sm leading-6 text-neutral-600 dark:text-neutral-400">{body}</p>
         {actionLabel && actionHref ? (
           <Link href={actionHref} className={actionClassName}>

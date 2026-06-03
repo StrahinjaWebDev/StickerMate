@@ -148,7 +148,7 @@ export default function SpendingPage() {
       <Card className="shadow-lift">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-black text-ink dark:text-white">{t("spending.title")}</h1>
+            <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("spending.title")}</h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
               {t("spending.body")}
             </p>
@@ -158,30 +158,33 @@ export default function SpendingPage() {
             {t("spending.add")}
           </Button>
         </div>
-        <p className="mt-4 rounded-lg bg-field p-3 text-sm font-bold leading-6 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+        <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
           {t("spending.tradeNote")}
         </p>
       </Card>
 
-      <GuideCard guide="spending" titleKey="guide.spendingTitle" bodyKey="guide.spendingBody" />
-
-      <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 sm:gap-3" aria-label={t("spending.statsLabel")}>
-        <SpendingMetric
-          label={t("spending.totalSpent")}
-          value={formatMoney(spendingStats.totalSpentRsd, language)}
-        />
-        <SpendingMetric label={t("spending.entries")} value={spendingStats.entryCount} />
-        <SpendingMetric label={t("spending.packsBought")} value={spendingStats.totalPacks || "-"} />
-        <SpendingMetric label={t("spending.stickersFromPacks")} value={spendingStats.totalStickers || "-"} />
-        <SpendingMetric
-          label={t("spending.averagePackPrice")}
-          value={spendingStats.averagePackPriceRsd ? formatMoney(spendingStats.averagePackPriceRsd, language) : "-"}
-        />
-        <SpendingMetric
-          label={t("spending.costPerSticker")}
-          value={spendingStats.costPerOwnedStickerRsd ? formatMoney(spendingStats.costPerOwnedStickerRsd, language) : "-"}
-        />
-      </section>
+      {sortedEntries.length > 0 ? (
+        <>
+          <GuideCard guide="spending" titleKey="guide.spendingTitle" bodyKey="guide.spendingBody" />
+          <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 sm:gap-3" aria-label={t("spending.statsLabel")}>
+            <SpendingMetric
+              label={t("spending.totalSpent")}
+              value={formatMoney(spendingStats.totalSpentRsd, language)}
+            />
+            <SpendingMetric label={t("spending.entries")} value={spendingStats.entryCount} />
+            <SpendingMetric label={t("spending.packsBought")} value={spendingStats.totalPacks || "-"} />
+            <SpendingMetric label={t("spending.stickersFromPacks")} value={spendingStats.totalStickers || "-"} />
+            <SpendingMetric
+              label={t("spending.averagePackPrice")}
+              value={spendingStats.averagePackPriceRsd ? formatMoney(spendingStats.averagePackPriceRsd, language) : "-"}
+            />
+            <SpendingMetric
+              label={t("spending.costPerSticker")}
+              value={spendingStats.costPerOwnedStickerRsd ? formatMoney(spendingStats.costPerOwnedStickerRsd, language) : "-"}
+            />
+          </section>
+        </>
+      ) : null}
 
       {formOpen ? (
         <Card>

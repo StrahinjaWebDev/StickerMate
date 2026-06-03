@@ -61,17 +61,17 @@ export function AccountSection() {
     status === "syncing"
       ? t("account.syncing")
       : status === "dirty"
-        ? t("account.cloudStatusIdle")
+        ? t("account.waitingToSync")
         : status === "synced"
           ? t("account.savedOnline")
           : status === "auth_expired"
             ? t("account.sessionExpired")
             : status === "disabled_missing_tables"
-              ? t("account.cloudStatusNotReady")
+              ? t("account.cloudStatusFailed")
               : status === "failed"
                 ? t("account.cloudStatusFailed")
                 : user
-                  ? t("account.cloudStatusIdle")
+                  ? t("account.waitingToSync")
                   : t("account.localOnly");
   const statusTone =
     status === "synced" ? "success" : status === "syncing" ? "syncing" : status === "failed" || status === "auth_expired" ? "failed" : status === "disabled_missing_tables" ? "warning" : "neutral";
@@ -100,19 +100,18 @@ export function AccountSection() {
                 <FallbackAvatar initials={getGuestInitials(guestName)} localOnly />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("account.guestMode")}</p>
-                  <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">{t("account.localProfile")}</p>
                   <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">{guestName}</p>
                   <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
                     {t("account.guestBody")}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
-                    {t("account.guestGooglePrompt")}
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="rounded-lg border border-line p-3 dark:border-white/10">
+              <p className="text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
+                {t("account.guestGooglePrompt")}
+              </p>
               <Button className="mt-3 w-full" tone="primary" onClick={handleGoogleSignIn}>
                 <Cloud size={18} />
                 {t("account.signInGoogle")}
@@ -134,7 +133,7 @@ export function AccountSection() {
                   </p>
                 </div>
               </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <InfoRow label={t("account.cloudSaveStatus")} value={statusLabel} />
                 <InfoRow label={t("account.lastSynced")} value={lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "-"} />
               </div>
@@ -145,7 +144,7 @@ export function AccountSection() {
                 <p className="text-sm font-black text-ink dark:text-white">
                   {mergePrompt.reason === "cloud-empty" ? t("account.cloudEmptyTitle") : t("account.mergeTitle")}
                 </p>
-                <p className="mt-1 text-sm font-semibold leading-6 text-neutral-700 dark:text-neutral-300">
+                <p className="mt-1 text-sm font-semibold leading-5 text-neutral-700 dark:text-neutral-300">
                   {mergePrompt.reason === "cloud-empty" ? t("account.cloudEmptyBody") : t("account.mergeBody")}
                 </p>
                 <div className="mt-3 grid gap-2">
