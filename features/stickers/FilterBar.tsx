@@ -16,12 +16,14 @@ export function FilterBar({
   query,
   filter,
   onQueryChange,
-  onFilterChange
+  onFilterChange,
+  showFilters = true
 }: {
   query: string;
   filter: StickerFilter;
   onQueryChange: (query: string) => void;
   onFilterChange: (filter: StickerFilter) => void;
+  showFilters?: boolean;
 }) {
   const { t } = useI18n();
 
@@ -42,25 +44,27 @@ export function FilterBar({
         />
       </label>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar" role="tablist" aria-label={t("filters.label")}>
-        {filters.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={filter === item.value}
-            className={clsx(
-              "min-h-10 shrink-0 rounded-lg px-3 text-sm font-black transition",
-              filter === item.value
-                ? "bg-pitch text-white"
-                : "border border-line bg-white text-neutral-700 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300"
-            )}
-            onClick={() => onFilterChange(item.value)}
-          >
-            {t(item.labelKey)}
-          </button>
-        ))}
-      </div>
+      {showFilters ? (
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar" role="tablist" aria-label={t("filters.label")}>
+          {filters.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              role="tab"
+              aria-selected={filter === item.value}
+              className={clsx(
+                "min-h-10 shrink-0 rounded-lg px-3 text-sm font-black transition",
+                filter === item.value
+                  ? "bg-pitch text-white"
+                  : "border border-line bg-white text-neutral-700 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300"
+              )}
+              onClick={() => onFilterChange(item.value)}
+            >
+              {t(item.labelKey)}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

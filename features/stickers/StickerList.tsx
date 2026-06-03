@@ -15,16 +15,19 @@ export function StickerList({
   list,
   query,
   filter,
+  variant = "default",
   heightClassName = "h-[620px]"
 }: {
   list: Sticker[];
   query: string;
   filter: StickerFilter;
+  variant?: "default" | "duplicates";
   heightClassName?: string;
 }) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const [paintMode, setPaintMode] = useState<PaintMode | null>(null);
   const paintedCodes = useRef(new Set<string>());
+  const isDuplicateView = variant === "duplicates";
 
   const quantities = useCollectionStore((state) => state.quantities);
   const increment = useCollectionStore((state) => state.increment);
@@ -40,7 +43,7 @@ export function StickerList({
   const virtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 112,
+    estimateSize: () => (isDuplicateView ? 108 : 112),
     overscan: 12
   });
 
@@ -80,17 +83,23 @@ export function StickerList({
   );
 
   if (filtered.length === 0) {
-    return <EmptyState icon={ClipboardX} title={t("empty.noStickers")} body={t("empty.noStickersBody")} />;
+    return (
+      <EmptyState
+        icon={ClipboardX}
+        title={isDuplicateView ? t("empty.noSearchDuplicates") : t("empty.noStickers")}
+        body={isDuplicateView ? t("empty.noSearchDuplicatesBody") : t("empty.noStickersBody")}
+      />
+    );
   }
 
   return (
     <div
       ref={parentRef}
       className={`${heightClassName} overflow-auto rounded-lg`}
-      onPointerMove={handlePointerMove}
-      onPointerUp={stopPaint}
-      onPointerCancel={stopPaint}
-      onPointerLeave={stopPaint}
+      onPointerMove={isDuplicateView ? undefined : handlePointerMove}
+      onPointerUp={isDuplicateView ? undefined : stopPaint}
+      onPointerCancel={isDuplicateView ? undefined : stopPaint}
+      onPointerLeave={isDuplicateView ? undefined : stopPaint}
     >
       <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
@@ -106,6 +115,7 @@ export function StickerList({
               <StickerRow
                 sticker={sticker}
                 quantity={quantity}
+                variant={variant}
                 selected={selected.has(sticker.code)}
                 onIncrement={() => increment(sticker.code)}
                 onDecrement={() => decrement(sticker.code)}
