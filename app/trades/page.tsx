@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { Check, CheckCircle2, Copy, History, MessageCircle, Plus, QrCode, RotateCcw, Trash2, UserPlus } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { GuideCard } from "@/components/GuideCard";
@@ -26,6 +27,7 @@ export default function TradesPage() {
   const deleteTradeHistory = useCollectionStore((state) => state.deleteTradeHistory);
   const undoTradeHistory = useCollectionStore((state) => state.undoTradeHistory);
   const removeFriend = useCollectionStore((state) => state.removeFriend);
+  const [removeFriendId, setRemoveFriendId] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"missing" | "duplicates" | "both">("both");
   const [copied, setCopied] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -350,7 +352,7 @@ export default function TradesPage() {
                       {t("tradeQr.missingCount", { count: friend.missing.length })} · {t("tradeQr.duplicateCount", { count: friend.duplicates.length })}
                     </p>
                   </div>
-                  <Button className="min-h-9 shrink-0 px-2 text-xs" tone="danger" onClick={() => removeFriend(friend.id)}>
+                  <Button className="min-h-9 shrink-0 px-2 text-xs" tone="danger" onClick={() => setRemoveFriendId(friend.id)}>
                     <Trash2 size={15} />
                     {t("trades.removeFriend")}
                   </Button>
@@ -363,6 +365,20 @@ export default function TradesPage() {
           </div>
         </Card>
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(removeFriendId)}
+        title={t("trades.removeFriendTitle")}
+        body={t("trades.removeFriendBody")}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("trades.removeFriendConfirm")}
+        confirmTone="danger"
+        onCancel={() => setRemoveFriendId(null)}
+        onConfirm={() => {
+          if (removeFriendId) removeFriend(removeFriendId);
+          setRemoveFriendId(null);
+        }}
+      />
     </div>
   );
 }
