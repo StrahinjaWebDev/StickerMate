@@ -3,6 +3,7 @@ import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { ThemeHydrator } from "@/components/ThemeHydrator";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { defaultSeo, getSiteUrl } from "@/lib/seo";
 
 const siteUrl = getSiteUrl();
@@ -88,6 +89,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <ThemeHydrator />
         <AppShell>{children}</AppShell>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
