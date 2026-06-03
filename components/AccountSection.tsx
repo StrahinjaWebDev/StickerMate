@@ -25,7 +25,7 @@ export function AccountSection() {
 
   const profileInfo = user ? getProfileInfo(user) : null;
   const backupUnavailable = status === "failed" || status === "disabled_missing_tables";
-  const backupEnabled = Boolean(user) && !backupUnavailable && status !== "auth_expired";
+  const backupEnabled = Boolean(user) && !backupUnavailable && status !== "auth_expired" && !mergePrompt;
 
   useEffect(() => {
     setGuestIdentity(getGuestIdentity());
@@ -119,30 +119,38 @@ export function AccountSection() {
 
             {mergePrompt ? (
               <div className="rounded-lg border border-pitch/20 bg-pitch/10 p-3 dark:border-pitch/30 dark:bg-pitch/15">
-                <p className="text-sm font-black text-ink dark:text-white">
-                  {mergePrompt.reason === "cloud-empty" ? t("account.saveOnlineTitle") : t("account.mergeTitle")}
+                <p className="text-sm font-black text-ink dark:text-white">{t("account.migrationTitle")}</p>
+                <p className="mt-1 text-sm font-semibold leading-5 text-neutral-700 dark:text-neutral-300">
+                  {t("account.migrationBody")}
                 </p>
-                {mergePrompt.reason === "cloud-empty" ? null : (
-                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-700 dark:text-neutral-300">{t("account.mergeBody")}</p>
-                )}
                 <div className="mt-3 grid gap-2">
-                  {mergePrompt.reason === "cloud-empty" ? (
-                    <Button tone="primary" disabled={status === "syncing"} onClick={() => resolveCloudMerge("local")}>
-                      {t("account.saveOnlineTitle")}
-                    </Button>
-                  ) : (
-                    <>
-                      <Button tone="primary" disabled={status === "syncing"} onClick={() => resolveCloudMerge("cloud")}>
-                        {t("account.mergeCloud")}
-                      </Button>
-                      <Button disabled={status === "syncing"} onClick={() => resolveCloudMerge("local")}>
-                        {t("account.mergeLocal")}
-                      </Button>
-                      <Button disabled={status === "syncing"} onClick={() => resolveCloudMerge("merge")}>
-                        {t("account.mergeBoth")}
-                      </Button>
-                    </>
-                  )}
+                  <MigrationOption
+                    title={t("account.migrationLoadAccount")}
+                    description={t("account.migrationLoadAccountDesc")}
+                    disabled={status === "syncing"}
+                    primary
+                    onClick={() => resolveCloudMerge("cloud")}
+                  />
+                  <MigrationOption
+                    title={t("account.migrationUploadGuest")}
+                    description={t("account.migrationUploadGuestDesc")}
+                    disabled={status === "syncing"}
+                    onClick={() => resolveCloudMerge("local")}
+                  />
+                  {mergePrompt.reason === "both-have-data" ? (
+                    <MigrationOption
+                      title={t("account.migrationMergeBoth")}
+                      description={t("account.migrationMergeBothDesc")}
+                      disabled={status === "syncing"}
+                      onClick={() => resolveCloudMerge("merge")}
+                    />
+                  ) : null}
+                  <MigrationOption
+                    title={t("account.migrationLater")}
+                    description={t("account.migrationLaterDesc")}
+                    disabled={status === "syncing"}
+                    onClick={() => resolveCloudMerge("later")}
+                  />
                 </div>
               </div>
             ) : null}
@@ -216,6 +224,37 @@ function FallbackAvatar({ initials, localOnly = false }: { initials: string; loc
     >
       {initials}
     </span>
+  );
+}
+
+function MigrationOption({
+  title,
+  description,
+  disabled,
+  primary = false,
+  onClick
+}: {
+  title: string;
+  description: string;
+  disabled?: boolean;
+  primary?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={clsx(
+        "rounded-lg border px-3 py-2.5 text-left transition active:scale-[0.99] disabled:opacity-60",
+        primary
+          ? "border-pitch bg-white dark:border-pitch/40 dark:bg-neutral-900"
+          : "border-line bg-white/80 dark:border-white/10 dark:bg-neutral-900/80"
+      )}
+    >
+      <span className="block text-sm font-black text-ink dark:text-white">{title}</span>
+      <span className="mt-0.5 block text-xs font-semibold leading-5 text-neutral-600 dark:text-neutral-400">{description}</span>
+    </button>
   );
 }
 

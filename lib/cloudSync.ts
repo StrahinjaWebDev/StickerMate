@@ -194,19 +194,52 @@ export function getLocalSnapshot(): CloudSnapshot {
   };
 }
 
-export function hasMeaningfulLocalData(snapshot = getLocalSnapshot()) {
+export function hasMeaningfulGuestData(snapshot: CloudSnapshot) {
   return (
     Object.keys(snapshot.quantities).length > 0 ||
     snapshot.tradeHistory.length > 0 ||
     snapshot.spendingEntries.length > 0 ||
-    snapshot.settings.entryHistory.length > 0 ||
-    snapshot.settings.friends.length > 0 ||
-    snapshot.onboarded
+    snapshot.settings.friends.length > 0
   );
 }
 
+export function hasMeaningfulLocalData(snapshot = getLocalSnapshot()) {
+  return hasMeaningfulGuestData(snapshot);
+}
+
 export function hasMeaningfulCloudData(snapshot: CloudSnapshot) {
-  return hasMeaningfulLocalData(snapshot);
+  return hasMeaningfulGuestData(snapshot);
+}
+
+export function createEmptyCloudSnapshot(preserveFrom?: CloudSnapshot): CloudSnapshot {
+  const base = preserveFrom ?? getLocalSnapshot();
+  return {
+    albumId,
+    quantities: {},
+    settings: {
+      theme: base.settings.theme,
+      language: base.settings.language,
+      viewMode: base.settings.viewMode,
+      defaultCurrency: base.settings.defaultCurrency,
+      packPriceRsd: PACK_PRICE_RSD,
+      stickersPerPack: STICKERS_PER_PACK,
+      tradeDisplayName: "",
+      friends: [],
+      deletedFriendIds: [],
+      recentCodes: [],
+      entryHistory: []
+    },
+    reviewState: {
+      currentIndex: 0,
+      completed: false,
+      updatedAt: undefined
+    },
+    onboarded: base.onboarded,
+    dismissedGuides: base.dismissedGuides,
+    tradeHistory: [],
+    spendingEntries: [],
+    updatedAt: nowIso()
+  };
 }
 
 export function snapshotsAreEquivalent(a: CloudSnapshot, b: CloudSnapshot) {
