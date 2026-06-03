@@ -20,6 +20,7 @@ import {
   type CloudSyncStatus
 } from "@/lib/cloudSync";
 import { useCollectionStore, waitForCollectionHydration } from "@/stores/useCollectionStore";
+import { backupGuestSnapshotBeforeAuth, restoreGuestCollectionAfterSignOut } from "@/lib/guestProfiles";
 import { createClient } from "@/utils/supabase/client";
 
 type MergePromptReason = "guest-local" | "both-have-data";
@@ -181,7 +182,15 @@ function setSyncFailure(error: unknown) {
   });
 }
 
+function clearMigrationPendingForOtherUser(userId: string) {
+  const pending = readMigrationPending();
+  if (pending && pending.userId !== userId) {
+    clearMigrationPending();
+  }
+}
+
 function showMigrationPrompt(userId: string, cloud: CloudSnapshot | null, reason: MergePromptReason) {
+  backupGuestSnapshotBeforeAuth();
   writeMigrationPending(userId, reason);
   setAuthSyncState({
     mergePrompt: { cloud, reason },
@@ -226,6 +235,8 @@ async function handleAuthExpired() {
   } catch {
     // Broken refresh tokens can make remote sign-out fail; local auth state is already cleared.
   } finally {
+    clearMigrationPending();
+    restoreGuestCollectionAfterSignOut();
     window.setTimeout(() => {
       authExpiredHandling = false;
     }, 1000);
@@ -333,6 +344,19 @@ async function runAutoSync() {
     setAuthSyncState({ status: "syncing", messageKey: null });
     try {
       const snapshot = getLocalSnapshot();
+
+      if (!hasMeaningfulGuestData(snapshot)) {
+        const existingCloud = await loadCloudCollection(supabase, user.id);
+        if (
+          existingCloud &&
+          hasMeaningfulCloudData(existingCloud) &&
+          !snapshotsAreEquivalent(snapshot, existingCloud)
+        ) {
+          await applyCloudSnapshot(user.id, existingCloud);
+          return existingCloud;
+        }
+      }
+
       const cloudUpdatedAt = await saveCloudCollection(supabase, user, snapshot);
       markSynced(user.id, cloudUpdatedAt);
       return snapshot;
@@ -406,7 +430,10 @@ export function initializeAuthSync() {
 
       const user = data.session?.user ?? null;
       setAuthSyncState({ user, authReady: true, authMessageKey: null, status: user ? "idle" : "idle" });
-      if (user) void prepareCloudState(user);
+      if (user) {
+        clearMigrationPendingForOtherUser(user.id);
+        void prepareCloudState(user);
+      }
     } catch (error) {
       if (isInvalidRefreshTokenError(error)) {
         await handleAuthExpired();
@@ -440,6 +467,7 @@ export function initializeAuthSync() {
     setAuthSyncState({ user: nextUser, authReady: true, authMessageKey: null });
 
     if (nextUser && previousUser?.id !== nextUser.id) {
+      clearMigrationPendingForOtherUser(nextUser.id);
       preparedUserId = null;
       prepareCompleted = false;
       window.setTimeout(() => {
@@ -459,6 +487,8 @@ export async function signInWithGoogle() {
   }
 
   if (typeof window === "undefined") return;
+
+  backupGuestSnapshotBeforeAuth();
 
   await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -483,6 +513,8 @@ export async function signOutLocally() {
     setAuthSyncState({ user: null, status: "idle", messageKey: null, mergePrompt: null, lastSyncedAt: null, initialLoadDone: false });
   } finally {
     setAuthSyncState({ user: null, status: "idle", messageKey: null, mergePrompt: null, lastSyncedAt: null, initialLoadDone: false });
+    clearMigrationPending();
+    restoreGuestCollectionAfterSignOut();
     signOutInFlight = false;
   }
 }

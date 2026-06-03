@@ -1,6 +1,6 @@
 "use client";
 
-import { albumId, getLocalSnapshot, saveLocalSnapshot, type CloudSnapshot } from "@/lib/cloudSync";
+import { albumId, getLocalSnapshot, hasMeaningfulGuestData, saveLocalSnapshot, type CloudSnapshot } from "@/lib/cloudSync";
 import { generateGuestName } from "@/lib/guestNames";
 import { PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
 import type { LanguageCode } from "@/types/sticker";
@@ -145,9 +145,10 @@ export function ensureGuestIdentity(): GuestIdentity {
 
 export function hydrateGuestSnapshot(language: LanguageCode) {
   if (!isBrowser()) return ensureGuestIdentity();
+
   const identity = ensureGuestIdentity();
   const migrated = window.localStorage.getItem(MIGRATION_KEY);
-  const snapshot = readSnapshot(identity.id);
+  let snapshot = readSnapshot(identity.id);
 
   if (!migrated && snapshot) {
     saveLocalSnapshot(snapshot);
@@ -155,7 +156,13 @@ export function hydrateGuestSnapshot(language: LanguageCode) {
     return identity;
   }
 
-  if (!snapshot) writeSnapshot(identity.id, getLocalSnapshot() ?? emptySnapshot(language));
+  if (!snapshot) {
+    const current = getLocalSnapshot();
+    snapshot = hasMeaningfulGuestData(current) ? current : emptySnapshot(language);
+    writeSnapshot(identity.id, snapshot);
+  }
+
+  saveLocalSnapshot(snapshot);
   return identity;
 }
 
@@ -168,4 +175,20 @@ export function saveGuestSnapshot(snapshot = getLocalSnapshot()) {
   const identity = ensureGuestIdentity();
   writeSnapshot(identity.id, snapshot);
   writeIdentity({ ...identity, updatedAt: snapshot.updatedAt ?? nowIso() });
+}
+
+/** Preserve guest collection before OAuth so sign-out can restore it safely. */
+export function backupGuestSnapshotBeforeAuth() {
+  if (!isBrowser()) return;
+  saveGuestSnapshot(getLocalSnapshot());
+}
+
+/** After sign-out, reload the guest profile into the active collection store. */
+export function restoreGuestCollectionAfterSignOut() {
+  if (!isBrowser()) return;
+  const identity = ensureGuestIdentity();
+  const snapshot = readSnapshot(identity.id);
+  if (snapshot) {
+    saveLocalSnapshot(snapshot);
+  }
 }
