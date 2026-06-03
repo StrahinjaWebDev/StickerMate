@@ -17,10 +17,15 @@ export function buildTradeProfilePayload(name: string, quantities: Record<string
   };
 }
 
+export function buildTradeQrLink(compactPayload: string, origin: string) {
+  return `${origin}/friend-qr?data=${encodeURIComponent(compactPayload)}`;
+}
+
 export function parseTradeProfilePayload(input: string): TradeProfilePayload {
-  const parsed = input.startsWith(`${compactPrefix}:`)
-    ? decodeCompactTradeProfile(input)
-    : (JSON.parse(input) as Partial<TradeProfilePayload>);
+  const normalized = normalizeTradeProfileInput(input);
+  const parsed = normalized.startsWith(`${compactPrefix}:`)
+    ? decodeCompactTradeProfile(normalized)
+    : (JSON.parse(normalized) as Partial<TradeProfilePayload>);
 
   if (
     parsed.app !== "StickerMate" ||
@@ -85,6 +90,34 @@ function decodeBitset(value: string) {
   return stickers
     .filter((_, index) => Boolean(bytes[Math.floor(index / 8)] & (1 << (index % 8))))
     .map((sticker) => sticker.code);
+}
+
+function normalizeTradeProfileInput(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new Error("Empty StickerMate trade QR payload.");
+  }
+
+  if (trimmed.includes("data=")) {
+    try {
+      const url = new URL(trimmed, "https://stickermate.local");
+      const data = url.searchParams.get("data");
+      if (data) return data;
+    } catch {
+      // Fall through to manual extraction.
+    }
+
+    const match = trimmed.match(/[?&]data=([^&#]+)/);
+    if (match?.[1]) {
+      try {
+        return decodeURIComponent(match[1]);
+      } catch {
+        return match[1];
+      }
+    }
+  }
+
+  return trimmed;
 }
 
 function decodeCompactTradeProfile(input: string): Partial<TradeProfilePayload> {

@@ -325,7 +325,7 @@
   "tradeQr.sharedAs": "QR shared as",
   "tradeQr.userFallback": "StickerMate user",
   "tradeQr.privacy": "QR only shares your duplicates and missing stickers.",
-  "tradeQr.copyJson": "Copy JSON",
+  "tradeQr.copyQrLink": "Copy QR link",
   "tradeQr.share": "Share",
   "tradeQr.regenerate": "Regenerate",
   "tradeQr.missingCount": "{count} missing",

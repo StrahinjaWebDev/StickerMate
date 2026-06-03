@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Copy, ImageUp, QrCode, Save } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { Button, Card } from "@/components/ui/Primitives";
@@ -24,6 +24,24 @@ export default function FriendQrPage() {
     ? friends.find((item) => item.name.toLowerCase() === payload.name.toLowerCase())
     : undefined;
   const match = useMemo(() => (friend ? getTradeMatch(quantities, friend) : null), [friend, quantities]);
+
+  useEffect(() => {
+    const data = new URLSearchParams(window.location.search).get("data");
+    if (!data) return;
+    setJsonText(data);
+    try {
+      const nextPayload = parseTradeProfilePayload(data);
+      setPayload(nextPayload);
+      setMessage(
+        friends.find((item) => item.name.toLowerCase() === nextPayload.name.toLowerCase())
+          ? t("friendQr.existing")
+          : null
+      );
+    } catch {
+      setPayload(null);
+      setMessage(t("friendQr.invalid"));
+    }
+  }, [friends, t]);
 
   function parseJson(text = jsonText) {
     try {

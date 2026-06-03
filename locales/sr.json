@@ -325,7 +325,7 @@
   "tradeQr.sharedAs": "QR se deli kao",
   "tradeQr.userFallback": "StickerMate korisnik",
   "tradeQr.privacy": "QR deli samo tvoje duplikate i sličice koje ti fale.",
-  "tradeQr.copyJson": "Kopiraj JSON",
+  "tradeQr.copyQrLink": "Kopiraj QR link",
   "tradeQr.share": "Podeli",
   "tradeQr.regenerate": "Regeneriši",
   "tradeQr.missingCount": "{count} nedostaje",

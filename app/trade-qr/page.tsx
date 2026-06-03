@@ -10,7 +10,7 @@ import { getProfileInfo } from "@/lib/accountProfile";
 import { useAuthSyncStore } from "@/lib/authSyncStore";
 import { getGuestIdentity, type GuestIdentity } from "@/lib/guestProfiles";
 import { useI18n } from "@/hooks/useI18n";
-import { buildTradeProfilePayload, encodeTradeProfileForQr } from "@/services/tradeQrService";
+import { buildTradeProfilePayload, buildTradeQrLink, encodeTradeProfileForQr } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export default function TradeQrPage() {
@@ -19,6 +19,7 @@ export default function TradeQrPage() {
   const user = useAuthSyncStore((state) => state.user);
   const [guestIdentity, setGuestIdentity] = useState<GuestIdentity | null>(null);
   const [qrUrl, setQrUrl] = useState("");
+  const [qrLink, setQrLink] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState(() => new Date().toISOString());
   const displayName = useMemo(() => {
@@ -32,8 +33,6 @@ export default function TradeQrPage() {
     () => ({ ...buildTradeProfilePayload(displayName, quantities), generatedAt }),
     [displayName, generatedAt, quantities]
   );
-  const payloadJson = useMemo(() => JSON.stringify(payload, null, 2), [payload]);
-
   useEffect(() => {
     setGuestIdentity(getGuestIdentity());
   }, []);
@@ -41,27 +40,35 @@ export default function TradeQrPage() {
   useEffect(() => {
     let cancelled = false;
     async function renderQr() {
-      const QRCode = await import("qrcode");
+      const QRCode = (await import("qrcode")).default;
       const compactPayload = await encodeTradeProfileForQr(payload);
-      const dataUrl = await QRCode.toDataURL(compactPayload, { errorCorrectionLevel: "M", margin: 1, width: 280 });
-      if (!cancelled) setQrUrl(dataUrl);
+      const link = buildTradeQrLink(compactPayload, window.location.origin);
+      const dataUrl = await QRCode.toDataURL(link, { errorCorrectionLevel: "M", margin: 1, width: 280 });
+      if (!cancelled) {
+        setQrLink(link);
+        setQrUrl(dataUrl);
+      }
     }
-    renderQr().catch(() => setQrUrl(""));
+    renderQr().catch(() => {
+      setQrLink("");
+      setQrUrl("");
+    });
     return () => {
       cancelled = true;
     };
   }, [payload]);
 
-  async function copyJson() {
-    await navigator.clipboard?.writeText(payloadJson);
+  async function copyQrLink() {
+    if (!qrLink) return;
+    await navigator.clipboard?.writeText(qrLink);
     setMessage(t("common.copied"));
   }
 
   async function share() {
-    if (navigator.share) {
-      await navigator.share({ title: t("tradeQr.title"), text: payloadJson }).catch(() => undefined);
+    if (navigator.share && qrLink) {
+      await navigator.share({ title: t("tradeQr.title"), url: qrLink }).catch(() => undefined);
     } else {
-      await copyJson();
+      await copyQrLink();
     }
   }
 
@@ -89,9 +96,9 @@ export default function TradeQrPage() {
               <Stat label={t("tradeQr.missingCount", { count: payload.missing.length })} />
               <Stat label={t("tradeQr.duplicateCount", { count: payload.duplicates.length })} />
             </div>
-            <Button className="w-full" onClick={copyJson}>
+            <Button className="w-full" onClick={copyQrLink} disabled={!qrLink}>
               <Copy size={18} />
-              {t("tradeQr.copyJson")}
+              {t("tradeQr.copyQrLink")}
             </Button>
             <Button className="w-full" onClick={share}>
               <Share2 size={18} />
