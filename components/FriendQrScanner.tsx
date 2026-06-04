@@ -1,139 +1,102 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Primitives";
 import { useI18n } from "@/hooks/useI18n";
-import {
-  attachStreamToVideoPreview,
-  QrCameraError,
-  requestQrCameraStream,
-  stopMediaStream
-} from "@/lib/qrCamera";
+import { attachStreamToVideoPreview, stopMediaStream } from "@/lib/qrCamera";
 import { persistDebug } from "@/lib/persistDebug";
 import { decodeQrFromVideoFrame } from "@/services/tradeQrService";
 
 export function FriendQrScanner({
   open,
+  stream,
   onClose,
   onScan
 }: {
   open: boolean;
+  stream: MediaStream | null;
   onClose: () => void;
   onScan: (data: string) => void;
 }) {
   const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const scanTimerRef = useRef<number | null>(null);
   const scanInFlightRef = useRef(false);
-  const stopStreamRef = useRef<(() => void) | null>(null);
   const onScanRef = useRef(onScan);
   const onCloseRef = useRef(onClose);
-  const [videoNode, setVideoNode] = useState<HTMLVideoElement | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [previewReady, setPreviewReady] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
 
   useEffect(() => {
     onScanRef.current = onScan;
     onCloseRef.current = onClose;
   }, [onClose, onScan]);
 
-  const videoCallbackRef = useCallback((node: HTMLVideoElement | null) => {
-    videoRef.current = node;
-    setVideoNode(node);
-  }, []);
-
   useEffect(() => {
     if (!open) {
-      setError(null);
       setPreviewReady(false);
-      setVideoNode(null);
-      stopStreamRef.current = null;
-      return;
+      setAttachError(null);
     }
+  }, [open]);
 
-    if (!videoNode) return;
+  useLayoutEffect(() => {
+    if (!open || !stream) return;
+
+    const video = videoRef.current;
+    if (!video) return;
 
     let cancelled = false;
 
-    function stopStream() {
+    function stopScanLoop() {
       if (scanTimerRef.current !== null) {
         window.clearInterval(scanTimerRef.current);
         scanTimerRef.current = null;
       }
       scanInFlightRef.current = false;
-      stopMediaStream(streamRef.current);
-      streamRef.current = null;
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-      setPreviewReady(false);
     }
 
-    stopStreamRef.current = stopStream;
+    function startScanLoop() {
+      stopScanLoop();
+      scanTimerRef.current = window.setInterval(() => {
+        if (cancelled || !videoRef.current || scanInFlightRef.current) return;
+        scanInFlightRef.current = true;
+        void decodeQrFromVideoFrame(videoRef.current)
+          .then((data) => {
+            if (!data || cancelled) return;
+            stopScanLoop();
+            onScanRef.current(data);
+          })
+          .finally(() => {
+            scanInFlightRef.current = false;
+          });
+      }, 220);
+    }
 
-    async function startCamera() {
-      setError(null);
-      setPreviewReady(false);
+    setPreviewReady(false);
+    setAttachError(null);
 
-      try {
-        const stream = await requestQrCameraStream();
-        if (cancelled) {
-          stopMediaStream(stream);
-          return;
-        }
-
-        streamRef.current = stream;
-        const video = videoRef.current;
-        if (!video) {
-          stopStream();
-          return;
-        }
-
-        await attachStreamToVideoPreview(video, stream);
-        if (cancelled) {
-          stopStream();
-          return;
-        }
-
+    void attachStreamToVideoPreview(video, stream)
+      .then(() => {
+        if (cancelled) return;
         setPreviewReady(true);
-
-        scanTimerRef.current = window.setInterval(() => {
-          if (cancelled || !videoRef.current || scanInFlightRef.current) return;
-          scanInFlightRef.current = true;
-          void decodeQrFromVideoFrame(videoRef.current)
-            .then((data) => {
-              if (!data || cancelled) return;
-              stopStream();
-              onScanRef.current(data);
-            })
-            .finally(() => {
-              scanInFlightRef.current = false;
-            });
-        }, 220);
-      } catch (cameraError) {
-        persistDebug("qr-camera-start-failed", { error: String(cameraError) });
-        stopStream();
-        if (cameraError instanceof QrCameraError && cameraError.kind === "permission") {
-          setError(t("friendQr.cameraPermissionDenied"));
-        } else {
-          setError(t("friendQr.cameraUnavailable"));
-        }
-      }
-    }
-
-    void startCamera();
+        startScanLoop();
+      })
+      .catch((error) => {
+        persistDebug("qr-camera-attach-failed", { error: String(error) });
+        if (cancelled) return;
+        setAttachError(t("friendQr.cameraUnavailable"));
+      });
 
     return () => {
       cancelled = true;
-      stopStream();
-      stopStreamRef.current = null;
+      stopScanLoop();
+      video.srcObject = null;
+      setPreviewReady(false);
     };
-  }, [open, videoNode, t]);
+  }, [open, stream, t]);
 
   function handleClose() {
-    stopStreamRef.current?.();
     onCloseRef.current();
   }
 
@@ -161,10 +124,10 @@ export function FriendQrScanner({
         </Button>
       </div>
 
-      <div className="relative mx-auto mt-4 flex min-h-[min(62vh,520px)] w-full max-w-lg flex-1 overflow-hidden rounded-lg border border-white/20 bg-black">
+      <div className="relative mx-auto mt-4 h-[min(62vh,520px)] min-h-[280px] w-full max-w-lg shrink-0 overflow-hidden rounded-lg border border-white/20 bg-black">
         <video
-          ref={videoCallbackRef}
-          className="absolute inset-0 h-full w-full object-cover"
+          ref={videoRef}
+          className="absolute inset-0 z-0 h-full w-full object-cover [transform:translateZ(0)]"
           playsInline
           muted
           autoPlay
@@ -173,9 +136,9 @@ export function FriendQrScanner({
         <div className="pointer-events-none absolute inset-8 z-10 rounded-lg border-2 border-white/70" aria-hidden="true" />
       </div>
 
-      {error ? (
+      {attachError ? (
         <div className="mx-auto mt-4 w-full max-w-lg space-y-3">
-          <p className="rounded-lg bg-coral/15 p-3 text-sm font-bold text-coral">{error}</p>
+          <p className="rounded-lg bg-coral/15 p-3 text-sm font-bold text-coral">{attachError}</p>
           <p className="text-center text-sm font-semibold text-white/75">{t("friendQr.cameraFallbackHint")}</p>
         </div>
       ) : (
@@ -185,4 +148,8 @@ export function FriendQrScanner({
       )}
     </div>
   );
+}
+
+export function releaseScannerStream(stream: MediaStream | null) {
+  stopMediaStream(stream);
 }
