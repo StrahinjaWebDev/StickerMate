@@ -19,6 +19,10 @@ export function isFriendListType(value: string): value is FriendListType {
   return FRIEND_LIST_TYPES.includes(value as FriendListType);
 }
 
+export function findFriendByRouteId(friends: TradeFriend[], routeId: string) {
+  return friends.find((item) => item.id === routeId || (item.shareId && item.shareId === routeId));
+}
+
 export function getFriendListTitleKey(type: FriendListType): TranslationKey {
   return titleKeys[type];
 }
