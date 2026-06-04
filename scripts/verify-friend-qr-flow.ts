@@ -11,7 +11,8 @@ import {
   friendNeedsLiveUpdate,
   normalizeSavedFriends
 } from "../lib/savedFriends";
-import { extractShareIdFromTradeInput, buildTradeProfilePayload, getTradeMatch } from "../services/tradeQrService";
+import { extractShareIdFromTradeInput, buildTradeProfilePayload, getTradeMatch, buildSmartTradeProposal, pickSmartTradeProposal } from "../services/tradeQrService";
+import { translate } from "../lib/i18n";
 import type { TradeFriend } from "../types/sticker";
 
 let passed = 0;
@@ -207,6 +208,25 @@ const parsedShare = extractShareIdFromTradeInput(
   "https://sticker-mate-beta.vercel.app/friend-qr?data=SMQR2:Test:2026-01-01T00:00:00.000Z:AAAA:BBBB&share=share-abc"
 );
 assert(parsedShare === "share-abc", "Pasted beta QR URL preserves share id");
+
+console.log("\n=== Smart trade proposal ===\n");
+
+const giveMany = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"];
+const receiveFew = ["X", "Y", "Z"];
+const balanced = pickSmartTradeProposal(giveMany, receiveFew);
+assert(
+  balanced?.give.length === 3 && balanced.receive.length === 3 && balanced.hasMore,
+  "Proposal balances to smaller side and notes more swaps"
+);
+
+const tSr = (key: keyof typeof import("../locales/sr.json"), params?: Record<string, string | number>) =>
+  translate("sr", key, params);
+const proposal = buildSmartTradeProposal("Veljko", ["BIH9", "MAR18"], ["MEX3", "RSA5"], tSr);
+assert(
+  Boolean(proposal?.includes("Veljko") && proposal.includes("BIH9") && proposal.includes("MEX3")),
+  "Proposal includes friend name and selected codes"
+);
+assert(buildSmartTradeProposal("Veljko", [], ["MEX3"], tSr) === null, "No proposal when I cannot give");
 
 console.log("\n=== Trade profile reflects all quantity changes ===\n");
 

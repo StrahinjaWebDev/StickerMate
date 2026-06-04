@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Copy, MessageCircle, Share2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, Copy, MessageCircle, Share2 } from "lucide-react";
 import { Button, Card } from "@/components/ui/Primitives";
 import { EmptyState } from "@/components/EmptyState";
 import { FriendStickerRow } from "@/features/trades/FriendStickerRow";
@@ -14,7 +14,7 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { getDuplicateCount } from "@/lib/stickers";
 import { formatMyDuplicateBadge } from "@/lib/duplicateLabel";
-import { buildFriendTradeMessage, getTradeMatch } from "@/services/tradeQrService";
+import { buildFriendTradeMessage, buildSmartTradeProposal, getTradeMatch } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend } from "@/types/sticker";
 
@@ -26,9 +26,14 @@ export function FriendDetailView({
   liveStatus?: "idle" | "loading" | "live" | "cached";
 }) {
   const { language, t } = useI18n();
+  const [showFullMessage, setShowFullMessage] = useState(false);
   const quantities = useCollectionStore((state) => state.quantities);
   const match = useMemo(() => getTradeMatch(quantities, friend), [friend, quantities]);
   const possibleCount = match.iCanGive.length + match.friendCanGive.length;
+  const smartProposal = useMemo(
+    () => buildSmartTradeProposal(friend.name, match.iCanGive, match.friendCanGive, t),
+    [friend.name, match.friendCanGive, match.iCanGive, t]
+  );
   const tradeMessage = useMemo(
     () => buildFriendTradeMessage(friend.name, match.iCanGive, match.friendCanGive, t),
     [friend.name, match.friendCanGive, match.iCanGive, t]
@@ -56,6 +61,25 @@ export function FriendDetailView({
         : liveStatus === "cached"
           ? t("friendDetail.cachedData")
           : t("friendDetail.importedAt", { date: importedLabel });
+
+  async function copyProposal() {
+    if (!smartProposal) return;
+    await navigator.clipboard?.writeText(smartProposal);
+  }
+
+  async function shareProposal() {
+    if (!smartProposal) return;
+    if (navigator.share) {
+      await navigator.share({ text: smartProposal, title: friend.name }).catch(() => undefined);
+      return;
+    }
+    await copyProposal();
+  }
+
+  function openWhatsAppProposal() {
+    if (!smartProposal) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(smartProposal)}`, "_blank", "noopener,noreferrer");
+  }
 
   async function copyMessage() {
     await navigator.clipboard?.writeText(tradeMessage);
@@ -91,24 +115,65 @@ export function FriendDetailView({
       </Card>
 
       <Card>
-        <h2 className="text-lg font-black text-ink dark:text-white">{t("friendDetail.messageTitle")}</h2>
-        <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-field p-3 text-sm font-semibold leading-6 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-          {tradeMessage}
-        </pre>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <Button onClick={copyMessage}>
-            <Copy size={18} />
-            {t("friendDetail.copyMessage")}
-          </Button>
-          <Button onClick={shareMessage}>
-            <Share2 size={18} />
-            {t("friendDetail.shareMessage")}
-          </Button>
-          <Button onClick={openWhatsApp}>
-            <MessageCircle size={18} />
-            {t("friendDetail.openWhatsApp")}
-          </Button>
-        </div>
+        <h2 className="text-lg font-black text-ink dark:text-white">{t("friendDetail.proposalTitle")}</h2>
+        {smartProposal ? (
+          <>
+            <pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-field p-3 text-sm font-semibold leading-6 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+              {smartProposal}
+            </pre>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <Button onClick={copyProposal}>
+                <Copy size={18} />
+                {t("friendDetail.copyProposal")}
+              </Button>
+              <Button onClick={shareProposal}>
+                <Share2 size={18} />
+                {t("friendDetail.shareProposal")}
+              </Button>
+              <Button onClick={openWhatsAppProposal}>
+                <MessageCircle size={18} />
+                {t("friendDetail.openWhatsApp")}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <p className="mt-3 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t("friendDetail.proposalEmpty")}</p>
+        )}
+      </Card>
+
+      <Card>
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-3 text-left"
+          onClick={() => setShowFullMessage((current) => !current)}
+        >
+          <h2 className="text-lg font-black text-ink dark:text-white">{t("friendDetail.messageTitle")}</h2>
+          <span className="inline-flex min-h-10 items-center gap-1 text-sm font-black text-pitch">
+            {showFullMessage ? t("friendDetail.hideFullMessage") : t("friendDetail.showFullMessage")}
+            <ChevronDown size={18} className={showFullMessage ? "rotate-180 transition" : "transition"} aria-hidden="true" />
+          </span>
+        </button>
+        {showFullMessage ? (
+          <>
+            <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-field p-3 text-sm font-semibold leading-6 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+              {tradeMessage}
+            </pre>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <Button onClick={copyMessage}>
+                <Copy size={18} />
+                {t("friendDetail.copyMessage")}
+              </Button>
+              <Button onClick={shareMessage}>
+                <Share2 size={18} />
+                {t("friendDetail.shareMessage")}
+              </Button>
+              <Button onClick={openWhatsApp}>
+                <MessageCircle size={18} />
+                {t("friendDetail.openWhatsApp")}
+              </Button>
+            </div>
+          </>
+        ) : null}
       </Card>
 
       <StickerTradeSection

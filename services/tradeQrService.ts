@@ -182,6 +182,46 @@ export function buildFriendTradeMessage(
   });
 }
 
+export const SMART_TRADE_PROPOSAL_LIMIT = 10;
+
+export function pickSmartTradeProposal(iCanGive: string[], friendCanGive: string[]) {
+  if (iCanGive.length === 0 || friendCanGive.length === 0) return null;
+
+  const tradeSize = Math.min(SMART_TRADE_PROPOSAL_LIMIT, iCanGive.length, friendCanGive.length);
+  return {
+    give: iCanGive.slice(0, tradeSize),
+    receive: friendCanGive.slice(0, tradeSize),
+    hasMore: iCanGive.length > tradeSize || friendCanGive.length > tradeSize
+  };
+}
+
+export function buildSmartTradeProposal(
+  friendName: string,
+  iCanGive: string[],
+  friendCanGive: string[],
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+) {
+  const picked = pickSmartTradeProposal(iCanGive, friendCanGive);
+  if (!picked) return null;
+
+  const lines = [
+    t("friendDetail.proposalGreeting", { name: friendName }),
+    "",
+    t("friendDetail.proposalGiveHeader"),
+    picked.give.join(", "),
+    "",
+    t("friendDetail.proposalNeedHeader"),
+    picked.receive.join(", ")
+  ];
+
+  if (picked.hasMore) {
+    lines.push("", t("friendDetail.proposalMore"));
+  }
+
+  lines.push("", t("friendDetail.proposalClosing"));
+  return lines.join("\n");
+}
+
 function encodeBitset(codes: string[]) {
   const bytes = new Uint8Array(Math.ceil(stickers.length / 8));
   for (const code of codes) {

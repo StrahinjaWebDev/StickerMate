@@ -3,13 +3,15 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useState } from "react";
-import { Copy, RefreshCcw, Share2 } from "lucide-react";
+import { Copy, ImageDown, RefreshCcw, Share2 } from "lucide-react";
 import { Button, Card } from "@/components/ui/Primitives";
 import { StatusMessage } from "@/components/StatusMessage";
 import { getProfileInfo } from "@/lib/accountProfile";
 import { useAuthSyncStore } from "@/lib/authSyncStore";
 import { getGuestIdentity, type GuestIdentity } from "@/lib/guestProfiles";
 import { getClientPublicOrigin } from "@/lib/seo";
+import { shareImageBlob } from "@/lib/shareImageFile";
+import { renderTradeShareCard } from "@/lib/tradeShareCard";
 import { publishTradeShare } from "@/lib/tradeShareService";
 import { useI18n } from "@/hooks/useI18n";
 import { buildTradeProfilePayload, buildTradeQrLink, encodeTradeProfileForQr } from "@/services/tradeQrService";
@@ -26,6 +28,7 @@ export default function TradeQrPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState(() => new Date().toISOString());
   const [shareId, setShareId] = useState<string | null>(null);
+  const [sharingCard, setSharingCard] = useState(false);
 
   const displayName = useMemo(() => {
     if (user) {
@@ -98,6 +101,46 @@ export default function TradeQrPage() {
     }
   }
 
+  async function shareCard() {
+    if (!qrUrl || sharingCard) return;
+
+    setSharingCard(true);
+    setMessage(null);
+
+    try {
+      const blob = await renderTradeShareCard({
+        brand: t("tradeQr.shareCardBrand"),
+        title: t("tradeQr.shareCardTitle"),
+        displayName,
+        missingLabel: t("tradeQr.shareCardMissing", { count: payload.missing.length }),
+        duplicateLabel: t("tradeQr.shareCardDuplicates", { count: payload.duplicates.length }),
+        qrDataUrl: qrUrl,
+        cta: t("tradeQr.shareCardCta"),
+        footer: t("tradeQr.shareCardFooter")
+      });
+
+      const result = await shareImageBlob(blob, "stickermate-trade-card.png", {
+        title: t("tradeQr.shareCardTitle"),
+        text: t("tradeQr.shareCardCta"),
+        fallbackUrl: qrLink || undefined
+      });
+
+      if (result === "shared") {
+        setMessage(t("tradeQr.shareCardShared"));
+      } else if (result === "downloaded" || result === "link-shared") {
+        setMessage(t("tradeQr.shareCardDownloaded"));
+      } else {
+        setMessage(t("tradeQr.shareCardFailed"));
+        if (qrLink) await navigator.clipboard?.writeText(qrLink);
+      }
+    } catch {
+      setMessage(t("tradeQr.shareCardFailed"));
+      if (qrLink) await navigator.clipboard?.writeText(qrLink);
+    } finally {
+      setSharingCard(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <Card className="shadow-lift">
@@ -137,6 +180,10 @@ export default function TradeQrPage() {
             <Button className="w-full" onClick={share} disabled={!qrLink}>
               <Share2 size={18} />
               {t("tradeQr.share")}
+            </Button>
+            <Button className="w-full" tone="primary" onClick={shareCard} disabled={!qrUrl || sharingCard}>
+              <ImageDown size={18} />
+              {sharingCard ? t("tradeQr.shareCardGenerating") : t("tradeQr.shareCard")}
             </Button>
             <Button className="w-full" onClick={() => setGeneratedAt(new Date().toISOString())}>
               <RefreshCcw size={18} />
