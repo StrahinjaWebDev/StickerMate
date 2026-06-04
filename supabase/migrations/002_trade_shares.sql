@@ -1,4 +1,15 @@
 -- Public trade profiles for live friend QR comparison (no private account data).
+-- Requires set_updated_at(); included here so this migration can run standalone.
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
 
 create table if not exists public.trade_shares (
   share_id text primary key,

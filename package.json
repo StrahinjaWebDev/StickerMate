@@ -9,6 +9,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "verify:friend-qr": "tsx scripts/verify-friend-qr-flow.ts",
+    "verify:supabase-env": "tsx scripts/check-supabase-env.ts",
     "download:images": "tsx scripts/download-sticker-images.ts"
   },
   "dependencies": {
