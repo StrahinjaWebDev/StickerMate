@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useAuthSyncStore } from "@/lib/authSyncStore";
 import { publishCurrentTradeShare, resetTradeSharePublishCache, scheduleTradeSharePublish } from "@/lib/tradeSharePublisher";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -10,11 +10,9 @@ export function TradeSharePublisher() {
   const user = useAuthSyncStore((state) => state.user);
   const quantities = useCollectionStore((state) => state.quantities);
   const tradeDisplayName = useCollectionStore((state) => state.tradeDisplayName);
-  const skipFirstQuantityChange = useRef(true);
 
   useEffect(() => {
     if (!user) {
-      skipFirstQuantityChange.current = true;
       resetTradeSharePublishCache();
       return;
     }
@@ -24,12 +22,6 @@ export function TradeSharePublisher() {
 
   useEffect(() => {
     if (!user) return;
-
-    if (skipFirstQuantityChange.current) {
-      skipFirstQuantityChange.current = false;
-      return;
-    }
-
     scheduleTradeSharePublish();
   }, [user, quantities, tradeDisplayName]);
 

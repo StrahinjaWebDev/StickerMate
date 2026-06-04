@@ -364,6 +364,11 @@ assert((merged.quantities[CODE_MISSING] ?? 0) === 2, "mergeLocalAndCloud keeps m
 
 writeUserSyncMeta("user-test", { cloudUpdatedAt: "2026-01-01T00:00:00.000Z", syncedFingerprint: "fp-old" });
 assert(hasUnsyncedLocalChanges("user-test", "fp-new"), "Unsynced when fingerprint differs from sync meta");
+assert(hasUnsyncedLocalChanges("user-no-meta", "fp-any"), "Unsynced when no sync meta exists");
+assert(
+  resolveCloudSnapshotForLoad("user-no-meta", cloudSnap, localSnap, "fp-any", false).quantities[CODE_MISSING] === 2,
+  "Resolve merges when no sync meta (local ahead)"
+);
 assert(
   resolveCloudSnapshotForLoad("user-test", cloudSnap, localSnap, "fp-new", false).quantities[CODE_MISSING] === 2,
   "Resolve merges when unsynced"

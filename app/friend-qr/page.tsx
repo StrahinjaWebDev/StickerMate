@@ -12,7 +12,7 @@ import { importSavedFriend } from "@/lib/savedFriendActions";
 import { friendFromTradeProfile } from "@/lib/tradeShareService";
 import { getTradeMatch, parseTradeProfilePayload, QrImageNotFoundError, readQrFromImageFile } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
-import type { TradeFriend, TradeProfilePayload } from "@/types/sticker";
+import type { TradeProfilePayload } from "@/types/sticker";
 
 const galleryAccept = "image/png,image/jpeg,image/jpg,image/webp,image/*";
 
@@ -24,7 +24,8 @@ export default function FriendQrPage() {
   const [importing, setImporting] = useState(false);
   const [jsonText, setJsonText] = useState("");
   const [payload, setPayload] = useState<TradeProfilePayload | null>(null);
-  const [friend, setFriend] = useState<TradeFriend | null>(null);
+  const [savedFriendId, setSavedFriendId] = useState<string | null>(null);
+  const [importWasUpdate, setImportWasUpdate] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [processingImage, setProcessingImage] = useState(false);
@@ -35,12 +36,21 @@ export default function FriendQrPage() {
           item.name.toLowerCase() === payload.name.toLowerCase()
       )
     : undefined;
-  const match = useMemo(() => (friend ? getTradeMatch(quantities, friend) : null), [friend, quantities]);
+  const savedFriend = savedFriendId
+    ? friends.find((item) => item.id === savedFriendId) ?? null
+    : null;
+  const displayFriend = savedFriend;
+  const match = useMemo(
+    () => (displayFriend ? getTradeMatch(quantities, displayFriend) : null),
+    [displayFriend, quantities]
+  );
   const urlParsedRef = useRef(false);
 
   const applyTradeInput = useCallback(
     (text: string, shareIdFromUrl?: string | null) => {
       setJsonText(text);
+      setSavedFriendId(null);
+      setImportWasUpdate(false);
       try {
         const nextPayload = parseTradeProfilePayload(text);
         const resolvedShareId = shareIdFromUrl?.trim() || nextPayload.shareId;
@@ -98,13 +108,15 @@ export default function FriendQrPage() {
       setImporting(false);
 
       if (!result.ok || !result.friend) {
-        setFriend(null);
+        setSavedFriendId(null);
+        setImportWasUpdate(false);
         setMessage(t("friendQr.importFailed"));
         return;
       }
 
-      setFriend(result.friend);
-      setMessage(t("friendQr.imported"));
+      setSavedFriendId(result.friend.id);
+      setImportWasUpdate(result.wasUpdate);
+      setMessage(result.wasUpdate ? t("friendQr.updated") : t("friendQr.saved"));
     })();
   }
 
@@ -150,8 +162,8 @@ export default function FriendQrPage() {
   }
 
   async function copyWhatsApp() {
-    if (!friend || !match) return;
-    const text = `${t("trades.possible")}: ${friend.name}\n${t("trades.iCanGive")}: ${match.iCanGive.join(", ") || "-"}\n${t("trades.friendCanGive")}: ${match.friendCanGive.join(", ") || "-"}`;
+    if (!displayFriend || !match) return;
+    const text = `${t("trades.possible")}: ${displayFriend.name}\n${t("trades.iCanGive")}: ${match.iCanGive.join(", ") || "-"}\n${t("trades.friendCanGive")}: ${match.friendCanGive.join(", ") || "-"}`;
     await navigator.clipboard?.writeText(text);
     setMessage(t("common.copied"));
   }
@@ -206,19 +218,37 @@ export default function FriendQrPage() {
             <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
               {t("tradeQr.missingCount", { count: payload.missing.length })} · {t("tradeQr.duplicateCount", { count: payload.duplicates.length })}
             </p>
-            <div className="mt-3">
-              <Button tone="primary" className="w-full sm:w-auto" disabled={importing} onClick={() => importFriend()}>
-                <Save size={18} />
-                {importing ? t("friendQr.importing") : existingFriend ? t("friendQr.updateExisting") : t("friendQr.createNew")}
-              </Button>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {savedFriend ? (
+                <>
+                  <StatusMessage>{importWasUpdate ? t("friendQr.updated") : t("friendQr.saved")}</StatusMessage>
+                  <Link
+                    href={`/friends/${encodeURIComponent(savedFriend.id)}`}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-pitch px-4 text-sm font-black text-white sm:w-auto"
+                  >
+                    {t("friendQr.openComparison")}
+                  </Link>
+                  <Link
+                    href="/trades"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-line px-4 text-sm font-black text-ink dark:border-white/10 dark:text-white sm:w-auto"
+                  >
+                    {t("friendQr.backToTrades")}
+                  </Link>
+                </>
+              ) : (
+                <Button tone="primary" className="w-full sm:w-auto" disabled={importing} onClick={() => importFriend()}>
+                  <Save size={18} />
+                  {importing ? t("friendQr.importing") : existingFriend ? t("friendQr.updateExisting") : t("friendQr.createNew")}
+                </Button>
+              )}
             </div>
           </div>
         ) : null}
 
-        {message ? <StatusMessage className="mt-4">{message}</StatusMessage> : null}
+        {message && !savedFriend ? <StatusMessage className="mt-4">{message}</StatusMessage> : null}
       </Card>
 
-      {friend && match ? (
+      {displayFriend && match ? (
         <Card>
           <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.possible")}</h2>
           {match.iCanGive.length === 0 && match.friendCanGive.length === 0 ? (
@@ -242,10 +272,10 @@ export default function FriendQrPage() {
                 {t("trades.copyWhatsApp")}
               </Button>
               <Link
-                href={`/friends/${encodeURIComponent(friend.id)}`}
+                href={`/friends/${encodeURIComponent(displayFriend.id)}`}
                 className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-pitch px-4 text-sm font-black text-white"
               >
-                {t("trades.viewMatches")}
+                {t("friendQr.openComparison")}
               </Link>
             </>
           )}

@@ -6,6 +6,7 @@ import {
   loadSavedFriendRelationByShareId,
   updateSavedFriendLiveCacheInDb
 } from "@/lib/savedFriendsDb";
+import { persistDebug } from "@/lib/persistDebug";
 import { fetchTradeShareByShareId } from "@/lib/tradeShareService";
 import { useAuthSyncStore } from "@/lib/authSyncStore";
 import { createClient } from "@/utils/supabase/client";
@@ -140,10 +141,17 @@ async function fetchAndPersistLiveFriend(friend: TradeFriend): Promise<{
 
   const live = await fetchLiveTradeShareWithRetry(supabase, enriched.shareId);
   if (!live) {
+    persistDebug("friend-refresh-cached", { shareId: enriched.shareId, friendId: enriched.id });
     return { friend: enriched, status: "cached" };
   }
 
   const updated = persistLiveFriend(enriched, live);
+  persistDebug("friend-refresh-live", {
+    shareId: enriched.shareId,
+    friendId: updated.id,
+    missing: updated.missing.length,
+    duplicates: updated.duplicates.length
+  });
   return { friend: updated, status: "live" };
 }
 

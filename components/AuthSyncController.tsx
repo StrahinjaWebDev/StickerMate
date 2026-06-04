@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
+import { initDefaultCollectionScope } from "@/lib/collectionBootstrap";
 import { initializeAuthSync } from "@/lib/authSyncStore";
 
 export function AuthSyncController() {
-  useEffect(() => {
+  useLayoutEffect(() => {
+    initDefaultCollectionScope();
     initializeAuthSync();
   }, []);
 

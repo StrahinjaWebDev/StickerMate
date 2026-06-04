@@ -430,6 +430,13 @@ export function initialCloudSnapshotForNewAccount(local = getLocalSnapshot()): C
  * On cloud hydrate, prefer cloud unless this browser has unsynced edits for the same user.
  * When preferCloud is true (account switch), never merge foreign localStorage into cloud.
  */
+export function localQuantitiesAheadOfCloud(local: CloudSnapshot, cloud: CloudSnapshot) {
+  for (const [code, quantity] of Object.entries(local.quantities)) {
+    if (quantity > (cloud.quantities[code] ?? 0)) return true;
+  }
+  return Object.keys(local.quantities).length > Object.keys(cloud.quantities).length;
+}
+
 export function resolveCloudSnapshotForLoad(
   userId: string,
   cloud: CloudSnapshot,
@@ -437,7 +444,11 @@ export function resolveCloudSnapshotForLoad(
   currentFingerprint: string,
   preferCloud: boolean
 ): CloudSnapshot {
-  if (preferCloud || !hasUnsyncedLocalChanges(userId, currentFingerprint)) {
+  const shouldMerge =
+    !preferCloud &&
+    (hasUnsyncedLocalChanges(userId, currentFingerprint) || localQuantitiesAheadOfCloud(local, cloud));
+
+  if (!shouldMerge) {
     return cloud;
   }
   return mergeLocalAndCloud(local, cloud);

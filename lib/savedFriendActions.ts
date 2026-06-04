@@ -1,6 +1,8 @@
 "use client";
 
 import { flushCollectionSync, useAuthSyncStore } from "@/lib/authSyncStore";
+import { persistDebug } from "@/lib/persistDebug";
+import { findExistingFriend } from "@/lib/savedFriends";
 import { refreshSavedFriendById, resolveFriendForImport } from "@/lib/refreshSavedFriends";
 import { removeSavedFriendFromDb, upsertSavedFriendInDb } from "@/lib/savedFriendsDb";
 import { createClient } from "@/utils/supabase/client";
@@ -49,15 +51,16 @@ export async function importSavedFriend(friend: Omit<TradeFriend, "id" | "import
   };
 
   const resolved = await resolveFriendForImport(friend);
+  const wasUpdate = Boolean(findExistingFriend(useCollectionStore.getState().friends, resolved));
   const saved = useCollectionStore.getState().upsertFriend(resolved, "update");
   if (!saved) {
-    return { ok: false as const, friend: null, synced: false };
+    return { ok: false as const, friend: null, synced: false, wasUpdate: false };
   }
 
   const inStore = useCollectionStore.getState().friends.some((item) => item.id === saved.id);
   if (!inStore) {
     useCollectionStore.setState(before);
-    return { ok: false as const, friend: null, synced: false };
+    return { ok: false as const, friend: null, synced: false, wasUpdate: false };
   }
 
   let persisted = useCollectionStore.getState().friends.find((item) => item.id === saved.id) ?? saved;
@@ -71,7 +74,8 @@ export async function importSavedFriend(friend: Omit<TradeFriend, "id" | "import
 
   const { user } = useAuthSyncStore.getState();
   if (!user) {
-    return { ok: true as const, friend: persisted, synced: true };
+    persistDebug("import-saved-local", { friendId: persisted.id, shareId: persisted.shareId });
+    return { ok: true as const, friend: persisted, synced: true, wasUpdate };
   }
 
   const supabase = createClient();
@@ -81,16 +85,18 @@ export async function importSavedFriend(friend: Omit<TradeFriend, "id" | "import
     } catch (error) {
       console.warn("[saved friends] upsert to db failed", error);
       useCollectionStore.setState(before);
-      return { ok: false as const, friend: null, synced: false };
+      return { ok: false as const, friend: null, synced: false, wasUpdate: false };
     }
   }
 
   const synced = await flushCollectionSync();
+  persisted = useCollectionStore.getState().friends.find((item) => item.id === saved.id) ?? persisted;
+
   if (!synced) {
-    useCollectionStore.setState(before);
-    return { ok: false as const, friend: null, synced: false };
+    persistDebug("import-saved-pending-sync", { friendId: persisted.id, shareId: persisted.shareId });
+    return { ok: true as const, friend: persisted, synced: false, wasUpdate };
   }
 
-  persisted = useCollectionStore.getState().friends.find((item) => item.id === saved.id) ?? persisted;
-  return { ok: true as const, friend: persisted, synced: true };
+  persistDebug("import-saved", { friendId: persisted.id, shareId: persisted.shareId, wasUpdate });
+  return { ok: true as const, friend: persisted, synced: true, wasUpdate };
 }

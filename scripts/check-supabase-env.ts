@@ -48,5 +48,13 @@ void (async () => {
   }
   console.log("OK  collections table reachable");
 
+  const { error: savedFriendsError } = await supabase.from("saved_friends").select("friend_share_id").limit(1);
+  if (savedFriendsError) {
+    console.error(`FAIL saved_friends query: ${savedFriendsError.message}`);
+    console.error("Hint: re-run supabase/migrations/003_saved_friends.sql in THIS project's SQL Editor.");
+    process.exit(1);
+  }
+  console.log("OK  saved_friends table reachable");
+
   console.log("\nSupabase env check passed. Start dev server and test Google OAuth in browser.");
 })();

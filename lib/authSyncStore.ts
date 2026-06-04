@@ -31,6 +31,7 @@ import {
   mergeSignedInFriendsForStore,
   stripShareLinkedFriendsFromCloudSettings
 } from "@/lib/savedFriendsDb";
+import { persistDebug } from "@/lib/persistDebug";
 import { hasUnsyncedLocalChanges, writeUserSyncMeta } from "@/lib/syncMeta";
 import { createClient } from "@/utils/supabase/client";
 
@@ -106,6 +107,7 @@ function markSynced(userId: string, cloudUpdatedAt: string, extra: Partial<AuthS
     cloudUpdatedAt,
     syncedFingerprint: getLocalSyncFingerprint()
   });
+  persistDebug("autosync-complete", { userId, cloudUpdatedAt });
   setAuthSyncState({
     lastSyncedAt: cloudUpdatedAt,
     status: "synced",
@@ -378,6 +380,18 @@ function ensureCollectionSubscription() {
 
     const { user, status } = useAuthSyncStore.getState();
 
+    if (user) {
+      persistUserCollectionScope(user.id);
+    } else {
+      persistGuestCollectionScope();
+    }
+
+    persistDebug("collection-change", {
+      userId: user?.id ?? "guest",
+      fingerprint,
+      canAutoSync: user ? canAutoSyncForUser(user) : false
+    });
+
     if (!user || !canAutoSyncForUser(user) || suppressAutoSync) {
       return;
     }
@@ -391,6 +405,7 @@ function ensureCollectionSubscription() {
     if (status === "syncing") return;
 
     setAuthSyncState({ status: "dirty" });
+    persistDebug("autosync-scheduled", { userId: user.id });
     scheduleAutoSync();
   });
 }
@@ -531,8 +546,28 @@ export async function flushCollectionSync() {
   if (!user) return true;
 
   clearAutoSyncTimer();
-  const result = await runAutoSync();
-  return result !== null;
+  persistUserCollectionScope(user.id);
+  persistDebug("flush-start", { userId: user.id, canAutoSync: canAutoSyncForUser(user) });
+
+  if (canAutoSyncForUser(user)) {
+    const result = await runAutoSync();
+    return result !== null;
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    const snapshot = getLocalSnapshot();
+    const cloudUpdatedAt = await saveCloudCollection(supabase, user, snapshot);
+    markSynced(user.id, cloudUpdatedAt);
+    persistDebug("flush-direct-save", { userId: user.id });
+    return true;
+  } catch (error) {
+    persistDebug("flush-direct-save-failed", { userId: user.id, error: String(error) });
+    setSyncFailure(error);
+    return false;
+  }
 }
 
 export async function runManualSync() {

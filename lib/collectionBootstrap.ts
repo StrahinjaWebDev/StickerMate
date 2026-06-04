@@ -14,6 +14,13 @@ import {
   rehydrateCollectionStore
 } from "@/stores/useCollectionStore";
 
+export function initDefaultCollectionScope() {
+  if (typeof globalThis === "undefined" || typeof globalThis.localStorage === "undefined") return;
+  const guestId = ensureGuestIdentity().id;
+  migrateLegacyCollectionToGuestScope(guestId);
+  setCollectionPersistScope({ type: "guest", id: guestId });
+}
+
 export async function bootstrapCollectionPersistence(userId: string | null) {
   const guestId = ensureGuestIdentity().id;
   migrateLegacyCollectionToGuestScope(guestId);

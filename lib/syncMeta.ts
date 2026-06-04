@@ -52,6 +52,6 @@ export function writeUserSyncMeta(userId: string, meta: UserSyncMeta) {
 /** True when local store differs from the last synced/applied snapshot for this user. */
 export function hasUnsyncedLocalChanges(userId: string, currentFingerprint: string) {
   const meta = readUserSyncMeta(userId);
-  if (!meta?.syncedFingerprint) return false;
+  if (!meta?.syncedFingerprint) return true;
   return currentFingerprint !== meta.syncedFingerprint;
 }

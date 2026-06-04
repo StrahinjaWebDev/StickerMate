@@ -2,6 +2,7 @@
 
 import { getProfileInfo } from "@/lib/accountProfile";
 import { useAuthSyncStore } from "@/lib/authSyncStore";
+import { persistDebug } from "@/lib/persistDebug";
 import { publishTradeShare } from "@/lib/tradeShareService";
 import { buildTradeProfilePayload } from "@/services/tradeQrService";
 import { createClient } from "@/utils/supabase/client";
@@ -53,7 +54,10 @@ export async function publishCurrentTradeShare(force = false) {
         payload.duplicates
       );
 
-      if (shareId) lastPublishedKey = key;
+      if (shareId) {
+        lastPublishedKey = key;
+        persistDebug("trade-share-published", { shareId, missing: payload.missing.length, duplicates: payload.duplicates.length });
+      }
       return shareId;
     } finally {
       publishInFlight = null;
