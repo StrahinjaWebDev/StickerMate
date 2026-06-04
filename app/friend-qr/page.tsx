@@ -8,6 +8,7 @@ import { FriendQrScanner } from "@/components/FriendQrScanner";
 import { Button, Card } from "@/components/ui/Primitives";
 import { StatusMessage } from "@/components/StatusMessage";
 import { useI18n } from "@/hooks/useI18n";
+import { importSavedFriend } from "@/lib/savedFriendActions";
 import { friendFromTradeProfile } from "@/lib/tradeShareService";
 import { getTradeMatch, parseTradeProfilePayload, QrImageNotFoundError, readQrFromImageFile } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -20,7 +21,7 @@ export default function FriendQrPage() {
   const { t } = useI18n();
   const quantities = useCollectionStore((state) => state.quantities);
   const friends = useCollectionStore((state) => state.friends);
-  const upsertFriend = useCollectionStore((state) => state.upsertFriend);
+  const [importing, setImporting] = useState(false);
   const [jsonText, setJsonText] = useState("");
   const [payload, setPayload] = useState<TradeProfilePayload | null>(null);
   const [friend, setFriend] = useState<TradeFriend | null>(null);
@@ -82,17 +83,28 @@ export default function FriendQrPage() {
 
   function importFriend() {
     const nextPayload = payload ?? parseJson();
-    if (!nextPayload) return;
+    if (!nextPayload || importing) return;
 
-    const nextFriend = upsertFriend(
-      {
+    setImporting(true);
+    setMessage(null);
+
+    void (async () => {
+      const result = await importSavedFriend({
         ...friendFromTradeProfile(nextPayload, nextPayload.shareId),
         notes: t("friendQr.notes")
-      },
-      "update"
-    );
-    setFriend(nextFriend);
-    setMessage(t("friendQr.imported"));
+      });
+
+      setImporting(false);
+
+      if (!result.ok || !result.friend) {
+        setFriend(null);
+        setMessage(t("friendQr.importFailed"));
+        return;
+      }
+
+      setFriend(result.friend);
+      setMessage(t("friendQr.imported"));
+    })();
   }
 
   async function handleQrImage(event: ChangeEvent<HTMLInputElement>) {
@@ -194,9 +206,9 @@ export default function FriendQrPage() {
               {t("tradeQr.missingCount", { count: payload.missing.length })} · {t("tradeQr.duplicateCount", { count: payload.duplicates.length })}
             </p>
             <div className="mt-3">
-              <Button tone="primary" className="w-full sm:w-auto" onClick={() => importFriend()}>
+              <Button tone="primary" className="w-full sm:w-auto" disabled={importing} onClick={() => importFriend()}>
                 <Save size={18} />
-                {existingFriend ? t("friendQr.updateExisting") : t("friendQr.createNew")}
+                {importing ? t("friendQr.importing") : existingFriend ? t("friendQr.updateExisting") : t("friendQr.createNew")}
               </Button>
             </div>
           </div>

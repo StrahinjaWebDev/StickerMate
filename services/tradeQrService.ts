@@ -47,7 +47,11 @@ export function parseTradeProfilePayload(input: string): TradeProfilePayload {
   const missing = validateStickerCodes(parsed.missing).validCodes;
   const duplicates = validateStickerCodes(parsed.duplicates).validCodes;
 
-  const shareId = typeof parsed.shareId === "string" && parsed.shareId.trim() ? parsed.shareId.trim() : undefined;
+  const shareFromUrl = extractShareIdFromTradeInput(input);
+  const shareId =
+    typeof parsed.shareId === "string" && parsed.shareId.trim()
+      ? parsed.shareId.trim()
+      : shareFromUrl;
 
   return {
     app: "StickerMate",
@@ -193,6 +197,28 @@ function decodeBitset(value: string) {
   return stickers
     .filter((_, index) => Boolean(bytes[Math.floor(index / 8)] & (1 << (index % 8))))
     .map((sticker) => sticker.code);
+}
+
+export function extractShareIdFromTradeInput(input: string) {
+  const trimmed = input.trim();
+  if (!trimmed.includes("share=")) return undefined;
+
+  try {
+    const url = new URL(trimmed, "https://stickermate.local");
+    const share = url.searchParams.get("share");
+    if (share?.trim()) return share.trim();
+  } catch {
+    // Fall through to manual extraction.
+  }
+
+  const match = trimmed.match(/[?&]share=([^&#]+)/);
+  if (!match?.[1]) return undefined;
+
+  try {
+    return decodeURIComponent(match[1]).trim();
+  } catch {
+    return match[1].trim();
+  }
 }
 
 function normalizeTradeProfileInput(input: string): string {

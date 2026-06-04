@@ -1,7 +1,8 @@
 "use client";
 
-import { flushCollectionSync } from "@/lib/authSyncStore";
+import { flushCollectionSync, useAuthSyncStore } from "@/lib/authSyncStore";
 import { useCollectionStore } from "@/stores/useCollectionStore";
+import type { TradeFriend } from "@/types/sticker";
 
 export async function removeSavedFriend(friendId: string) {
   const state = useCollectionStore.getState();
@@ -23,4 +24,37 @@ export async function removeSavedFriend(friendId: string) {
   }
 
   return true;
+}
+
+export async function importSavedFriend(friend: Omit<TradeFriend, "id" | "importedAt">) {
+  const before = {
+    friends: useCollectionStore.getState().friends,
+    deletedFriendIds: useCollectionStore.getState().deletedFriendIds,
+    deletedShareIds: useCollectionStore.getState().deletedShareIds
+  };
+
+  const saved = useCollectionStore.getState().upsertFriend(friend, "update");
+  if (!saved) {
+    return { ok: false as const, friend: null, synced: false };
+  }
+
+  const inStore = useCollectionStore.getState().friends.some((item) => item.id === saved.id);
+  if (!inStore) {
+    useCollectionStore.setState(before);
+    return { ok: false as const, friend: null, synced: false };
+  }
+
+  const { user } = useAuthSyncStore.getState();
+  if (!user) {
+    return { ok: true as const, friend: saved, synced: true };
+  }
+
+  const synced = await flushCollectionSync();
+  if (!synced) {
+    useCollectionStore.setState(before);
+    return { ok: false as const, friend: null, synced: false };
+  }
+
+  const persisted = useCollectionStore.getState().friends.find((item) => item.id === saved.id) ?? saved;
+  return { ok: true as const, friend: persisted, synced: true };
 }

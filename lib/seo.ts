@@ -15,11 +15,21 @@ export function getSiteUrl() {
   return "http://localhost:3000";
 }
 
-/** Client-side origin for share links and QR codes. Uses the current browser origin so local dev and Vercel previews keep working. */
+/** Client-side origin for share links and QR codes. */
 export function getClientPublicOrigin() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim()?.replace(/\/$/, "");
+
   if (typeof window === "undefined") {
-    return getSiteUrl();
+    return configured || getSiteUrl();
   }
+
+  if (configured) {
+    const host = window.location.hostname;
+    if (host === "stickermate.app" || host === "www.stickermate.app") {
+      return configured;
+    }
+  }
+
   return window.location.origin;
 }
 

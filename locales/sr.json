@@ -433,6 +433,8 @@
   "friendQr.updateExisting": "Ažuriraj postojećeg druga",
   "friendQr.createNew": "Napravi novog druga",
   "friendQr.imported": "Drug je uvezen.",
+  "friendQr.importFailed": "Drug nije sačuvan. Proveri internet i pokušaj ponovo.",
+  "friendQr.importing": "Čuvam druga...",
   "friendQr.invalid": "Ovo nije važeći StickerMate QR za razmenu.",
   "friendQr.existing": "Drug sa ovim imenom već postoji.",
   "friendQr.notes": "Uvezeno preko QR-a",

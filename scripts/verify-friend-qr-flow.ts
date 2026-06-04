@@ -4,12 +4,14 @@
  */
 import {
   applyLiveTradeRecord,
+  clearDeletionForFriend,
   dedupeFriends,
   filterRemovedFriends,
+  findExistingFriend,
   friendNeedsLiveUpdate,
   normalizeSavedFriends
 } from "../lib/savedFriends";
-import { getTradeMatch } from "../services/tradeQrService";
+import { extractShareIdFromTradeInput, getTradeMatch } from "../services/tradeQrService";
 import type { TradeFriend } from "../types/sticker";
 
 let passed = 0;
@@ -147,6 +149,40 @@ const reimportBlocked = filterRemovedFriends(
   ["share-abc"]
 );
 assert(reimportBlocked.length === 0, "Tombstoned shareId stays removed until explicit re-save clears tombstone");
+
+function simulateUpsertAfterRemoval(incoming: Pick<TradeFriend, "name" | "missing" | "duplicates" | "shareId">) {
+  const stateFriends: TradeFriend[] = [];
+  const deletedShareIds = incoming.shareId ? [incoming.shareId] : [];
+  const existing = findExistingFriend(stateFriends, incoming);
+  const importedAt = new Date().toISOString();
+  const nextFriend: TradeFriend = {
+    ...incoming,
+    id: existing?.id ?? "friend-reimport",
+    shareId: incoming.shareId,
+    snapshotAt: importedAt,
+    importedAt
+  };
+  const cleared = clearDeletionForFriend([], deletedShareIds, nextFriend);
+  const mergedFriends = existing
+    ? stateFriends.map((item) => (item.id === nextFriend.id ? nextFriend : item))
+    : [nextFriend, ...stateFriends];
+  return normalizeSavedFriends(mergedFriends, cleared.deletedFriendIds, cleared.deletedShareIds);
+}
+
+const restored = simulateUpsertAfterRemoval({
+  name: "Veljko Tonic",
+  missing: [CODE_MISSING],
+  duplicates: [CODE_FRIEND_DUP],
+  shareId: "share-abc"
+});
+assert(restored.length === 1 && restored[0]!.name === "Veljko Tonic", "Re-import after removal restores friend");
+
+console.log("\n=== QR URL parsing ===\n");
+
+const parsedShare = extractShareIdFromTradeInput(
+  "https://sticker-mate-beta.vercel.app/friend-qr?data=SMQR2:Test:2026-01-01T00:00:00.000Z:AAAA:BBBB&share=share-abc"
+);
+assert(parsedShare === "share-abc", "Pasted beta QR URL preserves share id");
 
 console.log("\n=== ConfirmDialog mobile layout (static) ===\n");
 

@@ -10,7 +10,9 @@ import type { TradeFriend } from "@/types/sticker";
 export default function FriendDetailPage() {
   const params = useParams();
   const friendId = String(params.id ?? "");
-  const storedFriend = useCollectionStore((state) => state.friends.find((item) => item.id === friendId));
+  const storedFriend = useCollectionStore((state) =>
+    state.friends.find((item) => item.id === friendId || (item.shareId && item.shareId === friendId))
+  );
   const [liveStatus, setLiveStatus] = useState<"idle" | "loading" | "live" | "cached">("idle");
 
   useEffect(() => {

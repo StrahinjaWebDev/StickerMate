@@ -79,7 +79,7 @@ type CollectionStore = {
   clearSelection: () => void;
   selectMany: (codes: string[]) => void;
   setTradeDisplayName: (name: string) => void;
-  upsertFriend: (friend: Omit<TradeFriend, "id" | "importedAt">, mode: "update" | "create") => TradeFriend;
+  upsertFriend: (friend: Omit<TradeFriend, "id" | "importedAt">, mode?: "update" | "create") => TradeFriend | null;
   removeFriend: (id: string) => void;
   setDefaultCurrency: (currency: SpendingCurrency) => void;
   addSpendingEntry: (entry: SpendingInput) => SpendingEntry;
@@ -331,23 +331,27 @@ export const useCollectionStore = create<CollectionStore>()(
       clearSelection: () => set({ selectedCodes: [] }),
       selectMany: (codes) => set({ selectedCodes: Array.from(new Set(codes)) }),
       setTradeDisplayName: (name) => set({ tradeDisplayName: name }),
-      upsertFriend: (friend, mode) => {
+      upsertFriend: (friend) => {
         const importedAt = new Date().toISOString();
         const state = get();
         const existing = findExistingFriend(state.friends, friend);
-        const useExisting = Boolean(existing) || mode === "update";
         const nextFriend: TradeFriend = {
           ...friend,
-          id: useExisting && existing ? existing.id : createId("friend"),
+          id: existing?.id ?? createId("friend"),
           shareId: friend.shareId ?? existing?.shareId,
           snapshotAt: friend.snapshotAt ?? importedAt,
-          importedAt: useExisting && existing ? existing.importedAt : importedAt
+          importedAt: existing?.importedAt ?? importedAt
         };
         const cleared = clearDeletionForFriend(state.deletedFriendIds, state.deletedShareIds, nextFriend);
-        const mergedFriends = useExisting
+        const mergedFriends = existing
           ? state.friends.map((item) => (item.id === nextFriend.id ? nextFriend : item))
           : [nextFriend, ...state.friends];
         const friends = normalizeSavedFriends(mergedFriends, cleared.deletedFriendIds, cleared.deletedShareIds);
+        const saved = friends.find((item) => item.id === nextFriend.id);
+
+        if (!saved) {
+          return null;
+        }
 
         set({
           friends,
@@ -355,7 +359,7 @@ export const useCollectionStore = create<CollectionStore>()(
           deletedShareIds: cleared.deletedShareIds
         });
 
-        return friends.find((item) => item.id === nextFriend.id) ?? nextFriend;
+        return saved;
       },
       removeFriend: (id) => {
         const state = get();

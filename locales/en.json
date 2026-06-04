@@ -433,6 +433,8 @@
   "friendQr.updateExisting": "Update existing friend",
   "friendQr.createNew": "Create new friend",
   "friendQr.imported": "Friend imported.",
+  "friendQr.importFailed": "Could not save this friend. Check your connection and try again.",
+  "friendQr.importing": "Saving friend...",
   "friendQr.invalid": "That is not a valid StickerMate trade QR.",
   "friendQr.existing": "A friend with this name already exists.",
   "friendQr.notes": "Imported from QR",
