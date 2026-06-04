@@ -66,10 +66,11 @@ export async function importSavedFriend(friend: Omit<TradeFriend, "id" | "import
   let persisted = useCollectionStore.getState().friends.find((item) => item.id === saved.id) ?? saved;
 
   if (persisted.shareId) {
-    const refreshed = await refreshSavedFriendById(persisted.id);
-    if (refreshed.friend) {
-      persisted = refreshed.friend;
-    }
+    void refreshSavedFriendById(persisted.id).then((refreshed) => {
+      if (refreshed.friend) {
+        persistDebug("import-background-refresh", { friendId: refreshed.friend.id });
+      }
+    });
   }
 
   const { user } = useAuthSyncStore.getState();

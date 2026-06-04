@@ -3,16 +3,39 @@
 import {
   migrateLegacyCollectionToGuestScope,
   persistKeyForScope,
+  readPersistPayload,
   setCollectionPersistScope,
   COLLECTION_PERSIST_VERSION,
   type CollectionPersistScope
 } from "@/lib/collectionPersistScope";
+import { cloudSnapshotFromPersistedState, type CloudSnapshot } from "@/lib/cloudSync";
 import { ensureGuestIdentity } from "@/lib/guestProfiles";
 import {
   partializeCollectionState,
   persistCollectionStoreToScope,
-  rehydrateCollectionStore
+  rehydrateCollectionStore,
+  type PersistedCollectionState
 } from "@/stores/useCollectionStore";
+
+export function readScopedPersistedState(scope: CollectionPersistScope): PersistedCollectionState | null {
+  if (typeof window === "undefined") return null;
+
+  const raw = readPersistPayload(persistKeyForScope(scope));
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as { state?: PersistedCollectionState };
+    return parsed.state ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Read last persisted user collection from localStorage (survives in-memory store races on refresh). */
+export function readUserPersistedSnapshot(userId: string): CloudSnapshot | null {
+  const state = readScopedPersistedState({ type: "user", id: userId });
+  return state ? cloudSnapshotFromPersistedState(state) : null;
+}
 
 export function initDefaultCollectionScope() {
   if (typeof globalThis === "undefined" || typeof globalThis.localStorage === "undefined") return;

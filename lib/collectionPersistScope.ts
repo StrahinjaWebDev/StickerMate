@@ -59,7 +59,7 @@ function storageAvailable() {
   return typeof globalThis !== "undefined" && typeof globalThis.localStorage !== "undefined";
 }
 
-function readPersistPayload(key: string): string | null {
+export function readPersistPayload(key: string): string | null {
   if (!storageAvailable()) return null;
   try {
     return globalThis.localStorage.getItem(key);

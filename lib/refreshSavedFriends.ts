@@ -16,6 +16,7 @@ import type { TradeFriend } from "@/types/sticker";
 export type SavedFriendRefreshStatus = "live" | "cached" | "offline";
 
 const LIVE_FETCH_RETRY_MS = 400;
+const HYDRATION_WAIT_MS = 8000;
 
 export function findSavedFriendByRouteId(friendRouteId: string) {
   return useCollectionStore.getState().friends.find(
@@ -24,7 +25,7 @@ export function findSavedFriendByRouteId(friendRouteId: string) {
 }
 
 /** Signed-in users: wait for cloud/saved_friends hydrate before first live refresh. */
-export function waitForSignedInFriendHydration(): Promise<void> {
+export function waitForSignedInFriendHydration(timeoutMs = HYDRATION_WAIT_MS): Promise<void> {
   const { user, initialLoadDone } = useAuthSyncStore.getState();
   if (!user || initialLoadDone) return Promise.resolve();
 
@@ -34,9 +35,20 @@ export function waitForSignedInFriendHydration(): Promise<void> {
       return;
     }
 
-    const unsub = useAuthSyncStore.subscribe((state) => {
+    let unsub: (() => void) | null = null;
+    const timer =
+      timeoutMs > 0 && typeof window !== "undefined"
+        ? window.setTimeout(() => {
+            unsub?.();
+            persistDebug("friend-hydration-timeout", { userId: user.id, timeoutMs });
+            resolve();
+          }, timeoutMs)
+        : null;
+
+    unsub = useAuthSyncStore.subscribe((state) => {
       if (!state.user || state.initialLoadDone) {
-        unsub();
+        if (timer) window.clearTimeout(timer);
+        unsub?.();
         resolve();
       }
     });

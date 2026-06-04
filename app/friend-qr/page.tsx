@@ -100,23 +100,25 @@ export default function FriendQrPage() {
     setMessage(null);
 
     void (async () => {
-      const result = await importSavedFriend({
-        ...friendFromTradeProfile(nextPayload, nextPayload.shareId),
-        notes: t("friendQr.notes")
-      });
+      try {
+        const result = await importSavedFriend({
+          ...friendFromTradeProfile(nextPayload, nextPayload.shareId),
+          notes: t("friendQr.notes")
+        });
 
-      setImporting(false);
+        if (!result.ok || !result.friend) {
+          setSavedFriendId(null);
+          setImportWasUpdate(false);
+          setMessage(t("friendQr.importFailed"));
+          return;
+        }
 
-      if (!result.ok || !result.friend) {
-        setSavedFriendId(null);
-        setImportWasUpdate(false);
-        setMessage(t("friendQr.importFailed"));
-        return;
+        setSavedFriendId(result.friend.id);
+        setImportWasUpdate(result.wasUpdate);
+        setMessage(result.wasUpdate ? t("friendQr.updated") : t("friendQr.saved"));
+      } finally {
+        setImporting(false);
       }
-
-      setSavedFriendId(result.friend.id);
-      setImportWasUpdate(result.wasUpdate);
-      setMessage(result.wasUpdate ? t("friendQr.updated") : t("friendQr.saved"));
     })();
   }
 

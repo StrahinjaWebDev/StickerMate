@@ -9,6 +9,7 @@ import {
   initialCloudSnapshotForNewAccount,
   isInvalidRefreshTokenError,
   loadCloudCollection,
+  mergeLocalAndCloud,
   resolveCloudSnapshotForLoad,
   saveCloudCollection,
   saveLocalSnapshot,
@@ -21,6 +22,7 @@ import {
   bootstrapCollectionPersistence,
   persistGuestCollectionScope,
   persistUserCollectionScope,
+  readUserPersistedSnapshot,
   switchToGuestCollectionScope,
   switchToUserCollectionScope
 } from "@/lib/collectionBootstrap";
@@ -74,6 +76,12 @@ let pendingAutoSyncAfterCurrent = false;
 /** After switching Google accounts, never merge foreign localStorage into cloud. */
 let preferCloudAccountLoad = false;
 let unloadFlushBound = false;
+/** Avoid duplicate session bootstrap on INITIAL_SESSION + getSession race. */
+let sessionBootstrappedKey: string | null = null;
+
+function sessionKeyForUser(user: User | null) {
+  return user?.id ?? "__guest__";
+}
 
 function getSupabase() {
   return createClient();
@@ -159,7 +167,7 @@ function canAutoSyncForUser(user: User | null) {
 
 function bestEffortFlushPendingSync() {
   const { user, status } = useAuthSyncStore.getState();
-  if (!user || signOutInFlight || !prepareCompleted) return;
+  if (!user || signOutInFlight) return;
 
   const dirty =
     status === "dirty" ||
@@ -169,7 +177,7 @@ function bestEffortFlushPendingSync() {
   if (!dirty) return;
 
   clearAutoSyncTimer();
-  void runAutoSync();
+  void flushCollectionSync();
 }
 
 function ensureUnloadFlushHandlers() {
@@ -261,8 +269,10 @@ async function applyCloudSnapshot(
   cloud: CloudSnapshot,
   preferCloud: boolean
 ) {
-  const local = getLocalSnapshot();
-  const fingerprint = getLocalSyncFingerprint();
+  const localFromStore = getLocalSnapshot();
+  const localFromDisk = readUserPersistedSnapshot(currentUser.id);
+  const local = localFromDisk ? mergeLocalAndCloud(localFromDisk, localFromStore) : localFromStore;
+  const fingerprint = JSON.stringify({ ...local, updatedAt: "" });
   const hadUnsyncedLocal = !preferCloud && hasUnsyncedLocalChanges(currentUser.id, fingerprint);
   let resolved = resolveCloudSnapshotForLoad(currentUser.id, cloud, local, fingerprint, preferCloud);
   resolved = await applySignedInSavedFriends(supabase, currentUser, resolved, local);
@@ -410,6 +420,23 @@ function ensureCollectionSubscription() {
   });
 }
 
+async function bootstrapSession(user: User | null) {
+  const key = sessionKeyForUser(user);
+  if (sessionBootstrappedKey === key && (user ? prepareCompleted : true)) {
+    return;
+  }
+
+  await bootstrapCollectionPersistence(user?.id ?? null);
+  sessionBootstrappedKey = key;
+  setAuthSyncState({ user, authReady: true, authMessageKey: null, status: user ? "idle" : "idle" });
+
+  if (user) {
+    await prepareCloudState(user);
+  } else {
+    setAuthSyncState({ initialLoadDone: true });
+  }
+}
+
 export function initializeAuthSync() {
   if (initialized) return;
   initialized = true;
@@ -429,13 +456,7 @@ export function initializeAuthSync() {
     try {
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
-
-      const user = data.session?.user ?? null;
-      await bootstrapCollectionPersistence(user?.id ?? null);
-      setAuthSyncState({ user, authReady: true, authMessageKey: null, status: user ? "idle" : "idle" });
-      if (user) {
-        void prepareCloudState(user);
-      }
+      await bootstrapSession(data.session?.user ?? null);
     } catch (error) {
       if (isInvalidRefreshTokenError(error)) {
         await handleAuthExpired();
@@ -454,6 +475,7 @@ export function initializeAuthSync() {
       preparedUserId = null;
       prepareCompleted = false;
       pendingAutoSyncAfterCurrent = false;
+      sessionBootstrappedKey = null;
       restoreGuestCollectionAfterSignOut(useCollectionStore.getState().language);
       setAuthSyncState({
         user: null,
@@ -468,14 +490,24 @@ export function initializeAuthSync() {
 
     setAuthSyncState({ user: nextUser, authReady: true, authMessageKey: null });
 
-    if (nextUser && (event === "SIGNED_IN" || previousUser?.id !== nextUser.id)) {
-      preferCloudAccountLoad = true;
+    if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
+      const key = sessionKeyForUser(nextUser);
+      if (sessionBootstrappedKey !== key) {
+        void bootstrapSession(nextUser);
+      }
+      return;
     }
 
-    if (nextUser && previousUser?.id !== nextUser.id) {
+    if (nextUser && event === "SIGNED_IN" && previousUser?.id !== nextUser.id) {
+      if (previousUser) {
+        preferCloudAccountLoad = true;
+      }
+
       preparedUserId = null;
       prepareCompleted = false;
-      const skipUserRehydrate = preferCloudAccountLoad;
+      sessionBootstrappedKey = null;
+      const skipUserRehydrate = Boolean(previousUser);
+
       void (async () => {
         if (previousUser) {
           persistUserCollectionScope(previousUser.id);
@@ -486,6 +518,7 @@ export function initializeAuthSync() {
           rehydrate: !skipUserRehydrate,
           persistGuestFirst: !previousUser
         });
+        sessionBootstrappedKey = nextUser.id;
         await prepareCloudState(nextUser);
       })();
     }
@@ -602,5 +635,6 @@ export function cleanupAuthSyncForTests() {
   pendingAutoSyncAfterCurrent = false;
   preferCloudAccountLoad = false;
   unloadFlushBound = false;
+  sessionBootstrappedKey = null;
   signOutInFlight = false;
 }

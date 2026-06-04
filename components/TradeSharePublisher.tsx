@@ -8,6 +8,7 @@ import { useCollectionStore } from "@/stores/useCollectionStore";
 /** Keep public trade_shares in Supabase aligned with the signed-in user's collection. */
 export function TradeSharePublisher() {
   const user = useAuthSyncStore((state) => state.user);
+  const initialLoadDone = useAuthSyncStore((state) => state.initialLoadDone);
   const quantities = useCollectionStore((state) => state.quantities);
   const tradeDisplayName = useCollectionStore((state) => state.tradeDisplayName);
 
@@ -17,13 +18,15 @@ export function TradeSharePublisher() {
       return;
     }
 
-    void publishCurrentTradeShare(true);
-  }, [user]);
+    if (initialLoadDone) {
+      void publishCurrentTradeShare(true);
+    }
+  }, [user, initialLoadDone]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !initialLoadDone) return;
     scheduleTradeSharePublish();
-  }, [user, quantities, tradeDisplayName]);
+  }, [user, initialLoadDone, quantities, tradeDisplayName]);
 
   return null;
 }

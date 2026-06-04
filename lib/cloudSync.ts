@@ -9,7 +9,7 @@ import {
 } from "@/lib/savedFriends";
 import { hasUnsyncedLocalChanges } from "@/lib/syncMeta";
 import { stickerByCode } from "@/lib/stickers";
-import { useCollectionStore } from "@/stores/useCollectionStore";
+import { useCollectionStore, partializeCollectionState } from "@/stores/useCollectionStore";
 import type {
   EntryHistoryItem,
   GuideKey,
@@ -199,7 +199,31 @@ function mergeDeletedFriendIds(local: string[], cloud: string[]) {
 }
 
 export function getLocalSnapshot(): CloudSnapshot {
-  const state = useCollectionStore.getState();
+  return cloudSnapshotFromPersistedState(partializeCollectionState(useCollectionStore.getState()));
+}
+
+export function cloudSnapshotFromPersistedState(state: {
+  quantities: Record<string, number>;
+  onboarded: boolean;
+  theme: ThemePreference;
+  language: LanguageCode;
+  viewMode: StickerViewMode;
+  recentCodes: string[];
+  entryHistory: EntryHistoryItem[];
+  friends: TradeFriend[];
+  deletedFriendIds: string[];
+  deletedShareIds: string[];
+  tradeDisplayName: string;
+  tradeHistory: TradeHistoryItem[];
+  spendingEntries: SpendingEntry[];
+  defaultCurrency: SpendingCurrency;
+  packPriceRsd: number;
+  stickersPerPack: number;
+  dismissedGuides: Partial<Record<GuideKey, true>>;
+  reviewCurrentIndex: number;
+  reviewCompleted: boolean;
+  reviewUpdatedAt?: string;
+}): CloudSnapshot {
   return {
     albumId,
     quantities: cleanQuantities(state.quantities),
