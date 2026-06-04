@@ -185,7 +185,7 @@ async function handleAuthExpired() {
   } catch {
     // Broken refresh tokens can make remote sign-out fail; local auth state is already cleared.
   } finally {
-    restoreGuestCollectionAfterSignOut();
+    restoreGuestCollectionAfterSignOut(useCollectionStore.getState().language);
     window.setTimeout(() => {
       authExpiredHandling = false;
     }, 1000);
@@ -217,7 +217,6 @@ async function prepareCloudState(currentUser: User, force = false) {
     setAuthSyncState({ status: "syncing", messageKey: "account.loadingOnline", initialLoadDone: false });
 
     try {
-      backupGuestSnapshotBeforeAuth();
       const cloud = await loadCloudCollection(supabase, currentUser.id);
 
       if (cloud) {
@@ -351,6 +350,7 @@ export function initializeAuthSync() {
       preparedUserId = null;
       prepareCompleted = false;
       pendingAutoSyncAfterCurrent = false;
+      restoreGuestCollectionAfterSignOut(useCollectionStore.getState().language);
       setAuthSyncState({
         user: null,
         status: "idle",
@@ -403,6 +403,9 @@ export async function signOutLocally() {
   prepareCompleted = false;
   pendingAutoSyncAfterCurrent = false;
 
+  const guestLanguage = useCollectionStore.getState().language;
+  restoreGuestCollectionAfterSignOut(guestLanguage);
+
   const supabase = getSupabase();
   try {
     await supabase?.auth.signOut({ scope: "local" });
@@ -410,7 +413,6 @@ export async function signOutLocally() {
     setAuthSyncState({ user: null, status: "idle", messageKey: null, lastSyncedAt: null, initialLoadDone: false });
   } finally {
     setAuthSyncState({ user: null, status: "idle", messageKey: null, lastSyncedAt: null, initialLoadDone: false });
-    restoreGuestCollectionAfterSignOut();
     signOutInFlight = false;
   }
 }

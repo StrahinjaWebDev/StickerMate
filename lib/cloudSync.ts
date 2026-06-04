@@ -506,17 +506,7 @@ export function mergeLocalAndCloud(local: CloudSnapshot, cloud: CloudSnapshot) {
 }
 
 export async function syncNow(supabase: SupabaseClient, user: User) {
-  const local = getLocalSnapshot();
-  const cloud = await loadCloudCollection(supabase, user.id);
-
-  if (cloud && hasMeaningfulCloudData(cloud) && !hasMeaningfulGuestData(local)) {
-    saveLocalSnapshot(cloud);
-    return { ...cloud, updatedAt: cloud.updatedAt };
-  }
-
-  const snapshot = cloud ? mergeLocalAndCloud(local, cloud) : local;
-
-  saveLocalSnapshot(snapshot);
+  const snapshot = getLocalSnapshot();
   const cloudUpdatedAt = await saveCloudCollection(supabase, user, snapshot);
   return { ...snapshot, updatedAt: cloudUpdatedAt };
 }

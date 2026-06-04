@@ -1,8 +1,9 @@
 "use client";
 
-import { albumId, getLocalSnapshot, hasMeaningfulGuestData, saveLocalSnapshot, type CloudSnapshot } from "@/lib/cloudSync";
+import { albumId, getLocalSnapshot, saveLocalSnapshot, type CloudSnapshot } from "@/lib/cloudSync";
 import { generateGuestName } from "@/lib/guestNames";
 import { PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
+import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { LanguageCode } from "@/types/sticker";
 
 export type GuestIdentity = {
@@ -139,7 +140,7 @@ export function ensureGuestIdentity(): GuestIdentity {
   };
 
   writeIdentity(identity);
-  writeSnapshot(identity.id, legacy?.snapshot ?? getLocalSnapshot());
+  writeSnapshot(identity.id, legacy?.snapshot ?? emptySnapshot(useCollectionStore.getState().language));
   return identity;
 }
 
@@ -157,8 +158,7 @@ export function hydrateGuestSnapshot(language: LanguageCode) {
   }
 
   if (!snapshot) {
-    const current = getLocalSnapshot();
-    snapshot = hasMeaningfulGuestData(current) ? current : emptySnapshot(language);
+    snapshot = emptySnapshot(language);
     writeSnapshot(identity.id, snapshot);
   }
 
@@ -184,11 +184,9 @@ export function backupGuestSnapshotBeforeAuth() {
 }
 
 /** After sign-out, reload the guest profile into the active collection store. */
-export function restoreGuestCollectionAfterSignOut() {
+export function restoreGuestCollectionAfterSignOut(language: LanguageCode = "sr") {
   if (!isBrowser()) return;
   const identity = ensureGuestIdentity();
-  const snapshot = readSnapshot(identity.id);
-  if (snapshot) {
-    saveLocalSnapshot(snapshot);
-  }
+  const snapshot = readSnapshot(identity.id) ?? emptySnapshot(language);
+  saveLocalSnapshot(snapshot);
 }
