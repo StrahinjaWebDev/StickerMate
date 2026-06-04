@@ -443,6 +443,8 @@
   "friendQr.scanCameraLong": "Skeniraj QR kamerom",
   "friendQr.scanCameraHint": "Usmeri kameru na QR druga za razmenu.",
   "friendQr.cameraPermission": "Dozvoli pristup kameri da skeniraš QR.",
+  "friendQr.cameraPermissionDenied": "Pristup kameri je blokiran. Dozvoli ga u podešavanjima Safari-ja ili učitaj sliku QR koda / nalepi link.",
+  "friendQr.cameraFallbackHint": "Pritisni Otkaži i koristi Učitaj sliku ili Nalepi link ispod.",
   "friendQr.cameraStarting": "Pokretanje kamere…",
   "friendQr.cameraUnavailable": "Kamera nije dostupna. Možeš da nalepiš link ili učitaš sliku QR koda.",
   "friendQr.uploadImage": "Učitaj sliku",

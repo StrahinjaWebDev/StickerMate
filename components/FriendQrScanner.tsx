@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Primitives";
 import { useI18n } from "@/hooks/useI18n";
+import {
+  attachStreamToVideoPreview,
+  QrCameraError,
+  requestQrCameraStream,
+  stopMediaStream
+} from "@/lib/qrCamera";
+import { persistDebug } from "@/lib/persistDebug";
 import { decodeQrFromVideoFrame } from "@/services/tradeQrService";
 
 export function FriendQrScanner({
@@ -23,25 +30,32 @@ export function FriendQrScanner({
   const stopStreamRef = useRef<(() => void) | null>(null);
   const onScanRef = useRef(onScan);
   const onCloseRef = useRef(onClose);
+  const [videoNode, setVideoNode] = useState<HTMLVideoElement | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [active, setActive] = useState(false);
+  const [previewReady, setPreviewReady] = useState(false);
 
   useEffect(() => {
     onScanRef.current = onScan;
     onCloseRef.current = onClose;
   }, [onClose, onScan]);
 
+  const videoCallbackRef = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    setVideoNode(node);
+  }, []);
+
   useEffect(() => {
     if (!open) {
       setError(null);
-      setActive(false);
+      setPreviewReady(false);
+      setVideoNode(null);
       stopStreamRef.current = null;
       return;
     }
 
+    if (!videoNode) return;
+
     let cancelled = false;
-    setError(null);
-    setActive(false);
 
     function stopStream() {
       if (scanTimerRef.current !== null) {
@@ -49,27 +63,24 @@ export function FriendQrScanner({
         scanTimerRef.current = null;
       }
       scanInFlightRef.current = false;
-      streamRef.current?.getTracks().forEach((track) => track.stop());
+      stopMediaStream(streamRef.current);
       streamRef.current = null;
-      if (videoRef.current) videoRef.current.srcObject = null;
-      setActive(false);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      setPreviewReady(false);
     }
 
     stopStreamRef.current = stopStream;
 
     async function startCamera() {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setError(t("friendQr.cameraUnavailable"));
-        return;
-      }
+      setError(null);
+      setPreviewReady(false);
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false
-        });
+        const stream = await requestQrCameraStream();
         if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
+          stopMediaStream(stream);
           return;
         }
 
@@ -80,9 +91,13 @@ export function FriendQrScanner({
           return;
         }
 
-        video.srcObject = stream;
-        await video.play();
-        setActive(true);
+        await attachStreamToVideoPreview(video, stream);
+        if (cancelled) {
+          stopStream();
+          return;
+        }
+
+        setPreviewReady(true);
 
         scanTimerRef.current = window.setInterval(() => {
           if (cancelled || !videoRef.current || scanInFlightRef.current) return;
@@ -97,13 +112,14 @@ export function FriendQrScanner({
               scanInFlightRef.current = false;
             });
         }, 220);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "NotAllowedError") {
-          setError(t("friendQr.cameraPermission"));
+      } catch (cameraError) {
+        persistDebug("qr-camera-start-failed", { error: String(cameraError) });
+        stopStream();
+        if (cameraError instanceof QrCameraError && cameraError.kind === "permission") {
+          setError(t("friendQr.cameraPermissionDenied"));
         } else {
           setError(t("friendQr.cameraUnavailable"));
         }
-        stopStream();
       }
     }
 
@@ -114,7 +130,7 @@ export function FriendQrScanner({
       stopStream();
       stopStreamRef.current = null;
     };
-  }, [open, t]);
+  }, [open, videoNode, t]);
 
   function handleClose() {
     stopStreamRef.current?.();
@@ -135,7 +151,9 @@ export function FriendQrScanner({
           <p id="friend-qr-scanner-title" className="text-base font-black text-white">
             {t("friendQr.scanCameraLong")}
           </p>
-          <p className="mt-1 text-sm font-semibold text-white/80">{t("friendQr.scanCameraHint")}</p>
+          <p className="mt-1 text-sm font-semibold text-white/80">
+            {previewReady ? t("friendQr.scanCameraHint") : t("friendQr.cameraStarting")}
+          </p>
         </div>
         <Button className="min-h-10 shrink-0 px-3" onClick={handleClose}>
           <X size={18} />
@@ -143,16 +161,26 @@ export function FriendQrScanner({
         </Button>
       </div>
 
-      <div className="relative mx-auto mt-4 w-full max-w-lg flex-1 overflow-hidden rounded-lg border border-white/20 bg-black">
-        <video ref={videoRef} className="h-full w-full object-cover" playsInline muted aria-label={t("friendQr.scanCameraLong")} />
-        <div className="pointer-events-none absolute inset-8 rounded-lg border-2 border-white/70" aria-hidden="true" />
+      <div className="relative mx-auto mt-4 flex min-h-[min(62vh,520px)] w-full max-w-lg flex-1 overflow-hidden rounded-lg border border-white/20 bg-black">
+        <video
+          ref={videoCallbackRef}
+          className="absolute inset-0 h-full w-full object-cover"
+          playsInline
+          muted
+          autoPlay
+          aria-label={t("friendQr.scanCameraLong")}
+        />
+        <div className="pointer-events-none absolute inset-8 z-10 rounded-lg border-2 border-white/70" aria-hidden="true" />
       </div>
 
       {error ? (
-        <p className="mx-auto mt-4 w-full max-w-lg rounded-lg bg-coral/15 p-3 text-sm font-bold text-coral">{error}</p>
+        <div className="mx-auto mt-4 w-full max-w-lg space-y-3">
+          <p className="rounded-lg bg-coral/15 p-3 text-sm font-bold text-coral">{error}</p>
+          <p className="text-center text-sm font-semibold text-white/75">{t("friendQr.cameraFallbackHint")}</p>
+        </div>
       ) : (
         <p className="mx-auto mt-4 w-full max-w-lg text-center text-sm font-semibold text-white/75">
-          {active ? t("friendQr.scanCameraHint") : t("friendQr.cameraStarting")}
+          {previewReady ? t("friendQr.scanCameraHint") : t("friendQr.cameraStarting")}
         </p>
       )}
     </div>
