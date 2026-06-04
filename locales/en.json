@@ -295,6 +295,8 @@
   "friendDetail.shareMessage": "Share message",
   "friendDetail.refreshing": "Loading latest data...",
   "friendDetail.liveData": "Updated from online profile",
+  "friendDetail.liveUpdatedAt": "Updated from online profile: {date}",
+  "friendDetail.cachedData": "Cached data (could not load latest online profile)",
   "friendDetail.openWhatsApp": "Open WhatsApp",
   "friendDetail.friendDuplicates": "Friend's duplicates",
   "friendDetail.friendMissing": "Friend is missing",

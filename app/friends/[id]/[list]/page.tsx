@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { FriendNotFound } from "@/features/trades/FriendDetailView";
 import { FriendListNotFound, FriendStickerListView } from "@/features/trades/FriendStickerListView";
 import { isFriendListType } from "@/features/trades/friendListTypes";
+import { useRefreshFriendOnOpen } from "@/hooks/useLiveSavedFriends";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export default function FriendListPage() {
@@ -13,6 +14,8 @@ export default function FriendListPage() {
   const listParam = String(params.list ?? "");
   const friends = useCollectionStore((state) => state.friends);
   const friend = useMemo(() => friends.find((item) => item.id === friendId), [friendId, friends]);
+
+  useRefreshFriendOnOpen(friendId, Boolean(friend));
 
   if (!isFriendListType(listParam)) return <FriendListNotFound />;
   if (!friend) return <FriendNotFound />;

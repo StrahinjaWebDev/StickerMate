@@ -7,7 +7,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { StickerImage } from "@/features/stickers/StickerImage";
-import { useLiveSavedFriends } from "@/hooks/useLiveSavedFriends";
+import { useRefreshSavedFriendsOnOpen } from "@/hooks/useLiveSavedFriends";
 import { useI18n } from "@/hooks/useI18n";
 import { removeSavedFriend } from "@/lib/savedFriendActions";
 import type { TranslationKey } from "@/lib/i18n";
@@ -46,7 +46,7 @@ export default function TradesPage() {
   const [removeFriendId, setRemoveFriendId] = useState<string | null>(null);
   const [removingFriend, setRemovingFriend] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
-  useLiveSavedFriends(true);
+  useRefreshSavedFriendsOnOpen(true);
   const [messageType, setMessageType] = useState<"missing" | "duplicates" | "both">("both");
   const [copied, setCopied] = useState(false);
   const [formOpen, setFormOpen] = useState(false);

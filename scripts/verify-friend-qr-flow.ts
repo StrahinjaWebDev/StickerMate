@@ -126,6 +126,30 @@ const possibleAfter =
   matchAfterOwned.iCanGive.length + matchAfterOwned.friendCanGive.length;
 assert(possibleAfter !== possibleBefore, "Possible swap count changes when friend missing list shrinks");
 
+console.log("\n=== Cloud friend merge prefers latest snapshot ===\n");
+
+const staleCloudFriend = makeFriend({
+  id: "friend-1",
+  importedAt: "2026-06-04T12:00:00.000Z",
+  snapshotAt: "2026-06-01T00:00:00.000Z",
+  missing: [CODE_MISSING],
+  duplicates: []
+});
+const freshLocalFriend = makeFriend({
+  id: "friend-1",
+  importedAt: "2026-01-01T00:00:00.000Z",
+  snapshotAt: "2026-06-04T13:00:00.000Z",
+  missing: [],
+  duplicates: [CODE_FRIEND_DUP]
+});
+const mergedByTime = dedupeFriends([staleCloudFriend, freshLocalFriend]);
+assert(
+  mergedByTime.length === 1 &&
+    mergedByTime[0]!.missing.length === 0 &&
+    mergedByTime[0]!.duplicates.includes(CODE_FRIEND_DUP),
+  "Newer snapshotAt wins over newer importedAt when deduping share-linked friends"
+);
+
 console.log("\n=== Removal persistence & dedupe ===\n");
 
 const dupA = makeFriend({ id: "f1", shareId: "share-x" });

@@ -41,6 +41,21 @@ export function FriendDetailView({
       }).format(new Date(friend.importedAt)),
     [friend.importedAt, language]
   );
+  const liveUpdatedLabel = useMemo(() => {
+    if (!friend.snapshotAt) return null;
+    return new Intl.DateTimeFormat(language === "en" ? "en-GB" : "sr-RS", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(new Date(friend.snapshotAt));
+  }, [friend.snapshotAt, language]);
+  const statusLabel =
+    liveStatus === "loading"
+      ? t("friendDetail.refreshing")
+      : liveStatus === "live" && liveUpdatedLabel
+        ? t("friendDetail.liveUpdatedAt", { date: liveUpdatedLabel })
+        : liveStatus === "cached"
+          ? t("friendDetail.cachedData")
+          : t("friendDetail.importedAt", { date: importedLabel });
 
   async function copyMessage() {
     await navigator.clipboard?.writeText(tradeMessage);
@@ -67,13 +82,7 @@ export function FriendDetailView({
 
       <Card className="shadow-lift">
         <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{friend.name}</h1>
-        <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-          {liveStatus === "loading"
-            ? t("friendDetail.refreshing")
-            : liveStatus === "live"
-              ? t("friendDetail.liveData")
-              : t("friendDetail.importedAt", { date: importedLabel })}
-        </p>
+        <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{statusLabel}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <StatBadge label={t("friendDetail.missingCount", { count: friend.missing.length })} />
           <StatBadge label={t("friendDetail.duplicateCount", { count: friend.duplicates.length })} />

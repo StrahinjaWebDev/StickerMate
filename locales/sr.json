@@ -295,6 +295,8 @@
   "friendDetail.shareMessage": "Podeli poruku",
   "friendDetail.refreshing": "Učitavam najnovije podatke...",
   "friendDetail.liveData": "Podaci su ažurirani sa online profila",
+  "friendDetail.liveUpdatedAt": "Ažurirano sa online profila: {date}",
+  "friendDetail.cachedData": "Keširani podaci (nije učitano sa online profila)",
   "friendDetail.openWhatsApp": "Otvori WhatsApp",
   "friendDetail.friendDuplicates": "Duplikati druga",
   "friendDetail.friendMissing": "Šta drugu fali",

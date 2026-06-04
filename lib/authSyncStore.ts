@@ -17,6 +17,7 @@ import {
 } from "@/lib/cloudSync";
 import { useCollectionStore, waitForCollectionHydration } from "@/stores/useCollectionStore";
 import { backupGuestSnapshotBeforeAuth, restoreGuestCollectionAfterSignOut } from "@/lib/guestProfiles";
+import { refreshAllSavedFriendsWithShareId } from "@/lib/refreshSavedFriends";
 import { createClient } from "@/utils/supabase/client";
 
 type AuthSyncState = {
@@ -195,6 +196,7 @@ async function handleAuthExpired() {
 async function applyCloudSnapshot(userId: string, cloud: CloudSnapshot) {
   muteNextLocalStoreSync();
   saveLocalSnapshot(cloud);
+  await refreshAllSavedFriendsWithShareId();
   markSynced(userId, cloud.updatedAt);
 }
 

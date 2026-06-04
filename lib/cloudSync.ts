@@ -156,6 +156,12 @@ function mergeById<T extends { id: string; updatedAt?: string; createdAt?: strin
   return Array.from(byId.values());
 }
 
+function friendMergeTime(friend: TradeFriend) {
+  const snapshot = friend.snapshotAt ? new Date(friend.snapshotAt).getTime() : 0;
+  const imported = friend.importedAt ? new Date(friend.importedAt).getTime() : 0;
+  return Math.max(snapshot, imported);
+}
+
 function mergeFriends(
   local: TradeFriend[],
   cloud: TradeFriend[],
@@ -164,7 +170,18 @@ function mergeFriends(
   localDeletedShareIds: string[],
   cloudDeletedShareIds: string[]
 ) {
-  const merged = dedupeFriends(mergeById(local, cloud));
+  const byId = new Map<string, TradeFriend>();
+
+  for (const item of [...cloud, ...local]) {
+    const existing = byId.get(item.id);
+    if (!existing) {
+      byId.set(item.id, item);
+      continue;
+    }
+    byId.set(item.id, friendMergeTime(item) >= friendMergeTime(existing) ? item : existing);
+  }
+
+  const merged = dedupeFriends(Array.from(byId.values()));
   return filterRemovedFriends(
     merged,
     [...localDeletedIds, ...cloudDeletedIds],

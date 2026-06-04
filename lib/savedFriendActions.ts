@@ -1,6 +1,7 @@
 "use client";
 
 import { flushCollectionSync, useAuthSyncStore } from "@/lib/authSyncStore";
+import { resolveFriendForImport } from "@/lib/refreshSavedFriends";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend } from "@/types/sticker";
 
@@ -33,7 +34,8 @@ export async function importSavedFriend(friend: Omit<TradeFriend, "id" | "import
     deletedShareIds: useCollectionStore.getState().deletedShareIds
   };
 
-  const saved = useCollectionStore.getState().upsertFriend(friend, "update");
+  const resolved = await resolveFriendForImport(friend);
+  const saved = useCollectionStore.getState().upsertFriend(resolved, "update");
   if (!saved) {
     return { ok: false as const, friend: null, synced: false };
   }
