@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "verify:friend-qr": "tsx scripts/verify-friend-qr-flow.ts",
     "download:images": "tsx scripts/download-sticker-images.ts"
   },
   "dependencies": {
