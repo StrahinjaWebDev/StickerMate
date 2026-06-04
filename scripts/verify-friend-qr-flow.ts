@@ -11,7 +11,7 @@ import {
   friendNeedsLiveUpdate,
   normalizeSavedFriends
 } from "../lib/savedFriends";
-import { extractShareIdFromTradeInput, getTradeMatch } from "../services/tradeQrService";
+import { extractShareIdFromTradeInput, buildTradeProfilePayload, getTradeMatch } from "../services/tradeQrService";
 import type { TradeFriend } from "../types/sticker";
 
 let passed = 0;
@@ -183,6 +183,33 @@ const parsedShare = extractShareIdFromTradeInput(
   "https://sticker-mate-beta.vercel.app/friend-qr?data=SMQR2:Test:2026-01-01T00:00:00.000Z:AAAA:BBBB&share=share-abc"
 );
 assert(parsedShare === "share-abc", "Pasted beta QR URL preserves share id");
+
+console.log("\n=== Trade profile reflects all quantity changes ===\n");
+
+const ownedBefore = buildTradeProfilePayload("User A", { [CODE_MISSING]: 0 });
+const ownedAfter = buildTradeProfilePayload("User A", { [CODE_MISSING]: 1 });
+assert(ownedBefore.missing.includes(CODE_MISSING) && !ownedAfter.missing.includes(CODE_MISSING), "Friend owns sticker → missing list shrinks");
+
+const dupBefore = buildTradeProfilePayload("User A", { [CODE_FRIEND_DUP]: 1 });
+const dupAfter = buildTradeProfilePayload("User A", { [CODE_FRIEND_DUP]: 2 });
+const dupRemoved = buildTradeProfilePayload("User A", { [CODE_FRIEND_DUP]: 1 });
+assert(
+  !dupBefore.duplicates.includes(CODE_FRIEND_DUP) &&
+    dupAfter.duplicates.includes(CODE_FRIEND_DUP) &&
+    !dupRemoved.duplicates.includes(CODE_FRIEND_DUP),
+  "Duplicate add/remove updates published duplicate list"
+);
+
+const viewerQty = { [CODE_MISSING]: 2, [CODE_FRIEND_DUP]: 0, [CODE_NEW_FRIEND_DUP]: 0 };
+const beforeMatch = getTradeMatch(viewerQty, {
+  missing: ownedBefore.missing,
+  duplicates: dupAfter.duplicates
+});
+const afterMissingMatch = getTradeMatch(viewerQty, {
+  missing: ownedAfter.missing,
+  duplicates: dupAfter.duplicates
+});
+assert(beforeMatch.iCanGive.includes(CODE_MISSING) && !afterMissingMatch.iCanGive.includes(CODE_MISSING), "Viewer trade match updates when friend missing list shrinks");
 
 console.log("\n=== ConfirmDialog mobile layout (static) ===\n");
 

@@ -8,6 +8,7 @@ import { AccountStatusPrompt } from "@/components/AccountStatusPrompt";
 import { AuthSyncController } from "@/components/AuthSyncController";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { GuestProfileHydrator } from "@/components/GuestProfileHydrator";
+import { TradeSharePublisher } from "@/components/TradeSharePublisher";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { useI18n } from "@/hooks/useI18n";
 import { scrollToTop } from "@/lib/motion";
@@ -80,6 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
       <AuthSyncController />
       <GuestProfileHydrator />
+      <TradeSharePublisher />
       <ServiceWorkerRegister />
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-2 pb-[max(0.55rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur dark:border-white/10 dark:bg-neutral-950/95 lg:hidden">
