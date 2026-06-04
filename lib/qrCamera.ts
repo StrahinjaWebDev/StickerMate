@@ -2,10 +2,9 @@
 
 import { persistDebug } from "@/lib/persistDebug";
 
-const PREVIEW_TIMEOUT_MS = 10000;
-const PREVIEW_POLL_FRAMES = 300;
+const PREVIEW_TIMEOUT_MS = 12000;
 
-type CameraErrorKind = "permission" | "unavailable";
+type CameraErrorKind = "permission" | "unavailable" | "preview";
 
 export class QrCameraError extends Error {
   kind: CameraErrorKind;
@@ -19,8 +18,6 @@ export class QrCameraError extends Error {
 
 const cameraConstraints: MediaStreamConstraints[] = [
   { video: { facingMode: { ideal: "environment" } }, audio: false },
-  { video: { facingMode: "environment" }, audio: false },
-  { video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
   { video: true, audio: false }
 ];
 
@@ -28,11 +25,27 @@ function isPermissionError(error: unknown) {
   return error instanceof DOMException && error.name === "NotAllowedError";
 }
 
+export function isMobileSafari() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  const iOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return iOS && /AppleWebKit/.test(ua) && !/CriOS|FxiOS|OPiOS|EdgiOS|Chrome/.test(ua);
+}
+
+/** Prefer canvas mirror for preview on iOS Safari where <video> often stays black. */
+export function shouldUseCanvasPreview() {
+  return isMobileSafari();
+}
+
 /** Request rear camera when possible; fall back to default camera on iOS/Safari. */
 export async function requestQrCameraStream(): Promise<MediaStream> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     throw new QrCameraError("unavailable");
   }
+
+  persistDebug("qr-camera-permission-requested");
 
   let lastError: unknown = null;
 
@@ -42,8 +55,8 @@ export async function requestQrCameraStream(): Promise<MediaStream> {
       stream.getVideoTracks().forEach((track) => {
         track.enabled = true;
       });
-      persistDebug("qr-camera-stream", {
-        facingMode: JSON.stringify(constraints.video),
+      persistDebug("qr-camera-stream-received", {
+        constraint: JSON.stringify(constraints.video),
         trackState: stream.getVideoTracks()[0]?.readyState ?? "none"
       });
       return stream;
@@ -53,7 +66,7 @@ export async function requestQrCameraStream(): Promise<MediaStream> {
         throw new QrCameraError("permission");
       }
       persistDebug("qr-camera-constraint-failed", {
-        facingMode: JSON.stringify(constraints.video),
+        constraint: JSON.stringify(constraints.video),
         error: String(error)
       });
     }
@@ -66,7 +79,7 @@ export async function requestQrCameraStream(): Promise<MediaStream> {
   throw new QrCameraError("unavailable");
 }
 
-function configureVideoElement(video: HTMLVideoElement) {
+export function configureVideoElement(video: HTMLVideoElement) {
   video.muted = true;
   video.defaultMuted = true;
   video.playsInline = true;
@@ -78,55 +91,63 @@ function configureVideoElement(video: HTMLVideoElement) {
   video.setAttribute("muted", "true");
 }
 
-function attemptVideoPlay(video: HTMLVideoElement) {
-  const playResult = video.play();
-  if (playResult && typeof playResult.catch === "function") {
-    playResult.catch((error) => {
-      persistDebug("qr-camera-play-rejected", { error: String(error) });
+async function attemptVideoPlay(video: HTMLVideoElement) {
+  try {
+    await video.play();
+    persistDebug("qr-camera-play-resolved", {
+      width: video.videoWidth,
+      height: video.videoHeight,
+      readyState: video.readyState
     });
+  } catch (error) {
+    persistDebug("qr-camera-play-rejected", { error: String(error) });
   }
 }
 
-function isPreviewRenderable(video: HTMLVideoElement, stream: MediaStream) {
-  if (video.videoWidth > 0 && video.videoHeight > 0) return true;
-  const track = stream.getVideoTracks()[0];
-  return Boolean(track && track.readyState === "live" && track.enabled && !track.muted);
+function hasVideoDimensions(video: HTMLVideoElement) {
+  return video.videoWidth > 0 && video.videoHeight > 0;
 }
 
-/** Attach stream and wait until Safari/iOS actually starts rendering frames. */
-export async function attachStreamToVideoPreview(video: HTMLVideoElement, stream: MediaStream): Promise<void> {
+/** Attach MediaStream and wait until frames are available for decode/preview. */
+export async function attachStreamToVideoElement(video: HTMLVideoElement, stream: MediaStream): Promise<void> {
   configureVideoElement(video);
   video.srcObject = stream;
-  attemptVideoPlay(video);
+  persistDebug("qr-camera-srcobject-assigned", {
+    hasVideo: Boolean(video),
+    trackState: stream.getVideoTracks()[0]?.readyState ?? "none"
+  });
 
+  await waitForVideoFrames(video);
+}
+
+async function waitForVideoFrames(video: HTMLVideoElement): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     let settled = false;
-    let pollFrame = 0;
     let pollId = 0;
+    let pollCount = 0;
+    let retryAttachAt = 0;
 
     const finish = () => {
       if (settled) return;
       settled = true;
       cleanup();
-      attemptVideoPlay(video);
-      persistDebug("qr-camera-preview-ready", {
+      persistDebug("qr-camera-dimensions", {
         width: video.videoWidth,
         height: video.videoHeight,
-        readyState: video.readyState,
-        trackState: stream.getVideoTracks()[0]?.readyState ?? "none"
+        readyState: video.readyState
       });
       resolve();
     };
 
-    const fail = (error: unknown) => {
+    const fail = (error: Error) => {
       if (settled) return;
       settled = true;
       cleanup();
-      reject(error instanceof Error ? error : new Error("video preview failed"));
+      reject(error);
     };
 
     const timeout = window.setTimeout(() => {
-      if (isPreviewRenderable(video, stream)) {
+      if (hasVideoDimensions(video)) {
         finish();
         return;
       }
@@ -136,61 +157,117 @@ export async function attachStreamToVideoPreview(video: HTMLVideoElement, stream
     const cleanup = () => {
       window.clearTimeout(timeout);
       if (pollId) window.cancelAnimationFrame(pollId);
-      video.removeEventListener("loadedmetadata", onReady);
-      video.removeEventListener("loadeddata", onReady);
-      video.removeEventListener("playing", onReady);
-      video.removeEventListener("canplay", onReady);
-      video.removeEventListener("resize", onReady);
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("loadeddata", onLoadedMetadata);
+      video.removeEventListener("playing", onLoadedMetadata);
+      video.removeEventListener("canplay", onLoadedMetadata);
+      video.removeEventListener("resize", onLoadedMetadata);
     };
 
-    const onReady = () => {
-      if (isPreviewRenderable(video, stream)) {
-        finish();
-      } else {
-        attemptVideoPlay(video);
-      }
+    const onLoadedMetadata = () => {
+      persistDebug("qr-camera-loadedmetadata", {
+        width: video.videoWidth,
+        height: video.videoHeight,
+        readyState: video.readyState
+      });
+      void attemptVideoPlay(video);
+      if (hasVideoDimensions(video)) finish();
     };
 
     const poll = () => {
-      if (settled) return;
-      pollFrame += 1;
-      if (isPreviewRenderable(video, stream)) {
+      pollCount += 1;
+      if (hasVideoDimensions(video)) {
         finish();
         return;
       }
-      if (pollFrame % 15 === 0) {
-        attemptVideoPlay(video);
+      if (pollCount === 30 || pollCount === 90) {
+        void attemptVideoPlay(video);
       }
-      if (pollFrame >= PREVIEW_POLL_FRAMES) {
-        if (stream.getVideoTracks()[0]?.readyState === "live") {
-          finish();
-          return;
-        }
+      if (pollCount === retryAttachAt && video.srcObject) {
+        const stream = video.srcObject as MediaStream;
+        video.srcObject = null;
+        window.requestAnimationFrame(() => {
+          video.srcObject = stream;
+          void attemptVideoPlay(video);
+        });
+        persistDebug("qr-camera-reattach", { pollCount });
+      }
+      if (pollCount >= 360) {
+        fail(new Error("video dimensions stayed zero"));
+        return;
       }
       pollId = window.requestAnimationFrame(poll);
     };
 
-    video.addEventListener("loadedmetadata", onReady);
-    video.addEventListener("loadeddata", onReady);
-    video.addEventListener("playing", onReady);
-    video.addEventListener("canplay", onReady);
-    video.addEventListener("resize", onReady);
+    retryAttachAt = 120;
 
-    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
-      onReady();
-    }
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
+    video.addEventListener("loadeddata", onLoadedMetadata);
+    video.addEventListener("playing", onLoadedMetadata);
+    video.addEventListener("canplay", onLoadedMetadata);
+    video.addEventListener("resize", onLoadedMetadata);
 
+    void attemptVideoPlay(video);
     pollId = window.requestAnimationFrame(poll);
   });
+}
+
+/** Mirror video frames to canvas — reliable visible preview on iOS Safari. */
+export function startCanvasPreviewLoop(
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement,
+  onFirstFrame?: () => void
+): () => void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return () => {};
+
+  let rafId = 0;
+  let notified = false;
+
+  const draw = () => {
+    if (hasVideoDimensions(video)) {
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (!notified) {
+        notified = true;
+        persistDebug("qr-camera-canvas-first-frame", {
+          width: video.videoWidth,
+          height: video.videoHeight,
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height
+        });
+        onFirstFrame?.();
+      }
+    }
+    rafId = window.requestAnimationFrame(draw);
+  };
+
+  rafId = window.requestAnimationFrame(draw);
+
+  return () => {
+    if (rafId) window.cancelAnimationFrame(rafId);
+  };
 }
 
 export function stopMediaStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((track) => track.stop());
 }
 
-export function cameraErrorMessageKey(error: unknown): "friendQr.cameraPermissionDenied" | "friendQr.cameraUnavailable" {
-  if (error instanceof QrCameraError && error.kind === "permission") {
-    return "friendQr.cameraPermissionDenied";
+export function cameraErrorMessageKey(
+  error: unknown
+): "friendQr.cameraPermissionDenied" | "friendQr.cameraPreviewFailed" | "friendQr.cameraUnavailable" {
+  if (error instanceof QrCameraError) {
+    if (error.kind === "permission") return "friendQr.cameraPermissionDenied";
+    if (error.kind === "preview") return "friendQr.cameraPreviewFailed";
+  }
+  if (error instanceof Error && error.message.includes("preview")) {
+    return "friendQr.cameraPreviewFailed";
   }
   return "friendQr.cameraUnavailable";
 }

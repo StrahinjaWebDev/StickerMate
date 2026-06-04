@@ -4,29 +4,41 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Primitives";
 import { useI18n } from "@/hooks/useI18n";
-import { attachStreamToVideoPreview, stopMediaStream } from "@/lib/qrCamera";
+import {
+  attachStreamToVideoElement,
+  QrCameraError,
+  requestQrCameraStream,
+  shouldUseCanvasPreview,
+  startCanvasPreviewLoop,
+  stopMediaStream
+} from "@/lib/qrCamera";
 import { persistDebug } from "@/lib/persistDebug";
 import { decodeQrFromVideoFrame } from "@/services/tradeQrService";
 
 export function FriendQrScanner({
   open,
-  stream,
   onClose,
   onScan
 }: {
   open: boolean;
-  stream: MediaStream | null;
   onClose: () => void;
   onScan: (data: string) => void;
 }) {
   const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const scanTimerRef = useRef<number | null>(null);
   const scanInFlightRef = useRef(false);
+  const stopCanvasRef = useRef<(() => void) | null>(null);
+  const previewReadyRef = useRef(false);
   const onScanRef = useRef(onScan);
   const onCloseRef = useRef(onClose);
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
+  const [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
   const [previewReady, setPreviewReady] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
+  const useCanvasPreview = shouldUseCanvasPreview();
 
   useEffect(() => {
     onScanRef.current = onScan;
@@ -37,14 +49,14 @@ export function FriendQrScanner({
     if (!open) {
       setPreviewReady(false);
       setAttachError(null);
+      setVideoEl(null);
+      setCanvasEl(null);
+      previewReadyRef.current = false;
     }
   }, [open]);
 
   useLayoutEffect(() => {
-    if (!open || !stream) return;
-
-    const video = videoRef.current;
-    if (!video) return;
+    if (!open || !videoEl || !canvasEl) return;
 
     let cancelled = false;
 
@@ -56,8 +68,27 @@ export function FriendQrScanner({
       scanInFlightRef.current = false;
     }
 
+    function stopPreviewLoop() {
+      stopCanvasRef.current?.();
+      stopCanvasRef.current = null;
+    }
+
+    function cleanupCamera() {
+      stopScanLoop();
+      stopPreviewLoop();
+      const video = videoRef.current;
+      if (video?.srcObject) {
+        video.srcObject = null;
+      }
+      stopMediaStream(streamRef.current);
+      streamRef.current = null;
+      previewReadyRef.current = false;
+      setPreviewReady(false);
+    }
+
     function startScanLoop() {
       stopScanLoop();
+      persistDebug("qr-camera-scanner-started");
       scanTimerRef.current = window.setInterval(() => {
         if (cancelled || !videoRef.current || scanInFlightRef.current) return;
         scanInFlightRef.current = true;
@@ -65,38 +96,80 @@ export function FriendQrScanner({
           .then((data) => {
             if (!data || cancelled) return;
             stopScanLoop();
+            cleanupCamera();
             onScanRef.current(data);
           })
           .finally(() => {
             scanInFlightRef.current = false;
           });
-      }, 220);
+      }, 250);
     }
 
+    function markPreviewReady() {
+      if (cancelled || previewReadyRef.current) return;
+      previewReadyRef.current = true;
+      setPreviewReady(true);
+      startScanLoop();
+    }
+
+    previewReadyRef.current = false;
     setPreviewReady(false);
     setAttachError(null);
 
-    void attachStreamToVideoPreview(video, stream)
-      .then(() => {
+    void (async () => {
+      try {
+        persistDebug("qr-camera-video-ref-ready", {
+          useCanvasPreview,
+          videoWidth: videoEl.clientWidth,
+          videoHeight: videoEl.clientHeight
+        });
+
+        const stream = await requestQrCameraStream();
+        if (cancelled) {
+          stopMediaStream(stream);
+          return;
+        }
+
+        streamRef.current = stream;
+        await attachStreamToVideoElement(videoEl, stream);
         if (cancelled) return;
-        setPreviewReady(true);
-        startScanLoop();
-      })
-      .catch((error) => {
-        persistDebug("qr-camera-attach-failed", { error: String(error) });
+
+        if (useCanvasPreview) {
+          stopPreviewLoop();
+          stopCanvasRef.current = startCanvasPreviewLoop(videoEl, canvasEl, () => {
+            markPreviewReady();
+          });
+          window.setTimeout(() => {
+            if (!cancelled && !previewReadyRef.current && videoEl.videoWidth > 0) {
+              markPreviewReady();
+            }
+          }, 500);
+        } else {
+          markPreviewReady();
+        }
+      } catch (error) {
+        persistDebug("qr-camera-start-failed", { error: String(error) });
         if (cancelled) return;
-        setAttachError(t("friendQr.cameraUnavailable"));
-      });
+        cleanupCamera();
+        if (error instanceof QrCameraError && error.kind === "permission") {
+          setAttachError(t("friendQr.cameraPermissionDenied"));
+        } else if (error instanceof Error && error.message.includes("preview")) {
+          setAttachError(t("friendQr.cameraPreviewFailed"));
+        } else {
+          setAttachError(t("friendQr.cameraPreviewFailed"));
+        }
+      }
+    })();
 
     return () => {
       cancelled = true;
-      stopScanLoop();
-      video.srcObject = null;
-      setPreviewReady(false);
+      cleanupCamera();
     };
-  }, [open, stream, t]);
+  }, [open, videoEl, canvasEl, t, useCanvasPreview]);
 
   function handleClose() {
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
     onCloseRef.current();
   }
 
@@ -124,14 +197,37 @@ export function FriendQrScanner({
         </Button>
       </div>
 
-      <div className="relative mx-auto mt-4 h-[min(62vh,520px)] min-h-[280px] w-full max-w-lg shrink-0 overflow-hidden rounded-lg border border-white/20 bg-black">
+      <div
+        className="relative mx-auto mt-4 w-full max-w-lg shrink-0 overflow-hidden rounded-lg border border-white/20 bg-black"
+        style={{ height: "min(62vh, 520px)", minHeight: 280 }}
+      >
         <video
-          ref={videoRef}
-          className="absolute inset-0 z-0 h-full w-full object-cover [transform:translateZ(0)]"
+          ref={(node) => {
+            videoRef.current = node;
+            setVideoEl(node);
+          }}
+          className={
+            useCanvasPreview
+              ? "pointer-events-none absolute left-0 top-0 h-px w-px opacity-0"
+              : "absolute inset-0 z-0 h-full w-full object-cover"
+          }
           playsInline
           muted
           autoPlay
+          aria-hidden={useCanvasPreview}
           aria-label={t("friendQr.scanCameraLong")}
+        />
+        <canvas
+          ref={(node) => {
+            canvasRef.current = node;
+            setCanvasEl(node);
+          }}
+          className={
+            useCanvasPreview
+              ? "absolute inset-0 z-0 h-full w-full object-cover"
+              : "pointer-events-none absolute inset-0 z-0 h-full w-full opacity-0"
+          }
+          aria-hidden={!useCanvasPreview}
         />
         <div className="pointer-events-none absolute inset-8 z-10 rounded-lg border-2 border-white/70" aria-hidden="true" />
       </div>
@@ -148,8 +244,4 @@ export function FriendQrScanner({
       )}
     </div>
   );
-}
-
-export function releaseScannerStream(stream: MediaStream | null) {
-  stopMediaStream(stream);
 }

@@ -443,6 +443,7 @@
   "friendQr.scanCameraLong": "Scan QR with camera",
   "friendQr.scanCameraHint": "Point your camera at your friend's trade QR.",
   "friendQr.cameraPermission": "Allow camera access to scan QR.",
+  "friendQr.cameraPreviewFailed": "Camera could not be shown. Try again, upload a QR image, or paste a link.",
   "friendQr.cameraPermissionDenied": "Camera access is blocked. Allow it in Safari settings, or upload a QR image / paste a link.",
   "friendQr.cameraFallbackHint": "Tap Cancel and use Upload image or Paste link below.",
   "friendQr.cameraStarting": "Starting camera…",

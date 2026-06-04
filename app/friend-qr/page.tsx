@@ -4,12 +4,11 @@ import Link from "next/link";
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, ClipboardPaste, Copy, ImageUp, QrCode, Save } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
-import { FriendQrScanner, releaseScannerStream } from "@/components/FriendQrScanner";
+import { FriendQrScanner } from "@/components/FriendQrScanner";
 import { Button, Card } from "@/components/ui/Primitives";
 import { StatusMessage } from "@/components/StatusMessage";
 import { useI18n } from "@/hooks/useI18n";
 import { importSavedFriend } from "@/lib/savedFriendActions";
-import { cameraErrorMessageKey, QrCameraError, requestQrCameraStream } from "@/lib/qrCamera";
 import { friendFromTradeProfile } from "@/lib/tradeShareService";
 import { getTradeMatch, parseTradeProfilePayload, QrImageNotFoundError, readQrFromImageFile } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -29,8 +28,6 @@ export default function FriendQrPage() {
   const [importWasUpdate, setImportWasUpdate] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [scannerStream, setScannerStream] = useState<MediaStream | null>(null);
-  const [scannerBooting, setScannerBooting] = useState(false);
   const [processingImage, setProcessingImage] = useState(false);
   const existingFriend = payload
     ? friends.find(
@@ -162,30 +159,7 @@ export default function FriendQrPage() {
   }
 
   function closeScanner() {
-    releaseScannerStream(scannerStream);
-    setScannerStream(null);
     setScannerOpen(false);
-  }
-
-  async function openScanner() {
-    if (scannerBooting || scannerOpen) return;
-
-    setScannerBooting(true);
-    setMessage(null);
-
-    try {
-      const stream = await requestQrCameraStream();
-      setScannerStream(stream);
-      setScannerOpen(true);
-    } catch (error) {
-      releaseScannerStream(null);
-      setMessage(t(cameraErrorMessageKey(error)));
-      if (!(error instanceof QrCameraError)) {
-        console.warn("[friend qr] camera start failed", error);
-      }
-    } finally {
-      setScannerBooting(false);
-    }
   }
 
   function handleScan(data: string) {
@@ -211,9 +185,9 @@ export default function FriendQrPage() {
 
       <Card>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Button tone="primary" disabled={scannerBooting} onClick={() => void openScanner()}>
+          <Button tone="primary" onClick={() => setScannerOpen(true)}>
             <Camera size={18} />
-            {scannerBooting ? t("friendQr.cameraStarting") : t("friendQr.scanCamera")}
+            {t("friendQr.scanCamera")}
           </Button>
           <Button onClick={() => uploadRef.current?.click()} disabled={processingImage}>
             <ImageUp size={18} />
@@ -314,7 +288,7 @@ export default function FriendQrPage() {
         </Card>
       ) : null}
 
-      <FriendQrScanner open={scannerOpen} stream={scannerStream} onClose={closeScanner} onScan={handleScan} />
+      <FriendQrScanner open={scannerOpen} onClose={closeScanner} onScan={handleScan} />
     </div>
   );
 }
