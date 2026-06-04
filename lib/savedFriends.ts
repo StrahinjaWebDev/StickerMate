@@ -101,3 +101,16 @@ export function clearDeletionForFriend(
     deletedShareIds: friend.shareId ? deletedShareIds.filter((shareId) => shareId !== friend.shareId) : deletedShareIds
   };
 }
+
+/** Cloud settings should not store trade lists for share-linked friends; trade_shares is authoritative. */
+export function stripShareLinkedFriendSnapshotsForCloud(friends: TradeFriend[]): TradeFriend[] {
+  return friends.map((friend) =>
+    friend.shareId
+      ? {
+          ...friend,
+          missing: [],
+          duplicates: []
+        }
+      : friend
+  );
+}

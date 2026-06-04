@@ -9,8 +9,17 @@ import {
   filterRemovedFriends,
   findExistingFriend,
   friendNeedsLiveUpdate,
-  normalizeSavedFriends
+  normalizeSavedFriends,
+  stripShareLinkedFriendSnapshotsForCloud
 } from "../lib/savedFriends";
+import {
+  createEmptyCloudSnapshot,
+  initialCloudSnapshotForNewAccount,
+  mergeLocalAndCloud,
+  resolveCloudSnapshotForLoad,
+  snapshotForCloudUpload
+} from "../lib/cloudSync";
+import { hasUnsyncedLocalChanges, writeUserSyncMeta } from "../lib/syncMeta";
 import { extractShareIdFromTradeInput, buildTradeProfilePayload, getTradeMatch, buildSmartTradeProposal, pickSmartTradeProposal } from "../services/tradeQrService";
 import { translate } from "../lib/i18n";
 import type { TradeFriend } from "../types/sticker";
@@ -227,6 +236,116 @@ assert(
   "Proposal includes friend name and selected codes"
 );
 assert(buildSmartTradeProposal("Veljko", [], ["MEX3"], tSr) === null, "No proposal when I cannot give");
+
+console.log("\n=== Phase 1 cloud persistence helpers ===\n");
+
+if (typeof globalThis.localStorage === "undefined") {
+  const store = new Map<string, string>();
+  globalThis.localStorage = {
+    getItem: (key) => store.get(key) ?? null,
+    setItem: (key, value) => {
+      store.set(key, value);
+    },
+    removeItem: (key) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
+    key: () => null,
+    get length() {
+      return store.size;
+    }
+  } as Storage;
+}
+
+const shareFriend = makeFriend({ shareId: "share-live", missing: [CODE_MISSING], duplicates: [CODE_FRIEND_DUP] });
+const stripped = stripShareLinkedFriendSnapshotsForCloud([shareFriend]);
+assert(
+  stripped[0]!.missing.length === 0 && stripped[0]!.duplicates.length === 0 && stripped[0]!.shareId === "share-live",
+  "Share-linked friend trade lists stripped for cloud upload"
+);
+
+const guestFriend = makeFriend({ shareId: undefined, missing: [CODE_MISSING], duplicates: [] });
+const strippedGuest = stripShareLinkedFriendSnapshotsForCloud([guestFriend]);
+assert(strippedGuest[0]!.missing.includes(CODE_MISSING), "Guest friend without shareId keeps snapshot lists");
+
+const cloudPayload = snapshotForCloudUpload({
+  albumId: "fifa-world-cup-2026",
+  quantities: {},
+  settings: {
+    theme: "system",
+    language: "sr",
+    viewMode: "list",
+    defaultCurrency: "RSD",
+    packPriceRsd: 0,
+    stickersPerPack: 0,
+    tradeDisplayName: "",
+    friends: [shareFriend],
+    deletedFriendIds: [],
+    deletedShareIds: [],
+    recentCodes: [],
+    entryHistory: []
+  },
+  reviewState: { currentIndex: 0, completed: false },
+  onboarded: false,
+  dismissedGuides: {},
+  tradeHistory: [],
+  spendingEntries: [],
+  updatedAt: "2026-01-01T00:00:00.000Z"
+});
+assert(
+  cloudPayload.settings.friends[0]!.missing.length === 0,
+  "snapshotForCloudUpload strips share-linked lists"
+);
+
+const localSnap = {
+  albumId: "fifa-world-cup-2026",
+  quantities: { [CODE_MISSING]: 2 },
+  settings: {
+    theme: "system" as const,
+    language: "sr" as const,
+    viewMode: "list" as const,
+    defaultCurrency: "RSD" as const,
+    packPriceRsd: 0,
+    stickersPerPack: 0,
+    tradeDisplayName: "",
+    friends: [],
+    deletedFriendIds: [],
+    deletedShareIds: [],
+    recentCodes: [],
+    entryHistory: []
+  },
+  reviewState: { currentIndex: 0, completed: false },
+  onboarded: false,
+  dismissedGuides: {},
+  tradeHistory: [],
+  spendingEntries: [],
+  updatedAt: "2026-06-04T12:00:00.000Z"
+};
+const cloudSnap = {
+  ...localSnap,
+  quantities: { [CODE_MISSING]: 1 },
+  updatedAt: "2026-06-01T00:00:00.000Z"
+};
+const merged = mergeLocalAndCloud(localSnap, cloudSnap);
+assert((merged.quantities[CODE_MISSING] ?? 0) === 2, "mergeLocalAndCloud keeps max quantity per sticker");
+
+writeUserSyncMeta("user-test", { cloudUpdatedAt: "2026-01-01T00:00:00.000Z", syncedFingerprint: "fp-old" });
+assert(hasUnsyncedLocalChanges("user-test", "fp-new"), "Unsynced when fingerprint differs from sync meta");
+assert(
+  resolveCloudSnapshotForLoad("user-test", cloudSnap, localSnap, "fp-new", false).quantities[CODE_MISSING] === 2,
+  "Resolve merges when unsynced"
+);
+assert(
+  resolveCloudSnapshotForLoad("user-test", cloudSnap, localSnap, "fp-new", true).quantities[CODE_MISSING] === 1,
+  "preferCloud keeps cloud quantities on account switch/login"
+);
+
+const promoted = initialCloudSnapshotForNewAccount(localSnap);
+assert((promoted.quantities[CODE_MISSING] ?? 0) === 2, "New account promotes meaningful local snapshot");
+const emptyPromoted = initialCloudSnapshotForNewAccount(createEmptyCloudSnapshot());
+assert(Object.keys(emptyPromoted.quantities).length === 0, "New account without data stays empty");
 
 console.log("\n=== Trade profile reflects all quantity changes ===\n");
 

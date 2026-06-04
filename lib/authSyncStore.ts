@@ -3,12 +3,13 @@
 import { create } from "zustand";
 import type { User } from "@supabase/supabase-js";
 import {
-  createEmptyCloudSnapshot,
   getCloudSyncFailureKind,
   getLocalSnapshot,
   getLocalSyncFingerprint,
+  initialCloudSnapshotForNewAccount,
   isInvalidRefreshTokenError,
   loadCloudCollection,
+  resolveCloudSnapshotForLoad,
   saveCloudCollection,
   saveLocalSnapshot,
   syncNow as syncCloudNow,
@@ -18,6 +19,7 @@ import {
 import { useCollectionStore, waitForCollectionHydration } from "@/stores/useCollectionStore";
 import { backupGuestSnapshotBeforeAuth, restoreGuestCollectionAfterSignOut } from "@/lib/guestProfiles";
 import { refreshAllSavedFriendsWithShareId } from "@/lib/refreshSavedFriends";
+import { hasUnsyncedLocalChanges, writeUserSyncMeta } from "@/lib/syncMeta";
 import { createClient } from "@/utils/supabase/client";
 
 type AuthSyncState = {
@@ -42,7 +44,6 @@ const initialState: AuthSyncState = {
 
 export const useAuthSyncStore = create<AuthSyncState>()(() => initialState);
 
-const SYNC_META_KEY = "stickermate-sync-meta";
 const LEGACY_MIGRATION_PENDING_KEY = "stickermate-migration-pending";
 const AUTO_SYNC_DELAY_MS = 2500;
 
@@ -57,10 +58,9 @@ let signOutInFlight = false;
 let preparedUserId: string | null = null;
 let prepareCompleted = false;
 let pendingAutoSyncAfterCurrent = false;
-
-type SyncMeta = {
-  cloudUpdatedAt: string | null;
-};
+/** After switching Google accounts, never merge foreign localStorage into cloud. */
+let preferCloudAccountLoad = false;
+let unloadFlushBound = false;
 
 function getSupabase() {
   return createClient();
@@ -89,16 +89,18 @@ function muteNextLocalStoreSync() {
   }, 1200);
 }
 
-function writeSyncMeta(userId: string, cloudUpdatedAt: string | null) {
-  if (typeof window === "undefined") return;
-  try {
-    const raw = window.localStorage.getItem(SYNC_META_KEY);
-    const all = raw ? (JSON.parse(raw) as Record<string, SyncMeta>) : {};
-    all[userId] = { cloudUpdatedAt };
-    window.localStorage.setItem(SYNC_META_KEY, JSON.stringify(all));
-  } catch {
-    // Ignore storage failures; sync still works without meta.
-  }
+function markSynced(userId: string, cloudUpdatedAt: string, extra: Partial<AuthSyncState> = {}) {
+  writeUserSyncMeta(userId, {
+    cloudUpdatedAt,
+    syncedFingerprint: getLocalSyncFingerprint()
+  });
+  setAuthSyncState({
+    lastSyncedAt: cloudUpdatedAt,
+    status: "synced",
+    messageKey: null,
+    initialLoadDone: true,
+    ...extra
+  });
 }
 
 function clearLegacyMigrationState() {
@@ -108,17 +110,6 @@ function clearLegacyMigrationState() {
   } catch {
     // Ignore storage failures.
   }
-}
-
-function markSynced(userId: string, cloudUpdatedAt: string, extra: Partial<AuthSyncState> = {}) {
-  writeSyncMeta(userId, cloudUpdatedAt);
-  setAuthSyncState({
-    lastSyncedAt: cloudUpdatedAt,
-    status: "synced",
-    messageKey: null,
-    initialLoadDone: true,
-    ...extra
-  });
 }
 
 function setSyncFailure(error: unknown) {
@@ -150,6 +141,32 @@ function canAutoSyncForUser(user: User | null) {
     status !== "disabled_missing_tables" &&
     !signOutInFlight
   );
+}
+
+function bestEffortFlushPendingSync() {
+  const { user, status } = useAuthSyncStore.getState();
+  if (!user || signOutInFlight || !prepareCompleted) return;
+
+  const dirty =
+    status === "dirty" ||
+    status === "syncing" ||
+    hasUnsyncedLocalChanges(user.id, getLocalSyncFingerprint());
+
+  if (!dirty) return;
+
+  clearAutoSyncTimer();
+  void runAutoSync();
+}
+
+function ensureUnloadFlushHandlers() {
+  if (unloadFlushBound || typeof window === "undefined") return;
+  unloadFlushBound = true;
+
+  window.addEventListener("beforeunload", bestEffortFlushPendingSync);
+  window.addEventListener("pagehide", bestEffortFlushPendingSync);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") bestEffortFlushPendingSync();
+  });
 }
 
 async function runExclusive(task: () => Promise<CloudSnapshot | null>) {
@@ -193,11 +210,28 @@ async function handleAuthExpired() {
   }
 }
 
-async function applyCloudSnapshot(userId: string, cloud: CloudSnapshot) {
+async function applyCloudSnapshot(
+  supabase: NonNullable<ReturnType<typeof getSupabase>>,
+  currentUser: User,
+  cloud: CloudSnapshot,
+  preferCloud: boolean
+) {
+  const local = getLocalSnapshot();
+  const fingerprint = getLocalSyncFingerprint();
+  const hadUnsyncedLocal = !preferCloud && hasUnsyncedLocalChanges(currentUser.id, fingerprint);
+  const resolved = resolveCloudSnapshotForLoad(currentUser.id, cloud, local, fingerprint, preferCloud);
+
   muteNextLocalStoreSync();
-  saveLocalSnapshot(cloud);
+  saveLocalSnapshot(resolved);
   await refreshAllSavedFriendsWithShareId();
-  markSynced(userId, cloud.updatedAt);
+
+  if (hadUnsyncedLocal) {
+    const cloudUpdatedAt = await saveCloudCollection(supabase, currentUser, getLocalSnapshot());
+    markSynced(currentUser.id, cloudUpdatedAt);
+    return;
+  }
+
+  markSynced(currentUser.id, cloud.updatedAt);
 }
 
 async function prepareCloudState(currentUser: User, force = false) {
@@ -219,15 +253,20 @@ async function prepareCloudState(currentUser: User, force = false) {
     setAuthSyncState({ status: "syncing", messageKey: "account.loadingOnline", initialLoadDone: false });
 
     try {
+      const preferCloud = preferCloudAccountLoad;
+      preferCloudAccountLoad = false;
+
       const cloud = await loadCloudCollection(supabase, currentUser.id);
 
       if (cloud) {
-        await applyCloudSnapshot(currentUser.id, cloud);
+        await applyCloudSnapshot(supabase, currentUser, cloud, preferCloud);
       } else {
-        const empty = createEmptyCloudSnapshot();
+        // First cloud row for this account: promote meaningful local/guest working copy, not empty.
+        const initial = initialCloudSnapshotForNewAccount(getLocalSnapshot());
         muteNextLocalStoreSync();
-        saveLocalSnapshot(empty);
-        const cloudUpdatedAt = await saveCloudCollection(supabase, currentUser, empty);
+        saveLocalSnapshot(initial);
+        await refreshAllSavedFriendsWithShareId();
+        const cloudUpdatedAt = await saveCloudCollection(supabase, currentUser, getLocalSnapshot());
         markSynced(currentUser.id, cloudUpdatedAt);
       }
 
@@ -322,6 +361,7 @@ export function initializeAuthSync() {
   }
 
   ensureCollectionSubscription();
+  ensureUnloadFlushHandlers();
 
   void (async () => {
     try {
@@ -366,6 +406,10 @@ export function initializeAuthSync() {
 
     setAuthSyncState({ user: nextUser, authReady: true, authMessageKey: null });
 
+    if (nextUser && (event === "SIGNED_IN" || previousUser?.id !== nextUser.id)) {
+      preferCloudAccountLoad = true;
+    }
+
     if (nextUser && previousUser?.id !== nextUser.id) {
       preparedUserId = null;
       prepareCompleted = false;
@@ -405,6 +449,8 @@ export async function signOutLocally() {
   prepareCompleted = false;
   pendingAutoSyncAfterCurrent = false;
 
+  await flushCollectionSync();
+
   const guestLanguage = useCollectionStore.getState().language;
   restoreGuestCollectionAfterSignOut(guestLanguage);
 
@@ -424,6 +470,7 @@ export async function flushCollectionSync() {
   const { user } = useAuthSyncStore.getState();
   if (!user) return true;
 
+  clearAutoSyncTimer();
   const result = await runAutoSync();
   return result !== null;
 }
@@ -458,5 +505,7 @@ export function cleanupAuthSyncForTests() {
   preparedUserId = null;
   prepareCompleted = false;
   pendingAutoSyncAfterCurrent = false;
+  preferCloudAccountLoad = false;
+  unloadFlushBound = false;
   signOutInFlight = false;
 }

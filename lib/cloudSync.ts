@@ -2,7 +2,13 @@
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { getEntryAmountRsd, PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
-import { dedupeFriends, filterRemovedFriends, normalizeSavedFriends } from "@/lib/savedFriends";
+import {
+  dedupeFriends,
+  filterRemovedFriends,
+  normalizeSavedFriends,
+  stripShareLinkedFriendSnapshotsForCloud
+} from "@/lib/savedFriends";
+import { hasUnsyncedLocalChanges } from "@/lib/syncMeta";
 import { stickerByCode } from "@/lib/stickers";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type {
@@ -410,9 +416,48 @@ export async function loadCloudCollection(supabase: SupabaseClient, userId: stri
   } satisfies CloudSnapshot;
 }
 
+/**
+ * Brand-new signed-in account with no cloud row: keep meaningful current local/guest
+ * working copy instead of uploading an empty collection.
+ */
+export function initialCloudSnapshotForNewAccount(local = getLocalSnapshot()): CloudSnapshot {
+  if (hasMeaningfulLocalData(local)) {
+    return { ...local, updatedAt: nowIso() };
+  }
+  return createEmptyCloudSnapshot(local);
+}
+
+/**
+ * On cloud hydrate, prefer cloud unless this browser has unsynced edits for the same user.
+ * When preferCloud is true (account switch), never merge foreign localStorage into cloud.
+ */
+export function resolveCloudSnapshotForLoad(
+  userId: string,
+  cloud: CloudSnapshot,
+  local: CloudSnapshot,
+  currentFingerprint: string,
+  preferCloud: boolean
+): CloudSnapshot {
+  if (preferCloud || !hasUnsyncedLocalChanges(userId, currentFingerprint)) {
+    return cloud;
+  }
+  return mergeLocalAndCloud(local, cloud);
+}
+
 export function getLocalSyncFingerprint() {
   const snapshot = getLocalSnapshot();
   return JSON.stringify({ ...snapshot, updatedAt: "" });
+}
+
+/** Prepare snapshot for Supabase upload — strip share-linked friend trade lists from settings. */
+export function snapshotForCloudUpload(snapshot: CloudSnapshot): CloudSnapshot {
+  return {
+    ...snapshot,
+    settings: {
+      ...snapshot.settings,
+      friends: stripShareLinkedFriendSnapshotsForCloud(snapshot.settings.friends)
+    }
+  };
 }
 
 export async function saveCloudCollection(
@@ -421,6 +466,7 @@ export async function saveCloudCollection(
   snapshot = getLocalSnapshot()
 ): Promise<string> {
   const updatedAt = nowIso();
+  const payload = snapshotForCloudUpload(snapshot);
 
   const { error: profileError } = await supabase.from("profiles").upsert(
     {
@@ -438,11 +484,11 @@ export async function saveCloudCollection(
     {
       user_id: user.id,
       album_id: albumId,
-      quantities: cleanQuantities(snapshot.quantities),
-      settings: snapshot.settings,
-      review_state: snapshot.reviewState,
-      onboarding_completed: snapshot.onboarded,
-      dismissed_help: snapshot.dismissedGuides,
+      quantities: cleanQuantities(payload.quantities),
+      settings: payload.settings,
+      review_state: payload.reviewState,
+      onboarding_completed: payload.onboarded,
+      dismissed_help: payload.dismissedGuides,
       updated_at: updatedAt
     },
     { onConflict: "user_id,album_id" }
@@ -456,9 +502,9 @@ export async function saveCloudCollection(
     .eq("album_id", albumId);
   if (deleteTradesError) throw deleteTradesError;
 
-  if (snapshot.tradeHistory.length > 0) {
+  if (payload.tradeHistory.length > 0) {
     const { error } = await supabase.from("trades").insert(
-      snapshot.tradeHistory.map((trade) => ({
+      payload.tradeHistory.map((trade) => ({
         user_id: user.id,
         album_id: albumId,
         friend_name: trade.friendName,
@@ -480,9 +526,9 @@ export async function saveCloudCollection(
     .eq("album_id", albumId);
   if (deleteSpendingError) throw deleteSpendingError;
 
-  if (snapshot.spendingEntries.length > 0) {
+  if (payload.spendingEntries.length > 0) {
     const { error } = await supabase.from("spending_entries").insert(
-      snapshot.spendingEntries.map((entry) => ({
+      payload.spendingEntries.map((entry) => ({
         user_id: user.id,
         album_id: albumId,
         amount_rsd: getEntryAmountRsd(entry),
@@ -501,8 +547,12 @@ export async function saveCloudCollection(
   return updatedAt;
 }
 
+/**
+ * Merge local working copy with cloud row on load when local has unsynced edits.
+ * Quantities: max(local, cloud) per sticker — avoids losing increments from either side.
+ * Lists (friends, trades, spending): union by id with newest timestamp winning.
+ */
 export function mergeLocalAndCloud(local: CloudSnapshot, cloud: CloudSnapshot) {
-  // Sticker quantities use max(local, cloud). Lists merge by id with newest timestamp winning.
   const quantities: Record<string, number> = { ...cloud.quantities };
   const localReviewState = getSnapshotReviewState(local);
   const cloudReviewState = getSnapshotReviewState(cloud);
