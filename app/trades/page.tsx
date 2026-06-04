@@ -7,7 +7,9 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { StickerImage } from "@/features/stickers/StickerImage";
+import { useLiveSavedFriends } from "@/hooks/useLiveSavedFriends";
 import { useI18n } from "@/hooks/useI18n";
+import { removeSavedFriend } from "@/lib/savedFriendActions";
 import type { TranslationKey } from "@/lib/i18n";
 import { getDuplicateCount, getTradableCount, parseStickerCodes, stickers } from "@/lib/stickers";
 import { formatDuplicateLabel } from "@/lib/duplicateLabel";
@@ -41,8 +43,10 @@ export default function TradesPage() {
   const addTradeHistory = useCollectionStore((state) => state.addTradeHistory);
   const deleteTradeHistory = useCollectionStore((state) => state.deleteTradeHistory);
   const undoTradeHistory = useCollectionStore((state) => state.undoTradeHistory);
-  const removeFriend = useCollectionStore((state) => state.removeFriend);
   const [removeFriendId, setRemoveFriendId] = useState<string | null>(null);
+  const [removingFriend, setRemovingFriend] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  useLiveSavedFriends(true);
   const [messageType, setMessageType] = useState<"missing" | "duplicates" | "both">("both");
   const [copied, setCopied] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -421,6 +425,8 @@ export default function TradesPage() {
         )}
       </Card>
 
+      {removeError ? <p className="rounded-lg bg-coral/10 p-3 text-sm font-bold text-coral">{removeError}</p> : null}
+
       <ConfirmDialog
         open={Boolean(removeFriendId)}
         title={t("trades.removeFriendTitle")}
@@ -428,10 +434,19 @@ export default function TradesPage() {
         cancelLabel={t("common.cancel")}
         confirmLabel={t("trades.removeFriendConfirm")}
         confirmTone="danger"
-        onCancel={() => setRemoveFriendId(null)}
+        onCancel={() => {
+          if (!removingFriend) setRemoveFriendId(null);
+        }}
         onConfirm={() => {
-          if (removeFriendId) removeFriend(removeFriendId);
-          setRemoveFriendId(null);
+          if (!removeFriendId || removingFriend) return;
+          setRemovingFriend(true);
+          setRemoveError(null);
+          void (async () => {
+            const synced = await removeSavedFriend(removeFriendId);
+            setRemovingFriend(false);
+            setRemoveFriendId(null);
+            if (!synced) setRemoveError(t("trades.removeFriendFailed"));
+          })();
         }}
       />
     </div>

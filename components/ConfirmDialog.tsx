@@ -41,17 +41,33 @@ export function ConfirmDialog({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onCancel]);
 
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   if (!open) return null;
   const disabled = typedConfirmation ? typedValue !== typedConfirmation.value : false;
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-fade-in items-end justify-center bg-ink/45 p-3 sm:items-center sm:p-6">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:p-6"
+      onClick={() => {
+        setTypedValue("");
+        onCancel();
+      }}
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-body"
         className="animate-status-in w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-lift dark:border-white/10 dark:bg-neutral-900"
+        onClick={(event) => event.stopPropagation()}
       >
         <h2 id="confirm-dialog-title" className="text-xl font-black text-ink dark:text-white">
           {title}
@@ -72,14 +88,22 @@ export function ConfirmDialog({
           </label>
         ) : null}
         <div className="mt-5 grid gap-2 sm:grid-cols-2">
-          <Button onClick={() => {
-            setTypedValue("");
-            onCancel();
-          }}>{cancelLabel}</Button>
-          <Button tone={confirmTone} disabled={disabled} onClick={() => {
-            setTypedValue("");
-            onConfirm();
-          }}>
+          <Button
+            onClick={() => {
+              setTypedValue("");
+              onCancel();
+            }}
+          >
+            {cancelLabel}
+          </Button>
+          <Button
+            tone={confirmTone}
+            disabled={disabled}
+            onClick={() => {
+              setTypedValue("");
+              onConfirm();
+            }}
+          >
             {confirmLabel}
           </Button>
         </div>

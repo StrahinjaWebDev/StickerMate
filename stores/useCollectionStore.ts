@@ -2,6 +2,11 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import {
+  clearDeletionForFriend,
+  findExistingFriend,
+  normalizeSavedFriends
+} from "@/lib/savedFriends";
 import { PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
 import { stickerByCode, stickers } from "@/lib/stickers";
 import type {
@@ -49,6 +54,7 @@ type CollectionStore = {
   entryHistory: EntryHistoryItem[];
   friends: TradeFriend[];
   deletedFriendIds: string[];
+  deletedShareIds: string[];
   tradeDisplayName: string;
   tradeHistory: TradeHistoryItem[];
   spendingEntries: SpendingEntry[];
@@ -193,6 +199,7 @@ export const useCollectionStore = create<CollectionStore>()(
       entryHistory: [],
       friends: [],
       deletedFriendIds: [],
+      deletedShareIds: [],
       tradeDisplayName: "",
       tradeHistory: [],
       spendingEntries: [],
@@ -301,6 +308,7 @@ export const useCollectionStore = create<CollectionStore>()(
           entryHistory: [],
           friends: [],
           deletedFriendIds: [],
+          deletedShareIds: [],
           tradeDisplayName: "",
           tradeHistory: [],
           spendingEntries: [],
@@ -325,36 +333,46 @@ export const useCollectionStore = create<CollectionStore>()(
       setTradeDisplayName: (name) => set({ tradeDisplayName: name }),
       upsertFriend: (friend, mode) => {
         const importedAt = new Date().toISOString();
-        const existing = get().friends.find(
-          (item) =>
-            (friend.shareId && item.shareId === friend.shareId) ||
-            item.name.toLowerCase() === friend.name.toLowerCase()
-        );
+        const state = get();
+        const existing = findExistingFriend(state.friends, friend);
+        const useExisting = Boolean(existing) || mode === "update";
         const nextFriend: TradeFriend = {
           ...friend,
-          id: mode === "update" && existing ? existing.id : createId("friend"),
+          id: useExisting && existing ? existing.id : createId("friend"),
           shareId: friend.shareId ?? existing?.shareId,
           snapshotAt: friend.snapshotAt ?? importedAt,
-          importedAt: mode === "update" && existing ? existing.importedAt : importedAt
+          importedAt: useExisting && existing ? existing.importedAt : importedAt
         };
+        const cleared = clearDeletionForFriend(state.deletedFriendIds, state.deletedShareIds, nextFriend);
+        const mergedFriends = useExisting
+          ? state.friends.map((item) => (item.id === nextFriend.id ? nextFriend : item))
+          : [nextFriend, ...state.friends];
+        const friends = normalizeSavedFriends(mergedFriends, cleared.deletedFriendIds, cleared.deletedShareIds);
 
-        set((state) => ({
-          friends:
-            mode === "update" && existing
-              ? state.friends.map((item) => (item.id === existing.id ? nextFriend : item))
-              : [nextFriend, ...state.friends],
-          deletedFriendIds: state.deletedFriendIds.filter((deletedId) => deletedId !== nextFriend.id)
-        }));
+        set({
+          friends,
+          deletedFriendIds: cleared.deletedFriendIds,
+          deletedShareIds: cleared.deletedShareIds
+        });
 
-        return nextFriend;
+        return friends.find((item) => item.id === nextFriend.id) ?? nextFriend;
       },
-      removeFriend: (id) =>
-        set((state) => ({
+      removeFriend: (id) => {
+        const state = get();
+        const removed = state.friends.find((friend) => friend.id === id);
+        if (!removed) return;
+
+        set({
           friends: state.friends.filter((friend) => friend.id !== id),
           deletedFriendIds: state.deletedFriendIds.includes(id)
             ? state.deletedFriendIds
-            : [...state.deletedFriendIds, id]
-        })),
+            : [...state.deletedFriendIds, id],
+          deletedShareIds:
+            removed.shareId && !state.deletedShareIds.includes(removed.shareId)
+              ? [...state.deletedShareIds, removed.shareId]
+              : state.deletedShareIds
+        });
+      },
       setDefaultCurrency: (currency) => set({ defaultCurrency: currency }),
       addSpendingEntry: (entry) => {
         const nextEntry = buildSpendingEntry(entry);
@@ -450,6 +468,11 @@ export const useCollectionStore = create<CollectionStore>()(
     }),
     {
       name: "stickermate-collection",
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        state.deletedShareIds = state.deletedShareIds ?? [];
+        state.friends = normalizeSavedFriends(state.friends, state.deletedFriendIds, state.deletedShareIds);
+      },
       partialize: (state) => ({
         quantities: state.quantities,
         onboarded: state.onboarded,
@@ -460,6 +483,7 @@ export const useCollectionStore = create<CollectionStore>()(
         entryHistory: state.entryHistory,
         friends: state.friends,
         deletedFriendIds: state.deletedFriendIds,
+        deletedShareIds: state.deletedShareIds,
         tradeDisplayName: state.tradeDisplayName,
         tradeHistory: state.tradeHistory,
         spendingEntries: state.spendingEntries,

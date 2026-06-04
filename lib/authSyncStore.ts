@@ -417,6 +417,15 @@ export async function signOutLocally() {
   }
 }
 
+/** Persist current collection (including friends) immediately when signed in. */
+export async function flushCollectionSync() {
+  const { user } = useAuthSyncStore.getState();
+  if (!user) return true;
+
+  const result = await runAutoSync();
+  return result !== null;
+}
+
 export async function runManualSync() {
   const { user } = useAuthSyncStore.getState();
   const supabase = getSupabase();

@@ -226,6 +226,7 @@
   "trades.removeFriendTitle": "Ukloniti druga?",
   "trades.removeFriendBody": "Ovo uklanja sačuvan QR profil druga. Tvoja kolekcija se ne menja.",
   "trades.removeFriendConfirm": "Ukloni druga",
+  "trades.removeFriendFailed": "Uklanjanje nije sačuvano. Proveri internet i pokušaj ponovo.",
   "trades.viewMatches": "Uporedi zamene",
   "trades.possibleTrades": "{count} mogućih zamena",
   "trades.noFriends": "Još nema dodatih drugara",

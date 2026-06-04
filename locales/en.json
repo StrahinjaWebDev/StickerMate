@@ -226,6 +226,7 @@
   "trades.removeFriendTitle": "Remove friend?",
   "trades.removeFriendBody": "This removes the saved friend QR profile. Your collection stays unchanged.",
   "trades.removeFriendConfirm": "Remove friend",
+  "trades.removeFriendFailed": "Could not save removal. Check your connection and try again.",
   "trades.viewMatches": "Compare swaps",
   "trades.possibleTrades": "{count} possible swaps",
   "trades.noFriends": "No friends added yet",

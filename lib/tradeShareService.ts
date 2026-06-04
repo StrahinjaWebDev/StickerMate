@@ -2,16 +2,11 @@
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { albumId } from "@/lib/cloudSync";
+import { applyLiveTradeRecord, friendNeedsLiveUpdate, type LiveTradeShare } from "@/lib/savedFriends";
 import { validateStickerCodes } from "@/services/stickerCodeService";
 import type { TradeFriend, TradeProfilePayload } from "@/types/sticker";
 
-export type TradeShareRecord = {
-  shareId: string;
-  displayName: string;
-  missing: string[];
-  duplicates: string[];
-  updatedAt: string;
-};
+export type TradeShareRecord = LiveTradeShare;
 
 type TradeShareRow = {
   share_id: string;
@@ -103,16 +98,6 @@ export async function fetchTradeShareByShareId(
 }
 
 export function mergeFriendWithLiveRecord(friend: TradeFriend, live: TradeShareRecord): TradeFriend {
-  const liveTime = new Date(live.updatedAt).getTime();
-  const cachedTime = friend.snapshotAt ? new Date(friend.snapshotAt).getTime() : 0;
-  if (Number.isFinite(cachedTime) && cachedTime >= liveTime) return friend;
-
-  return {
-    ...friend,
-    name: live.displayName || friend.name,
-    missing: live.missing,
-    duplicates: live.duplicates,
-    shareId: live.shareId,
-    snapshotAt: live.updatedAt
-  };
+  if (!friendNeedsLiveUpdate(friend, live)) return friend;
+  return applyLiveTradeRecord(friend, live);
 }

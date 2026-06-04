@@ -28,7 +28,11 @@ export default function FriendQrPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [processingImage, setProcessingImage] = useState(false);
   const existingFriend = payload
-    ? friends.find((item) => item.name.toLowerCase() === payload.name.toLowerCase())
+    ? friends.find(
+        (item) =>
+          (payload.shareId && item.shareId === payload.shareId) ||
+          item.name.toLowerCase() === payload.name.toLowerCase()
+      )
     : undefined;
   const match = useMemo(() => (friend ? getTradeMatch(quantities, friend) : null), [friend, quantities]);
   const urlParsedRef = useRef(false);
@@ -76,7 +80,7 @@ export default function FriendQrPage() {
     return applyTradeInput(text);
   }
 
-  function importFriend(mode: "update" | "create") {
+  function importFriend() {
     const nextPayload = payload ?? parseJson();
     if (!nextPayload) return;
 
@@ -85,7 +89,7 @@ export default function FriendQrPage() {
         ...friendFromTradeProfile(nextPayload, nextPayload.shareId),
         notes: t("friendQr.notes")
       },
-      mode
+      "update"
     );
     setFriend(nextFriend);
     setMessage(t("friendQr.imported"));
@@ -189,14 +193,11 @@ export default function FriendQrPage() {
             <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
               {t("tradeQr.missingCount", { count: payload.missing.length })} · {t("tradeQr.duplicateCount", { count: payload.duplicates.length })}
             </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <Button tone="primary" onClick={() => importFriend(existingFriend ? "update" : "create")}>
+            <div className="mt-3">
+              <Button tone="primary" className="w-full sm:w-auto" onClick={() => importFriend()}>
                 <Save size={18} />
                 {existingFriend ? t("friendQr.updateExisting") : t("friendQr.createNew")}
               </Button>
-              {existingFriend ? (
-                <Button onClick={() => importFriend("create")}>{t("friendQr.createNew")}</Button>
-              ) : null}
             </div>
           </div>
         ) : null}
