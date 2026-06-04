@@ -8,14 +8,15 @@ import { useCollectionStore } from "@/stores/useCollectionStore";
 export default function FriendDetailPage() {
   const params = useParams();
   const friendId = String(params.id ?? "");
-  const storedFriend = useCollectionStore((state) =>
-    state.friends.find((item) => item.id === friendId || (item.shareId && item.shareId === friendId))
+  const hasFriend = useCollectionStore((state) =>
+    Boolean(state.friends.find((item) => item.id === friendId || (item.shareId && item.shareId === friendId)))
   );
-  const { refreshing, status } = useRefreshFriendOnOpen(storedFriend?.id ?? "", Boolean(storedFriend));
+  const { refreshing, status } = useRefreshFriendOnOpen(friendId, hasFriend);
 
-  if (!storedFriend) return <FriendNotFound />;
+  if (!hasFriend) return <FriendNotFound />;
 
-  const liveStatus = refreshing ? ("loading" as const) : status === "live" ? ("live" as const) : ("cached" as const);
+  const liveStatus =
+    refreshing ? ("loading" as const) : status === "live" ? ("live" as const) : status === "cached" ? ("cached" as const) : ("idle" as const);
 
-  return <FriendDetailView friend={storedFriend} liveStatus={liveStatus} />;
+  return <FriendDetailView friendId={friendId} liveStatus={liveStatus} />;
 }

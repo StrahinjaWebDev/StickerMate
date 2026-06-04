@@ -21,7 +21,9 @@ function persistLiveFriend(
   live: NonNullable<Awaited<ReturnType<typeof fetchTradeShareByShareId>>>
 ) {
   const next = applyLiveTradeRecord(friend, live);
-  const current = useCollectionStore.getState().friends.find((item) => item.id === friend.id) ?? friend;
+  const current = useCollectionStore.getState().friends.find(
+    (item) => item.id === friend.id || (item.shareId && item.shareId === next.shareId)
+  ) ?? friend;
 
   if (friendTradeDataEqual(current, next) && current.snapshotAt === live.updatedAt) {
     return current;
@@ -36,7 +38,10 @@ function persistLiveFriend(
     notes: current.notes
   });
 
-  const updated = useCollectionStore.getState().friends.find((item) => item.id === friend.id) ?? next;
+  const updated =
+    useCollectionStore.getState().friends.find(
+      (item) => item.id === current.id || (item.shareId && item.shareId === next.shareId)
+    ) ?? next;
   const { user } = useAuthSyncStore.getState();
   const supabase = createClient();
 
@@ -49,14 +54,10 @@ function persistLiveFriend(
   return updated;
 }
 
-/** Fetch latest public trade data for one saved friend and update the local cache on success. */
-export async function refreshSavedFriendById(friendRouteId: string): Promise<{
-  friend: TradeFriend | null;
+async function fetchAndPersistLiveFriend(friend: TradeFriend): Promise<{
+  friend: TradeFriend;
   status: SavedFriendRefreshStatus;
 }> {
-  const friend = findSavedFriendByRouteId(friendRouteId);
-  if (!friend) return { friend: null, status: "offline" };
-
   if (!friend.shareId) {
     return { friend, status: "cached" };
   }
@@ -66,14 +67,25 @@ export async function refreshSavedFriendById(friendRouteId: string): Promise<{
     return { friend, status: "cached" };
   }
 
-  try {
-    const live = await fetchTradeShareByShareId(supabase, friend.shareId);
-    if (!live) {
-      return { friend, status: "cached" };
-    }
+  const live = await fetchTradeShareByShareId(supabase, friend.shareId);
+  if (!live) {
+    return { friend, status: "cached" };
+  }
 
-    const updated = persistLiveFriend(friend, live);
-    return { friend: updated, status: "live" };
+  const updated = persistLiveFriend(friend, live);
+  return { friend: updated, status: "live" };
+}
+
+/** Fetch latest public trade data for one saved friend and update the local cache on success. */
+export async function refreshSavedFriendById(friendRouteId: string): Promise<{
+  friend: TradeFriend | null;
+  status: SavedFriendRefreshStatus;
+}> {
+  const friend = findSavedFriendByRouteId(friendRouteId);
+  if (!friend) return { friend: null, status: "offline" };
+
+  try {
+    return await fetchAndPersistLiveFriend(friend);
   } catch (error) {
     console.warn("[saved friends] refresh failed", error);
     return { friend, status: "cached" };
@@ -97,10 +109,8 @@ export async function refreshAllSavedFriendsWithShareId(): Promise<SavedFriendRe
     anyAttempted = true;
 
     try {
-      const live = await fetchTradeShareByShareId(supabase, friend.shareId);
-      if (!live) continue;
-      persistLiveFriend(friend, live);
-      anyLive = true;
+      const result = await fetchAndPersistLiveFriend(friend);
+      if (result.status === "live") anyLive = true;
     } catch (error) {
       console.warn("[saved friends] refresh failed for", friend.shareId, error);
     }

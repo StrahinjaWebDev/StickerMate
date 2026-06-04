@@ -65,14 +65,17 @@ export function parseTradeProfilePayload(input: string): TradeProfilePayload {
   };
 }
 
-export async function encodeTradeProfileForQr(payload: TradeProfilePayload) {
-  return [
+export function encodeTradeProfileForQr(payload: TradeProfilePayload) {
+  const parts = [
     compactPrefix,
     encodeURIComponent(payload.name),
     encodeURIComponent(payload.generatedAt),
     encodeBitset(payload.missing),
     encodeBitset(payload.duplicates)
-  ].join(":");
+  ];
+  const shareId = payload.shareId?.trim();
+  if (shareId) parts.push(encodeURIComponent(shareId));
+  return parts.join(":");
 }
 
 type JsQrDecoder = (
@@ -290,10 +293,17 @@ function normalizeTradeProfileInput(input: string): string {
 }
 
 function decodeCompactTradeProfile(input: string): Partial<TradeProfilePayload> {
-  const [, name, generatedAt, missing, duplicates] = input.split(":");
+  const parts = input.split(":");
+  if (parts[0] !== compactPrefix) {
+    throw new Error("Invalid compact StickerMate trade QR payload.");
+  }
+
+  const [, name, generatedAt, missing, duplicates, shareIdEncoded] = parts;
   if (!name || !generatedAt || !missing || !duplicates) {
     throw new Error("Invalid compact StickerMate trade QR payload.");
   }
+
+  const shareId = shareIdEncoded ? decodeURIComponent(shareIdEncoded).trim() : undefined;
 
   return {
     app: "StickerMate",
@@ -302,7 +312,8 @@ function decodeCompactTradeProfile(input: string): Partial<TradeProfilePayload> 
     name: decodeURIComponent(name),
     missing: decodeBitset(missing),
     duplicates: decodeBitset(duplicates),
-    generatedAt: decodeURIComponent(generatedAt)
+    generatedAt: decodeURIComponent(generatedAt),
+    shareId: shareId || undefined
   };
 }
 

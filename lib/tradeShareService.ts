@@ -72,21 +72,45 @@ export async function publishTradeShare(
   return shareId;
 }
 
+function parseJsonCodeList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string");
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export async function fetchTradeShareByShareId(
   supabase: SupabaseClient,
   shareId: string
 ): Promise<TradeShareRecord | null> {
+  const normalizedShareId = shareId.trim();
+  if (!normalizedShareId) return null;
+
   const { data, error } = await supabase
     .from("trade_shares")
     .select("share_id, display_name, missing, duplicates, updated_at")
-    .eq("share_id", shareId)
+    .eq("share_id", normalizedShareId)
     .eq("album_id", albumId)
     .maybeSingle<TradeShareRow>();
 
-  if (error || !data) return null;
+  if (error) {
+    console.warn("[trade share] fetch failed", normalizedShareId, error.message);
+    return null;
+  }
 
-  const missing = validateStickerCodes(Array.isArray(data.missing) ? data.missing : []).validCodes;
-  const duplicates = validateStickerCodes(Array.isArray(data.duplicates) ? data.duplicates : []).validCodes;
+  if (!data) {
+    console.warn("[trade share] no public profile for share id", normalizedShareId);
+    return null;
+  }
+
+  const missing = validateStickerCodes(parseJsonCodeList(data.missing)).validCodes;
+  const duplicates = validateStickerCodes(parseJsonCodeList(data.duplicates)).validCodes;
 
   return {
     shareId: data.share_id,

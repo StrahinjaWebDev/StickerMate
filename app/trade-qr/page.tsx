@@ -12,10 +12,10 @@ import { getGuestIdentity, type GuestIdentity } from "@/lib/guestProfiles";
 import { getClientPublicOrigin } from "@/lib/seo";
 import { shareImageBlob } from "@/lib/shareImageFile";
 import { renderTradeShareCard } from "@/lib/tradeShareCard";
-import { publishTradeShare } from "@/lib/tradeShareService";
+import { publishCurrentTradeShare } from "@/lib/tradeSharePublisher";
+import { buildStableShareId } from "@/lib/tradeShareService";
 import { useI18n } from "@/hooks/useI18n";
 import { buildTradeProfilePayload, buildTradeQrLink, encodeTradeProfileForQr } from "@/services/tradeQrService";
-import { createClient } from "@/utils/supabase/client";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export default function TradeQrPage() {
@@ -58,19 +58,15 @@ export default function TradeQrPage() {
       return;
     }
 
-    const supabase = createClient();
-    if (!supabase) return;
-
-    void publishTradeShare(supabase, user, displayName, payload.missing, payload.duplicates).then((id) => {
-      if (id) setShareId(id);
-    });
+    setShareId(buildStableShareId(user.id));
+    void publishCurrentTradeShare(true);
   }, [user, displayName, tradeListsKey, payload.missing, payload.duplicates]);
 
   useEffect(() => {
     let cancelled = false;
     async function renderQr() {
       const QRCode = (await import("qrcode")).default;
-      const compactPayload = await encodeTradeProfileForQr(payload);
+      const compactPayload = encodeTradeProfileForQr(payload);
       const link = buildTradeQrLink(compactPayload, getClientPublicOrigin(), shareId ?? undefined);
       const dataUrl = await QRCode.toDataURL(link, { errorCorrectionLevel: "M", margin: 1, width: 280 });
       if (!cancelled) {

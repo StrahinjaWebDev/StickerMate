@@ -43,7 +43,8 @@ export default function FriendQrPage() {
       setJsonText(text);
       try {
         const nextPayload = parseTradeProfilePayload(text);
-        if (shareIdFromUrl) nextPayload.shareId = shareIdFromUrl;
+        const resolvedShareId = shareIdFromUrl?.trim() || nextPayload.shareId;
+        if (resolvedShareId) nextPayload.shareId = resolvedShareId;
         setPayload(nextPayload);
         setMessage(
           friends.find(

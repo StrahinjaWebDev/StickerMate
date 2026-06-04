@@ -1,7 +1,7 @@
 "use client";
 
 import { flushCollectionSync, useAuthSyncStore } from "@/lib/authSyncStore";
-import { resolveFriendForImport } from "@/lib/refreshSavedFriends";
+import { refreshSavedFriendById, resolveFriendForImport } from "@/lib/refreshSavedFriends";
 import { removeSavedFriendFromDb, upsertSavedFriendInDb } from "@/lib/savedFriendsDb";
 import { createClient } from "@/utils/supabase/client";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -60,15 +60,24 @@ export async function importSavedFriend(friend: Omit<TradeFriend, "id" | "import
     return { ok: false as const, friend: null, synced: false };
   }
 
+  let persisted = useCollectionStore.getState().friends.find((item) => item.id === saved.id) ?? saved;
+
+  if (persisted.shareId) {
+    const refreshed = await refreshSavedFriendById(persisted.id);
+    if (refreshed.friend) {
+      persisted = refreshed.friend;
+    }
+  }
+
   const { user } = useAuthSyncStore.getState();
   if (!user) {
-    return { ok: true as const, friend: saved, synced: true };
+    return { ok: true as const, friend: persisted, synced: true };
   }
 
   const supabase = createClient();
-  if (saved.shareId && supabase) {
+  if (persisted.shareId && supabase) {
     try {
-      await upsertSavedFriendInDb(supabase, user.id, saved);
+      await upsertSavedFriendInDb(supabase, user.id, persisted);
     } catch (error) {
       console.warn("[saved friends] upsert to db failed", error);
       useCollectionStore.setState(before);
@@ -82,6 +91,6 @@ export async function importSavedFriend(friend: Omit<TradeFriend, "id" | "import
     return { ok: false as const, friend: null, synced: false };
   }
 
-  const persisted = useCollectionStore.getState().friends.find((item) => item.id === saved.id) ?? saved;
+  persisted = useCollectionStore.getState().friends.find((item) => item.id === saved.id) ?? persisted;
   return { ok: true as const, friend: persisted, synced: true };
 }

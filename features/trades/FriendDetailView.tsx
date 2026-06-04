@@ -16,51 +16,62 @@ import { getDuplicateCount } from "@/lib/stickers";
 import { formatMyDuplicateBadge } from "@/lib/duplicateLabel";
 import { buildFriendTradeMessage, buildSmartTradeProposal, getTradeMatch } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
-import type { TradeFriend } from "@/types/sticker";
 
 export function FriendDetailView({
-  friend,
+  friendId,
   liveStatus = "idle"
 }: {
-  friend: TradeFriend;
+  friendId: string;
   liveStatus?: "idle" | "loading" | "live" | "cached";
 }) {
   const { language, t } = useI18n();
   const [showFullMessage, setShowFullMessage] = useState(false);
+  const friend = useCollectionStore((state) =>
+    state.friends.find((item) => item.id === friendId || (item.shareId && item.shareId === friendId))
+  );
   const quantities = useCollectionStore((state) => state.quantities);
-  const match = useMemo(() => getTradeMatch(quantities, friend), [friend, quantities]);
+
+  const match = useMemo(
+    () => (friend ? getTradeMatch(quantities, friend) : { iCanGive: [] as string[], friendCanGive: [] as string[] }),
+    [friend, quantities]
+  );
   const possibleCount = match.iCanGive.length + match.friendCanGive.length;
   const smartProposal = useMemo(
-    () => buildSmartTradeProposal(friend.name, match.iCanGive, match.friendCanGive, t),
-    [friend.name, match.friendCanGive, match.iCanGive, t]
+    () => (friend ? buildSmartTradeProposal(friend.name, match.iCanGive, match.friendCanGive, t) : null),
+    [friend, match.friendCanGive, match.iCanGive, t]
   );
   const tradeMessage = useMemo(
-    () => buildFriendTradeMessage(friend.name, match.iCanGive, match.friendCanGive, t),
-    [friend.name, match.friendCanGive, match.iCanGive, t]
+    () => (friend ? buildFriendTradeMessage(friend.name, match.iCanGive, match.friendCanGive, t) : ""),
+    [friend, match.friendCanGive, match.iCanGive, t]
   );
   const importedLabel = useMemo(
     () =>
-      new Intl.DateTimeFormat(language === "en" ? "en-GB" : "sr-RS", {
-        dateStyle: "medium",
-        timeStyle: "short"
-      }).format(new Date(friend.importedAt)),
-    [friend.importedAt, language]
+      friend
+        ? new Intl.DateTimeFormat(language === "en" ? "en-GB" : "sr-RS", {
+            dateStyle: "medium",
+            timeStyle: "short"
+          }).format(new Date(friend.importedAt))
+        : "",
+    [friend, language]
   );
   const liveUpdatedLabel = useMemo(() => {
-    if (!friend.snapshotAt) return null;
+    if (!friend?.snapshotAt) return null;
     return new Intl.DateTimeFormat(language === "en" ? "en-GB" : "sr-RS", {
       dateStyle: "medium",
       timeStyle: "short"
     }).format(new Date(friend.snapshotAt));
-  }, [friend.snapshotAt, language]);
+  }, [friend?.snapshotAt, language]);
   const statusLabel =
     liveStatus === "loading"
       ? t("friendDetail.refreshing")
       : liveStatus === "live" && liveUpdatedLabel
         ? t("friendDetail.liveUpdatedAt", { date: liveUpdatedLabel })
-        : liveStatus === "cached"
+        : liveStatus === "cached" || !friend?.shareId
           ? t("friendDetail.cachedData")
           : t("friendDetail.importedAt", { date: importedLabel });
+
+  if (!friend) return null;
+  const activeFriend = friend;
 
   async function copyProposal() {
     if (!smartProposal) return;
@@ -70,7 +81,7 @@ export function FriendDetailView({
   async function shareProposal() {
     if (!smartProposal) return;
     if (navigator.share) {
-      await navigator.share({ text: smartProposal, title: friend.name }).catch(() => undefined);
+      await navigator.share({ text: smartProposal, title: activeFriend.name }).catch(() => undefined);
       return;
     }
     await copyProposal();
@@ -87,7 +98,7 @@ export function FriendDetailView({
 
   async function shareMessage() {
     if (navigator.share) {
-      await navigator.share({ text: tradeMessage, title: friend.name }).catch(() => undefined);
+      await navigator.share({ text: tradeMessage, title: activeFriend.name }).catch(() => undefined);
       return;
     }
     await copyMessage();

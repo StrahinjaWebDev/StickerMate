@@ -32,7 +32,8 @@ import {
   stripShareLinkedFriendsFromCloudSettings
 } from "../lib/savedFriendsDb";
 import { hasUnsyncedLocalChanges, writeUserSyncMeta } from "../lib/syncMeta";
-import { extractShareIdFromTradeInput, buildTradeProfilePayload, getTradeMatch, buildSmartTradeProposal, pickSmartTradeProposal } from "../services/tradeQrService";
+import { extractShareIdFromTradeInput, buildTradeProfilePayload, buildTradeQrLink, encodeTradeProfileForQr, getTradeMatch, buildSmartTradeProposal, parseTradeProfilePayload, pickSmartTradeProposal } from "../services/tradeQrService";
+import { buildStableShareId } from "../lib/tradeShareService";
 import { translate } from "../lib/i18n";
 import type { TradeFriend } from "../types/sticker";
 
@@ -229,6 +230,20 @@ const parsedShare = extractShareIdFromTradeInput(
   "https://sticker-mate-beta.vercel.app/friend-qr?data=SMQR2:Test:2026-01-01T00:00:00.000Z:AAAA:BBBB&share=share-abc"
 );
 assert(parsedShare === "share-abc", "Pasted beta QR URL preserves share id");
+
+const stableShareId = buildStableShareId("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+assert(stableShareId.startsWith("s_"), "Signed-in users get deterministic stable share id");
+
+console.log("\n=== Compact QR share id ===\n");
+
+const compact = encodeTradeProfileForQr({
+  ...buildTradeProfilePayload("User A", { [CODE_MISSING]: 1 }),
+  generatedAt: "2026-01-01T00:00:00.000Z",
+  shareId: stableShareId
+});
+assert(parseTradeProfilePayload(compact).shareId === stableShareId, "Compact payload embeds stable share id");
+const compactLink = buildTradeQrLink(compact, "https://stickermate.app", stableShareId);
+assert(parseTradeProfilePayload(compactLink).shareId === stableShareId, "Full QR link preserves stable share id");
 
 console.log("\n=== Smart trade proposal ===\n");
 
