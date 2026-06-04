@@ -95,6 +95,50 @@ export function tradeFriendToSavedFriendUpsert(userId: string, friend: TradeFrie
   };
 }
 
+export async function loadSavedFriendRelationByLocalId(
+  supabase: SupabaseClient,
+  userId: string,
+  localFriendId: string
+): Promise<SavedFriendRow | null> {
+  const { data, error } = await supabase
+    .from("saved_friends")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("album_id", albumId)
+    .eq("local_friend_id", localFriendId)
+    .is("deleted_at", null)
+    .maybeSingle<SavedFriendRow>();
+
+  if (error) {
+    if (isMissingTableError(error)) return null;
+    throw error;
+  }
+
+  return data ?? null;
+}
+
+export async function loadSavedFriendRelationByShareId(
+  supabase: SupabaseClient,
+  userId: string,
+  shareId: string
+): Promise<SavedFriendRow | null> {
+  const { data, error } = await supabase
+    .from("saved_friends")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("album_id", albumId)
+    .eq("friend_share_id", shareId.trim())
+    .is("deleted_at", null)
+    .maybeSingle<SavedFriendRow>();
+
+  if (error) {
+    if (isMissingTableError(error)) return null;
+    throw error;
+  }
+
+  return data ?? null;
+}
+
 export async function loadSavedFriendsFromDb(supabase: SupabaseClient, userId: string): Promise<TradeFriend[]> {
   const { data, error } = await supabase
     .from("saved_friends")

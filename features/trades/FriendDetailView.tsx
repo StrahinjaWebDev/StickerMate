@@ -64,9 +64,11 @@ export function FriendDetailView({
   const statusLabel =
     liveStatus === "loading"
       ? t("friendDetail.refreshing")
-      : liveStatus === "live" && liveUpdatedLabel
-        ? t("friendDetail.liveUpdatedAt", { date: liveUpdatedLabel })
-        : liveStatus === "cached" || !friend?.shareId
+      : liveStatus === "live"
+        ? liveUpdatedLabel
+          ? t("friendDetail.liveUpdatedAt", { date: liveUpdatedLabel })
+          : t("friendDetail.liveData")
+        : !friend?.shareId || liveStatus === "cached"
           ? t("friendDetail.cachedData")
           : t("friendDetail.importedAt", { date: importedLabel });
 

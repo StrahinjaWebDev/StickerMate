@@ -2,19 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useAuthSyncStore } from "@/lib/authSyncStore";
 import {
   refreshAllSavedFriendsWithShareId,
   refreshSavedFriendById,
   type SavedFriendRefreshStatus
 } from "@/lib/refreshSavedFriends";
+import { useCollectionStore } from "@/stores/useCollectionStore";
 
-/** Refetch all share-linked friends when Razmene (/trades) opens. No timers or focus listeners. */
+/** Refetch all share-linked friends when Razmene (/trades) opens. */
 export function useRefreshSavedFriendsOnOpen(enabled = true) {
   const pathname = usePathname();
+  const user = useAuthSyncStore((state) => state.user);
+  const initialLoadDone = useAuthSyncStore((state) => state.initialLoadDone);
+  const friendShareIds = useCollectionStore((state) =>
+    state.friends
+      .map((friend) => friend.shareId)
+      .filter(Boolean)
+      .join("|")
+  );
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!enabled || pathname !== "/trades") return;
+    if (user && !initialLoadDone) return;
 
     let cancelled = false;
     setRefreshing(true);
@@ -26,7 +37,7 @@ export function useRefreshSavedFriendsOnOpen(enabled = true) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, pathname]);
+  }, [enabled, pathname, user, initialLoadDone, friendShareIds]);
 
   return { refreshing };
 }
@@ -34,11 +45,20 @@ export function useRefreshSavedFriendsOnOpen(enabled = true) {
 /** Refetch one friend when their comparison or list page opens. */
 export function useRefreshFriendOnOpen(friendRouteId: string, enabled = true) {
   const pathname = usePathname();
+  const user = useAuthSyncStore((state) => state.user);
+  const initialLoadDone = useAuthSyncStore((state) => state.initialLoadDone);
+  const friendShareId = useCollectionStore((state) => {
+    const friend = state.friends.find(
+      (item) => item.id === friendRouteId || (item.shareId && item.shareId === friendRouteId)
+    );
+    return friend?.shareId ?? "";
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [status, setStatus] = useState<SavedFriendRefreshStatus>("offline");
 
   useEffect(() => {
     if (!enabled || !friendRouteId) return;
+    if (user && !initialLoadDone) return;
 
     let cancelled = false;
     setRefreshing(true);
@@ -53,7 +73,7 @@ export function useRefreshFriendOnOpen(friendRouteId: string, enabled = true) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, pathname, friendRouteId]);
+  }, [enabled, pathname, friendRouteId, friendShareId, user, initialLoadDone]);
 
   return { refreshing, status };
 }

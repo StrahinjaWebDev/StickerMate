@@ -1,7 +1,11 @@
 "use client";
 
 import { applyLiveTradeRecord, friendTradeDataEqual } from "@/lib/savedFriends";
-import { updateSavedFriendLiveCacheInDb } from "@/lib/savedFriendsDb";
+import {
+  loadSavedFriendRelationByLocalId,
+  loadSavedFriendRelationByShareId,
+  updateSavedFriendLiveCacheInDb
+} from "@/lib/savedFriendsDb";
 import { fetchTradeShareByShareId } from "@/lib/tradeShareService";
 import { useAuthSyncStore } from "@/lib/authSyncStore";
 import { createClient } from "@/utils/supabase/client";
@@ -10,9 +14,62 @@ import type { TradeFriend } from "@/types/sticker";
 
 export type SavedFriendRefreshStatus = "live" | "cached" | "offline";
 
+const LIVE_FETCH_RETRY_MS = 400;
+
 export function findSavedFriendByRouteId(friendRouteId: string) {
   return useCollectionStore.getState().friends.find(
     (item) => item.id === friendRouteId || (item.shareId && item.shareId === friendRouteId)
+  );
+}
+
+/** Signed-in users: wait for cloud/saved_friends hydrate before first live refresh. */
+export function waitForSignedInFriendHydration(): Promise<void> {
+  const { user, initialLoadDone } = useAuthSyncStore.getState();
+  if (!user || initialLoadDone) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    if (useAuthSyncStore.getState().initialLoadDone) {
+      resolve();
+      return;
+    }
+
+    const unsub = useAuthSyncStore.subscribe((state) => {
+      if (!state.user || state.initialLoadDone) {
+        unsub();
+        resolve();
+      }
+    });
+  });
+}
+
+async function enrichFriendShareIdFromSavedRelation(friend: TradeFriend): Promise<TradeFriend> {
+  if (friend.shareId) return friend;
+
+  const { user } = useAuthSyncStore.getState();
+  if (!user) return friend;
+
+  const supabase = createClient();
+  if (!supabase) return friend;
+
+  const row =
+    (await loadSavedFriendRelationByLocalId(supabase, user.id, friend.id)) ??
+    (friend.id.startsWith("s_") ? await loadSavedFriendRelationByShareId(supabase, user.id, friend.id) : null);
+
+  if (!row?.friend_share_id) return friend;
+
+  useCollectionStore.getState().upsertFriend({
+    name: row.friend_display_name || friend.name,
+    missing: friend.missing,
+    duplicates: friend.duplicates,
+    shareId: row.friend_share_id,
+    snapshotAt: friend.snapshotAt,
+    notes: friend.notes ?? row.notes ?? undefined
+  });
+
+  return (
+    useCollectionStore.getState().friends.find(
+      (item) => item.id === friend.id || item.shareId === row.friend_share_id
+    ) ?? { ...friend, shareId: row.friend_share_id }
   );
 }
 
@@ -54,25 +111,39 @@ function persistLiveFriend(
   return updated;
 }
 
+async function fetchLiveTradeShareWithRetry(supabase: NonNullable<ReturnType<typeof createClient>>, shareId: string) {
+  const first = await fetchTradeShareByShareId(supabase, shareId);
+  if (first) return first;
+
+  if (typeof window !== "undefined") {
+    await new Promise((resolve) => window.setTimeout(resolve, LIVE_FETCH_RETRY_MS));
+    return fetchTradeShareByShareId(supabase, shareId);
+  }
+
+  return null;
+}
+
 async function fetchAndPersistLiveFriend(friend: TradeFriend): Promise<{
   friend: TradeFriend;
   status: SavedFriendRefreshStatus;
 }> {
-  if (!friend.shareId) {
-    return { friend, status: "cached" };
+  const enriched = await enrichFriendShareIdFromSavedRelation(friend);
+
+  if (!enriched.shareId) {
+    return { friend: enriched, status: "cached" };
   }
 
   const supabase = createClient();
   if (!supabase) {
-    return { friend, status: "cached" };
+    return { friend: enriched, status: "cached" };
   }
 
-  const live = await fetchTradeShareByShareId(supabase, friend.shareId);
+  const live = await fetchLiveTradeShareWithRetry(supabase, enriched.shareId);
   if (!live) {
-    return { friend, status: "cached" };
+    return { friend: enriched, status: "cached" };
   }
 
-  const updated = persistLiveFriend(friend, live);
+  const updated = persistLiveFriend(enriched, live);
   return { friend: updated, status: "live" };
 }
 
@@ -81,6 +152,8 @@ export async function refreshSavedFriendById(friendRouteId: string): Promise<{
   friend: TradeFriend | null;
   status: SavedFriendRefreshStatus;
 }> {
+  await waitForSignedInFriendHydration();
+
   const friend = findSavedFriendByRouteId(friendRouteId);
   if (!friend) return { friend: null, status: "offline" };
 
@@ -94,7 +167,17 @@ export async function refreshSavedFriendById(friendRouteId: string): Promise<{
 
 /** Refresh every saved friend that has a stable share id (Razmene list open). */
 export async function refreshAllSavedFriendsWithShareId(): Promise<SavedFriendRefreshStatus> {
-  const shareFriends = useCollectionStore.getState().friends.filter((friend) => friend.shareId);
+  await waitForSignedInFriendHydration();
+
+  let shareFriends = useCollectionStore.getState().friends.filter((friend) => friend.shareId);
+
+  if (shareFriends.length === 0) {
+    const enriched: TradeFriend[] = [];
+    for (const friend of useCollectionStore.getState().friends) {
+      enriched.push(await enrichFriendShareIdFromSavedRelation(friend));
+    }
+    shareFriends = enriched.filter((friend) => friend.shareId);
+  }
 
   if (shareFriends.length === 0) return "offline";
 
@@ -131,7 +214,7 @@ export async function resolveFriendForImport(
   if (!supabase) return incoming;
 
   try {
-    const live = await fetchTradeShareByShareId(supabase, incoming.shareId);
+    const live = await fetchLiveTradeShareWithRetry(supabase, incoming.shareId);
     if (!live) return incoming;
 
     return {
