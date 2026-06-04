@@ -18,7 +18,13 @@ import { buildFriendTradeMessage, getTradeMatch } from "@/services/tradeQrServic
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend } from "@/types/sticker";
 
-export function FriendDetailView({ friend }: { friend: TradeFriend }) {
+export function FriendDetailView({
+  friend,
+  liveStatus = "idle"
+}: {
+  friend: TradeFriend;
+  liveStatus?: "idle" | "loading" | "live" | "cached";
+}) {
   const { language, t } = useI18n();
   const quantities = useCollectionStore((state) => state.quantities);
   const match = useMemo(() => getTradeMatch(quantities, friend), [friend, quantities]);
@@ -62,7 +68,11 @@ export function FriendDetailView({ friend }: { friend: TradeFriend }) {
       <Card className="shadow-lift">
         <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{friend.name}</h1>
         <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-          {t("friendDetail.importedAt", { date: importedLabel })}
+          {liveStatus === "loading"
+            ? t("friendDetail.refreshing")
+            : liveStatus === "live"
+              ? t("friendDetail.liveData")
+              : t("friendDetail.importedAt", { date: importedLabel })}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <StatBadge label={t("friendDetail.missingCount", { count: friend.missing.length })} />
@@ -83,7 +93,7 @@ export function FriendDetailView({ friend }: { friend: TradeFriend }) {
           </Button>
           <Button onClick={shareMessage}>
             <Share2 size={18} />
-            {t("friendDetail.shareRequest")}
+            {t("friendDetail.shareMessage")}
           </Button>
           <Button onClick={openWhatsApp}>
             <MessageCircle size={18} />

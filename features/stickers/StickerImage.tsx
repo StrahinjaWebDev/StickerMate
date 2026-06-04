@@ -119,7 +119,7 @@ export function StickerImage({
       className={clsx(
         "relative overflow-hidden rounded-md border bg-neutral-100 dark:bg-neutral-950",
         isSpecialSticker(sticker) ? "border-gold/80" : "border-line dark:border-white/10",
-        missing && "opacity-70",
+        missing && "opacity-90",
         className
       )}
     >
@@ -153,7 +153,7 @@ export function StickerImage({
       ) : null}
 
       {missing ? (
-        <div className="pointer-events-none absolute inset-0 z-[2] bg-white/28 backdrop-grayscale dark:bg-black/24" aria-hidden="true" />
+        <div className="pointer-events-none absolute inset-0 z-[2] bg-white/12 dark:bg-black/10" aria-hidden="true" />
       ) : null}
 
       {isSpecialSticker(sticker) ? (

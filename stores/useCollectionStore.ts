@@ -325,11 +325,17 @@ export const useCollectionStore = create<CollectionStore>()(
       setTradeDisplayName: (name) => set({ tradeDisplayName: name }),
       upsertFriend: (friend, mode) => {
         const importedAt = new Date().toISOString();
-        const existing = get().friends.find((item) => item.name.toLowerCase() === friend.name.toLowerCase());
+        const existing = get().friends.find(
+          (item) =>
+            (friend.shareId && item.shareId === friend.shareId) ||
+            item.name.toLowerCase() === friend.name.toLowerCase()
+        );
         const nextFriend: TradeFriend = {
           ...friend,
           id: mode === "update" && existing ? existing.id : createId("friend"),
-          importedAt
+          shareId: friend.shareId ?? existing?.shareId,
+          snapshotAt: friend.snapshotAt ?? importedAt,
+          importedAt: mode === "update" && existing ? existing.importedAt : importedAt
         };
 
         set((state) => ({

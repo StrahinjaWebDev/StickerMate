@@ -15,7 +15,6 @@ export default function FillPage() {
   const { t } = useI18n();
   const addConfirmedCodes = useCollectionStore((state) => state.addConfirmedCodes);
   const [codesText, setCodesText] = useState("");
-  const [note, setNote] = useState("");
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [entryOpen, setEntryOpen] = useState(false);
@@ -31,11 +30,10 @@ export default function FillPage() {
       return;
     }
 
-    const result = addConfirmedCodes(validation.validCodes, note || t("entry.note"));
+    const result = addConfirmedCodes(validation.validCodes, t("entry.title"));
     setSummary(result);
     setMessage(t("entry.saved"));
     setCodesText("");
-    setNote("");
     setEntryOpen(false);
   }
 
@@ -108,15 +106,6 @@ export default function FillPage() {
           placeholder={t("entry.placeholder")}
           aria-label={t("entry.codesLabel")}
         />
-
-        <label className="mt-4 block">
-          <span className="text-sm font-black text-ink dark:text-white">{t("spending.note")}</span>
-          <textarea
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            className="mt-1 min-h-20 w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-          />
-        </label>
 
         {validation.validCodes.length > 0 ? (
           <p className="mt-3 text-sm font-bold text-pitch">{t("entry.validCount", { count: validation.validCodes.length })}</p>

@@ -9,14 +9,14 @@ const helpSections: Array<{ titleKey: TranslationKey; bodyKey: TranslationKey }>
   { titleKey: "help.startTitle", bodyKey: "help.startBody" },
   { titleKey: "help.entryTitle", bodyKey: "help.entryBody" },
   { titleKey: "help.statusTitle", bodyKey: "help.statusBody" },
+  { titleKey: "help.tradesTitle", bodyKey: "help.tradesBody" },
+  { titleKey: "help.qrTitle", bodyKey: "help.qrBody" },
+  { titleKey: "help.backupTitle", bodyKey: "help.backupBody" },
   { titleKey: "help.reviewTitle", bodyKey: "help.reviewBody" },
   { titleKey: "help.collectionTitle", bodyKey: "help.collectionBody" },
   { titleKey: "help.teamsTitle", bodyKey: "help.teamsBody" },
   { titleKey: "help.duplicatesTitle", bodyKey: "help.duplicatesBody" },
   { titleKey: "help.spendingTitle", bodyKey: "help.spendingBody" },
-  { titleKey: "help.tradesTitle", bodyKey: "help.tradesBody" },
-  { titleKey: "help.qrTitle", bodyKey: "help.qrBody" },
-  { titleKey: "help.backupTitle", bodyKey: "help.backupBody" },
   { titleKey: "help.phoneTitle", bodyKey: "help.phoneBody" }
 ];
 

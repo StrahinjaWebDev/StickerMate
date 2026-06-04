@@ -31,16 +31,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-24 pt-3 sm:px-5 lg:pb-8">
-      <header className="sticky top-0 z-30 -mx-3 border-b border-line/70 bg-field/90 px-3 py-3 backdrop-blur dark:border-white/10 dark:bg-neutral-950/90 sm:-mx-5 sm:px-5">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-          <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="StickerMate">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-pitch text-white shadow-lift">
-              <BarChart3 size={22} />
+    <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-24 pt-2 sm:px-5 lg:pb-8">
+      <header className="sticky top-0 z-30 -mx-3 border-b border-line/70 bg-field/90 px-3 py-2 backdrop-blur dark:border-white/10 dark:bg-neutral-950/90 sm:-mx-5 sm:px-5 sm:py-2.5">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2">
+          <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="StickerMate">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-pitch text-white shadow-lift sm:h-10 sm:w-10">
+              <BarChart3 size={20} className="sm:hidden" />
+              <BarChart3 size={22} className="hidden sm:block" />
             </span>
             <span className="min-w-0">
-              <span className="block text-lg font-black leading-tight text-ink dark:text-white">StickerMate</span>
-              <span className="hidden text-sm text-neutral-600 dark:text-neutral-400 sm:block">
+              <span className="block text-base font-black leading-tight text-ink dark:text-white sm:text-lg">StickerMate</span>
+              <span className="hidden text-xs text-neutral-600 dark:text-neutral-400 md:block">
                 {t("app.subtitle")}
               </span>
             </span>

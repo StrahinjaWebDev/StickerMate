@@ -1,10 +1,10 @@
 "use client";
 
-import { PointerEvent, useEffect, useMemo, useRef } from "react";
+import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, ListRestart, RotateCcw, SkipForward, X } from "lucide-react";
 import { Button } from "@/components/ui/Primitives";
-import { GuideCard } from "@/components/GuideCard";
 import { ProgressBar } from "@/components/ProgressBar";
 import { StatsCards } from "@/features/stickers/StatsCards";
 import { StickerImage } from "@/features/stickers/StickerImage";
@@ -26,6 +26,7 @@ export function QuickAlbumReview() {
   const completeReview = useCollectionStore((state) => state.completeReview);
   const resetReview = useCollectionStore((state) => state.resetReview);
   const pointerStartX = useRef<number | null>(null);
+  const [restartOpen, setRestartOpen] = useState(false);
 
   const stats = useMemo(() => getStats(quantities, stickers), [quantities]);
   const safeIndex = Math.min(currentIndex, stickers.length - 1);
@@ -58,8 +59,7 @@ export function QuickAlbumReview() {
   }
 
   function confirmRestartReview() {
-    if (!window.confirm(t("review.restartConfirm"))) return;
-    resetReview();
+    setRestartOpen(true);
   }
 
   function goBack() {
@@ -115,8 +115,24 @@ export function QuickAlbumReview() {
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
+  const restartDialog = (
+    <ConfirmDialog
+      open={restartOpen}
+      title={t("review.restartTitle")}
+      body={t("review.restartBody")}
+      cancelLabel={t("common.cancel")}
+      confirmLabel={t("review.restartConfirmAction")}
+      onCancel={() => setRestartOpen(false)}
+      onConfirm={() => {
+        resetReview();
+        setRestartOpen(false);
+      }}
+    />
+  );
+
   if (isComplete) {
     return (
+      <>
       <div className="mx-auto max-w-5xl space-y-5">
         <section className="rounded-lg border border-line bg-white p-5 shadow-lift dark:border-white/10 dark:bg-neutral-900 sm:p-7">
           <div className="mx-auto max-w-2xl text-center">
@@ -142,6 +158,8 @@ export function QuickAlbumReview() {
         </section>
         <StatsCards stats={stats} />
       </div>
+      {restartDialog}
+      </>
     );
   }
 
@@ -151,6 +169,7 @@ export function QuickAlbumReview() {
   const statsLine = `${t("stats.owned")}: ${stats.owned} / ${t("stats.missing")}: ${stats.missing} / ${t("stats.duplicates")}: ${stats.duplicates}`;
 
   return (
+    <>
     <div className="mx-auto max-w-3xl space-y-3 pb-28 lg:max-w-5xl">
       <section className="rounded-lg border border-line bg-white p-3 shadow-lift dark:border-white/10 dark:bg-neutral-900">
         <div className="flex items-start justify-between gap-3">
@@ -197,8 +216,6 @@ export function QuickAlbumReview() {
           <ProgressBar value={progressValue} />
         </div>
       </section>
-
-      <GuideCard guide="quickReview" titleKey="guide.quickReviewTitle" bodyKey="guide.quickReviewBody" />
 
       <section
         className="rounded-lg border border-line bg-white p-3 shadow-sm dark:border-white/10 dark:bg-neutral-900"
@@ -280,5 +297,7 @@ export function QuickAlbumReview() {
         </Button>
       </div>
     </div>
+    {restartDialog}
+    </>
   );
 }

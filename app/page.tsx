@@ -2,13 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CircleOff, Layers3 } from "lucide-react";
+import { ArrowRight, Copy, Layers3 } from "lucide-react";
 import { AccountStatusPrompt } from "@/components/AccountStatusPrompt";
 import { ProgressBar } from "@/components/ProgressBar";
-import { ShareAppButton } from "@/components/ShareAppButton";
 import { Onboarding } from "@/features/stickers/Onboarding";
 import { RecentStickers } from "@/features/stickers/RecentStickers";
-import { StatsCards } from "@/features/stickers/StatsCards";
 import { useI18n } from "@/hooks/useI18n";
 import { getStats, stickers, stickersByTeam } from "@/lib/stickers";
 import { getTeamIcon } from "@/lib/teamIcons";
@@ -53,31 +51,30 @@ export default function HomePage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <section className="rounded-lg border border-line bg-white p-4 shadow-lift dark:border-white/10 dark:bg-neutral-900 sm:p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("dashboard.title")}</h1>
-            <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-              {t("dashboard.collectedLine", { owned: stats.owned, total: stats.total, missing: stats.missing })}
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <ShareAppButton className="min-h-10 px-3 text-sm" />
-            <div className="flex items-center gap-2 rounded-lg bg-field px-3 py-2 text-sm font-black text-coral dark:bg-neutral-950">
-              <CircleOff size={18} />
-              {t("dashboard.missingCount", { count: stats.missing })}
-            </div>
-          </div>
-        </div>
-        <div className="mt-5">
+        <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("dashboard.title")}</h1>
+        <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+          {t("dashboard.collectedLine", { owned: stats.owned, total: stats.total, missing: stats.missing })}
+        </p>
+        <div className="mt-4">
           <ProgressBar value={stats.completion} />
         </div>
+        {stats.duplicates > 0 ? (
+          <Link
+            href="/duplicates"
+            className="mt-3 flex min-h-10 items-center justify-between gap-2 rounded-lg bg-field px-3 py-2 text-sm font-black text-ink transition hover:bg-neutral-100 active:scale-[0.98] dark:bg-neutral-950 dark:text-white dark:hover:bg-neutral-900"
+          >
+            <span className="inline-flex items-center gap-2">
+              <Copy size={17} className="text-gold" />
+              {t("dashboard.duplicatesLine", { count: stats.duplicates })}
+            </span>
+            <ArrowRight size={17} className="shrink-0 text-pitch" />
+          </Link>
+        ) : null}
       </section>
 
       <AccountStatusPrompt />
-
-      <StatsCards stats={stats} />
 
       {!reviewCompleted && reviewCurrentIndex > 0 ? (
         <Link

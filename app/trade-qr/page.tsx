@@ -6,13 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Copy, RefreshCcw, Share2 } from "lucide-react";
 import { Button, Card } from "@/components/ui/Primitives";
 import { StatusMessage } from "@/components/StatusMessage";
-import { GuideCard } from "@/components/GuideCard";
 import { getProfileInfo } from "@/lib/accountProfile";
 import { useAuthSyncStore } from "@/lib/authSyncStore";
 import { getGuestIdentity, type GuestIdentity } from "@/lib/guestProfiles";
-import { useI18n } from "@/hooks/useI18n";
 import { getClientPublicOrigin } from "@/lib/seo";
+import { publishTradeShare } from "@/lib/tradeShareService";
+import { useI18n } from "@/hooks/useI18n";
 import { buildTradeProfilePayload, buildTradeQrLink, encodeTradeProfileForQr } from "@/services/tradeQrService";
+import { createClient } from "@/utils/supabase/client";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export default function TradeQrPage() {
@@ -24,6 +25,8 @@ export default function TradeQrPage() {
   const [qrLink, setQrLink] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState(() => new Date().toISOString());
+  const [shareId, setShareId] = useState<string | null>(null);
+
   const displayName = useMemo(() => {
     if (user) {
       const profile = getProfileInfo(user);
@@ -31,20 +34,41 @@ export default function TradeQrPage() {
     }
     return guestIdentity?.name || t("tradeQr.userFallback");
   }, [guestIdentity, t, user]);
+
   const payload = useMemo(
-    () => ({ ...buildTradeProfilePayload(displayName, quantities), generatedAt }),
-    [displayName, generatedAt, quantities]
+    () => ({ ...buildTradeProfilePayload(displayName, quantities), generatedAt, shareId: shareId ?? undefined }),
+    [displayName, generatedAt, quantities, shareId]
   );
+
   useEffect(() => {
     setGuestIdentity(getGuestIdentity());
   }, []);
+
+  const tradeListsKey = useMemo(
+    () => `${payload.missing.join(",")}|${payload.duplicates.join(",")}`,
+    [payload.missing, payload.duplicates]
+  );
+
+  useEffect(() => {
+    if (!user) {
+      setShareId(null);
+      return;
+    }
+
+    const supabase = createClient();
+    if (!supabase) return;
+
+    void publishTradeShare(supabase, user, displayName, payload.missing, payload.duplicates).then((id) => {
+      if (id) setShareId(id);
+    });
+  }, [user, displayName, tradeListsKey, payload.missing, payload.duplicates]);
 
   useEffect(() => {
     let cancelled = false;
     async function renderQr() {
       const QRCode = (await import("qrcode")).default;
       const compactPayload = await encodeTradeProfileForQr(payload);
-      const link = buildTradeQrLink(compactPayload, getClientPublicOrigin());
+      const link = buildTradeQrLink(compactPayload, getClientPublicOrigin(), shareId ?? undefined);
       const dataUrl = await QRCode.toDataURL(link, { errorCorrectionLevel: "M", margin: 1, width: 280 });
       if (!cancelled) {
         setQrLink(link);
@@ -58,7 +82,7 @@ export default function TradeQrPage() {
     return () => {
       cancelled = true;
     };
-  }, [payload]);
+  }, [payload, shareId]);
 
   async function copyQrLink() {
     if (!qrLink) return;
@@ -75,13 +99,11 @@ export default function TradeQrPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-4">
       <Card className="shadow-lift">
         <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("tradeQr.title")}</h1>
         <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">{t("tradeQr.privacy")}</p>
       </Card>
-
-      <GuideCard guide="tradeQr" titleKey="guide.tradeQrTitle" bodyKey="guide.tradeQrBody" />
 
       <Card>
         <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
@@ -89,7 +111,7 @@ export default function TradeQrPage() {
           <p className="mt-1 break-words text-base font-black text-ink dark:text-white">{displayName}</p>
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-[300px_1fr] sm:items-start">
+        <div className="mt-4 flex flex-col items-center gap-4">
           <div className="rounded-lg bg-field p-3 dark:bg-neutral-950">
             {qrUrl ? (
               <img src={qrUrl} alt={t("tradeQr.qrAlt", { name: displayName })} className="mx-auto h-56 w-56 rounded bg-white p-2 sm:h-64 sm:w-64" />
@@ -103,11 +125,11 @@ export default function TradeQrPage() {
               </div>
             )}
           </div>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <Stat label={t("tradeQr.missingCount", { count: payload.missing.length })} />
-              <Stat label={t("tradeQr.duplicateCount", { count: payload.duplicates.length })} />
-            </div>
+          <div className="grid w-full max-w-sm grid-cols-2 gap-2">
+            <Stat label={t("tradeQr.missingCount", { count: payload.missing.length })} />
+            <Stat label={t("tradeQr.duplicateCount", { count: payload.duplicates.length })} />
+          </div>
+          <div className="grid w-full max-w-sm gap-2">
             <Button className="w-full" onClick={copyQrLink} disabled={!qrLink}>
               <Copy size={18} />
               {t("tradeQr.copyQrLink")}
@@ -130,7 +152,7 @@ export default function TradeQrPage() {
 
 function Stat({ label }: { label: string }) {
   return (
-    <div className="rounded-lg border border-line p-3 text-sm font-black text-ink dark:border-white/10 dark:text-white">
+    <div className="rounded-lg border border-line p-3 text-center text-sm font-black text-ink dark:border-white/10 dark:text-white">
       {label}
     </div>
   );

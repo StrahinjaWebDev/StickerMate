@@ -18,8 +18,11 @@ export function buildTradeProfilePayload(name: string, quantities: Record<string
   };
 }
 
-export function buildTradeQrLink(compactPayload: string, origin: string) {
-  return `${origin}/friend-qr?data=${encodeURIComponent(compactPayload)}`;
+export function buildTradeQrLink(compactPayload: string, origin: string, shareId?: string) {
+  const url = new URL(`${origin}/friend-qr`);
+  url.searchParams.set("data", compactPayload);
+  if (shareId) url.searchParams.set("share", shareId);
+  return url.toString();
 }
 
 export function parseTradeProfilePayload(input: string): TradeProfilePayload {
@@ -44,6 +47,8 @@ export function parseTradeProfilePayload(input: string): TradeProfilePayload {
   const missing = validateStickerCodes(parsed.missing).validCodes;
   const duplicates = validateStickerCodes(parsed.duplicates).validCodes;
 
+  const shareId = typeof parsed.shareId === "string" && parsed.shareId.trim() ? parsed.shareId.trim() : undefined;
+
   return {
     app: "StickerMate",
     type: "trade-profile",
@@ -51,7 +56,8 @@ export function parseTradeProfilePayload(input: string): TradeProfilePayload {
     name: String(parsed.name || "Friend").trim() || "Friend",
     missing,
     duplicates,
-    generatedAt: parsed.generatedAt || new Date().toISOString()
+    generatedAt: parsed.generatedAt || new Date().toISOString(),
+    shareId
   };
 }
 

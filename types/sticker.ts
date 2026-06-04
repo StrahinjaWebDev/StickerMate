@@ -100,6 +100,10 @@ export type TradeFriend = {
   duplicates: string[];
   notes?: string;
   importedAt: string;
+  /** Stable public id for live trade data from Supabase. */
+  shareId?: string;
+  /** ISO timestamp of last known missing/duplicate snapshot (QR import or live fetch). */
+  snapshotAt?: string;
 };
 
 export type TradeProfilePayload = {
@@ -110,6 +114,7 @@ export type TradeProfilePayload = {
   missing: string[];
   duplicates: string[];
   generatedAt: string;
+  shareId?: string;
 };
 
 export type RecognitionResult = {

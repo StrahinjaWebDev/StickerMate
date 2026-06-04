@@ -11,6 +11,7 @@ import { Button, Card } from "@/components/ui/Primitives";
 import { StatusMessage } from "@/components/StatusMessage";
 import { useI18n } from "@/hooks/useI18n";
 import { formatMoney, PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
+import { useAuthSyncStore } from "@/lib/authSyncStore";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { ThemePreference } from "@/types/sticker";
 
@@ -30,8 +31,14 @@ export default function SettingsPage() {
   const resetCollection = useCollectionStore((state) => state.resetCollection);
   const resetReview = useCollectionStore((state) => state.resetReview);
   const resetGuides = useCollectionStore((state) => state.resetGuides);
+  const user = useAuthSyncStore((state) => state.user);
+  const syncStatus = useAuthSyncStore((state) => state.status);
   const { language, t } = useI18n();
   const resetWord = language === "sr" ? "resetuj" : "reset";
+  const settingsBodyKey: "settings.bodySignedIn" | "settings.bodyGuest" =
+    user && syncStatus !== "failed" && syncStatus !== "disabled_missing_tables" && syncStatus !== "auth_expired"
+      ? "settings.bodySignedIn"
+      : "settings.bodyGuest";
 
   function confirmResetCollection() {
     resetCollection();
@@ -60,7 +67,7 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-3xl space-y-5">
       <Card className="shadow-lift">
         <h1 className="text-3xl font-black text-ink dark:text-white">{t("settings.title")}</h1>
-        <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t("settings.body")}</p>
+        <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t(settingsBodyKey)}</p>
       </Card>
 
       <GuideCard guide="settings" titleKey="guide.settingsTitle" bodyKey="guide.settingsBody" />
@@ -98,7 +105,10 @@ export default function SettingsPage() {
         <p className="mt-3 rounded-lg bg-field p-3 text-sm font-bold text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
           {t("spending.packFormula", { stickers: STICKERS_PER_PACK, price: formatMoney(PACK_PRICE_RSD, language) })}
           <span className="mt-1 block text-xs font-semibold text-neutral-500 dark:text-neutral-400">
-            {t("spending.baseRsdNote", { price: PACK_PRICE_RSD })}
+            {t("spending.baseRsdNote", {
+              price: formatMoney(PACK_PRICE_RSD, language),
+              stickers: STICKERS_PER_PACK
+            })}
           </span>
         </p>
       </Card>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ArrowRight, ClipboardList, Keyboard, Layers3, RotateCcw } from "lucide-react";
 import { QuickAlbumReview } from "@/features/stickers/QuickAlbumReview";
 import { useI18n } from "@/hooks/useI18n";
@@ -16,6 +17,7 @@ export function Onboarding() {
   const { t } = useI18n();
 
   const hasReviewProgress = reviewCurrentIndex > 0 || reviewCompleted;
+  const [restartOpen, setRestartOpen] = useState(false);
 
   if (mode === "review") {
     return <QuickAlbumReview />;
@@ -53,10 +55,7 @@ export function Onboarding() {
           <button
             type="button"
             className="flex min-h-24 items-start gap-3 rounded-lg bg-pitch p-4 text-left text-white shadow-lift"
-            onClick={() => {
-              resetReview();
-              setMode("review");
-            }}
+            onClick={() => setRestartOpen(true)}
           >
             <RotateCcw className="mt-0.5 shrink-0" size={22} />
             <span>
@@ -75,6 +74,19 @@ export function Onboarding() {
         >
           {t("common.back")}
         </button>
+        <ConfirmDialog
+          open={restartOpen}
+          title={t("review.restartTitle")}
+          body={t("review.restartBody")}
+          cancelLabel={t("common.cancel")}
+          confirmLabel={t("review.restartConfirmAction")}
+          onCancel={() => setRestartOpen(false)}
+          onConfirm={() => {
+            resetReview();
+            setRestartOpen(false);
+            setMode("review");
+          }}
+        />
       </section>
     );
   }

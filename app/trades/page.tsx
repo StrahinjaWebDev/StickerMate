@@ -6,7 +6,6 @@ import { ArrowRight, Check, Copy, History, MessageCircle, Plus, QrCode, RotateCc
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
-import { GuideCard } from "@/components/GuideCard";
 import { StickerImage } from "@/features/stickers/StickerImage";
 import { useI18n } from "@/hooks/useI18n";
 import type { TranslationKey } from "@/lib/i18n";
@@ -70,14 +69,14 @@ export default function TradesPage() {
   );
 
   const whatsAppMessage = useMemo(() => {
-    const missingLine = missingCodes.slice(0, 120).join(", ") || "-";
-    const duplicateLine = duplicateLines.slice(0, 120).join(", ") || "-";
+    const missingLine = missingCodes.slice(0, 48).join(", ") || "-";
+    const duplicateLine = duplicateLines.slice(0, 48).join(", ") || "-";
     if (messageType === "missing") return t("trades.messageMissing", { missing: missingLine });
     if (messageType === "duplicates") return t("trades.messageDuplicates", { duplicates: duplicateLine });
     return t("trades.messageBoth", { missing: missingLine, duplicates: duplicateLine });
   }, [duplicateLines, messageType, missingCodes, t]);
   const whatsAppPreview =
-    showFullMessage || whatsAppMessage.length <= 360 ? whatsAppMessage : `${whatsAppMessage.slice(0, 360).trim()}...`;
+    showFullMessage || whatsAppMessage.length <= 220 ? whatsAppMessage : `${whatsAppMessage.slice(0, 220).trim()}...`;
 
   async function copyMessage() {
     await navigator.clipboard.writeText(whatsAppMessage);
@@ -136,8 +135,6 @@ export default function TradesPage() {
         <h1 className="text-2xl font-black text-ink dark:text-white sm:text-3xl">{t("trades.title")}</h1>
         <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t("trades.body")}</p>
       </section>
-
-      <GuideCard guide="trades" titleKey="guide.tradesTitle" bodyKey="guide.tradesBody" />
 
       <Card>
         <h2 className="text-lg font-black text-ink dark:text-white">{t("trades.qrSectionTitle")}</h2>

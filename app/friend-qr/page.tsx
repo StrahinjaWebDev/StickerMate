@@ -7,8 +7,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { FriendQrScanner } from "@/components/FriendQrScanner";
 import { Button, Card } from "@/components/ui/Primitives";
 import { StatusMessage } from "@/components/StatusMessage";
-import { GuideCard } from "@/components/GuideCard";
 import { useI18n } from "@/hooks/useI18n";
+import { friendFromTradeProfile } from "@/lib/tradeShareService";
 import { getTradeMatch, parseTradeProfilePayload, QrImageNotFoundError, readQrFromImageFile } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend, TradeProfilePayload } from "@/types/sticker";
@@ -34,13 +34,18 @@ export default function FriendQrPage() {
   const urlParsedRef = useRef(false);
 
   const applyTradeInput = useCallback(
-    (text: string) => {
+    (text: string, shareIdFromUrl?: string | null) => {
       setJsonText(text);
       try {
         const nextPayload = parseTradeProfilePayload(text);
+        if (shareIdFromUrl) nextPayload.shareId = shareIdFromUrl;
         setPayload(nextPayload);
         setMessage(
-          friends.find((item) => item.name.toLowerCase() === nextPayload.name.toLowerCase())
+          friends.find(
+            (item) =>
+              (nextPayload.shareId && item.shareId === nextPayload.shareId) ||
+              item.name.toLowerCase() === nextPayload.name.toLowerCase()
+          )
             ? t("friendQr.existing")
             : null
         );
@@ -56,10 +61,12 @@ export default function FriendQrPage() {
 
   useEffect(() => {
     if (urlParsedRef.current) return;
-    const data = new URLSearchParams(window.location.search).get("data");
+    const params = new URLSearchParams(window.location.search);
+    const data = params.get("data");
     if (!data) return;
     urlParsedRef.current = true;
-    const parsed = applyTradeInput(data);
+    const shareId = params.get("share");
+    const parsed = applyTradeInput(data, shareId);
     if (parsed) {
       window.history.replaceState(null, "", "/friend-qr");
     }
@@ -75,9 +82,7 @@ export default function FriendQrPage() {
 
     const nextFriend = upsertFriend(
       {
-        name: nextPayload.name,
-        missing: nextPayload.missing,
-        duplicates: nextPayload.duplicates,
+        ...friendFromTradeProfile(nextPayload, nextPayload.shareId),
         notes: t("friendQr.notes")
       },
       mode
@@ -142,8 +147,6 @@ export default function FriendQrPage() {
           {t("friendQr.subtitle")}
         </p>
       </Card>
-
-      <GuideCard guide="friendQr" titleKey="guide.friendQrTitle" bodyKey="guide.friendQrBody" />
 
       <Card>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">

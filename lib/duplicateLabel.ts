@@ -15,6 +15,7 @@ export function formatDuplicateLabel(t: TranslateFn, count: number) {
 }
 
 export function formatMyDuplicateBadge(t: TranslateFn, count: number) {
-  const key = count === 1 ? "friendDetail.myDuplicateBadgeOne" : "friendDetail.myDuplicateBadgeMany";
-  return t(key, { count });
+  if (count <= 0) return "";
+  if (count === 1) return t("friendDetail.myDuplicateBadge");
+  return t("friendDetail.myDuplicateBadgeMany", { count });
 }
