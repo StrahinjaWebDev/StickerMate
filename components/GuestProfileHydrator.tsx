@@ -11,9 +11,10 @@ import { useCollectionStore } from "@/stores/useCollectionStore";
 export function GuestProfileHydrator() {
   const language = useCollectionStore((state) => state.language);
   const user = useAuthSyncStore((state) => state.user);
+  const authReady = useAuthSyncStore((state) => state.authReady);
 
   useEffect(() => {
-    if (user) return;
+    if (!authReady || user) return;
 
     hydrateGuestSnapshot(language);
 
@@ -29,7 +30,7 @@ export function GuestProfileHydrator() {
       if (saveTimer) clearTimeout(saveTimer);
       unsubscribe();
     };
-  }, [language, user]);
+  }, [language, user, authReady]);
 
   return null;
 }

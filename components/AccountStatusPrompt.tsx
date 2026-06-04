@@ -19,11 +19,9 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
   const { t } = useI18n();
   const user = useAuthSyncStore((state) => state.user);
   const status = useAuthSyncStore((state) => state.status);
-  const mergePrompt = useAuthSyncStore((state) => state.mergePrompt);
   const profileInfo = user ? getProfileInfo(user) : null;
   const displayName = profileInfo?.displayName ?? profileInfo?.email ?? "";
   const backupUnavailable = status === "failed" || status === "disabled_missing_tables";
-  const migrationPending = Boolean(mergePrompt);
   const [guestIdentity, setGuestIdentity] = useState<GuestIdentity | null>(null);
 
   useEffect(() => {
@@ -107,11 +105,7 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
       <span className="min-w-0 flex-1">
         <span className="block truncate font-black">{t("account.signedInCompact", { name: displayName })}</span>
         <span className="mt-0.5 block truncate text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-          {migrationPending
-            ? t("account.migrationPendingBanner")
-            : backupUnavailable
-              ? t("account.backupUnavailable")
-              : t("account.onlineBackupEnabled")}
+          {backupUnavailable ? t("account.backupUnavailable") : t("account.onlineBackupEnabled")}
         </span>
       </span>
       <UserCircle className="shrink-0 text-pitch" size={21} />

@@ -7,14 +7,10 @@ import {
   getCloudSyncFailureKind,
   getLocalSnapshot,
   getLocalSyncFingerprint,
-  hasMeaningfulCloudData,
-  hasMeaningfulGuestData,
   isInvalidRefreshTokenError,
   loadCloudCollection,
-  mergeLocalAndCloud,
   saveCloudCollection,
   saveLocalSnapshot,
-  snapshotsAreEquivalent,
   syncNow as syncCloudNow,
   type CloudSnapshot,
   type CloudSyncStatus
@@ -23,13 +19,6 @@ import { useCollectionStore, waitForCollectionHydration } from "@/stores/useColl
 import { backupGuestSnapshotBeforeAuth, restoreGuestCollectionAfterSignOut } from "@/lib/guestProfiles";
 import { createClient } from "@/utils/supabase/client";
 
-type MergePromptReason = "guest-local" | "both-have-data";
-
-type MergePrompt = {
-  cloud: CloudSnapshot | null;
-  reason: MergePromptReason;
-};
-
 type AuthSyncState = {
   user: User | null;
   authReady: boolean;
@@ -37,7 +26,6 @@ type AuthSyncState = {
   status: CloudSyncStatus;
   messageKey: string | null;
   lastSyncedAt: string | null;
-  mergePrompt: MergePrompt | null;
   initialLoadDone: boolean;
 };
 
@@ -48,14 +36,13 @@ const initialState: AuthSyncState = {
   status: "idle",
   messageKey: null,
   lastSyncedAt: null,
-  mergePrompt: null,
   initialLoadDone: false
 };
 
 export const useAuthSyncStore = create<AuthSyncState>()(() => initialState);
 
 const SYNC_META_KEY = "stickermate-sync-meta";
-const MIGRATION_PENDING_KEY = "stickermate-migration-pending";
+const LEGACY_MIGRATION_PENDING_KEY = "stickermate-migration-pending";
 const AUTO_SYNC_DELAY_MS = 2500;
 
 let initialized = false;
@@ -72,11 +59,6 @@ let pendingAutoSyncAfterCurrent = false;
 
 type SyncMeta = {
   cloudUpdatedAt: string | null;
-};
-
-type StoredMigrationPending = {
-  userId: string;
-  reason: MergePromptReason;
 };
 
 function getSupabase() {
@@ -118,51 +100,21 @@ function writeSyncMeta(userId: string, cloudUpdatedAt: string | null) {
   }
 }
 
-function readMigrationPending(): StoredMigrationPending | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(MIGRATION_PENDING_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as StoredMigrationPending;
-  } catch {
-    return null;
-  }
-}
-
-function writeMigrationPending(userId: string, reason: MergePromptReason) {
+function clearLegacyMigrationState() {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(MIGRATION_PENDING_KEY, JSON.stringify({ userId, reason } satisfies StoredMigrationPending));
+    window.localStorage.removeItem(LEGACY_MIGRATION_PENDING_KEY);
   } catch {
     // Ignore storage failures.
   }
-}
-
-function clearMigrationPending() {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(MIGRATION_PENDING_KEY);
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-function isMigrationBlocking(userId: string | undefined) {
-  if (!userId) return false;
-  const { mergePrompt } = useAuthSyncStore.getState();
-  if (mergePrompt) return true;
-  const pending = readMigrationPending();
-  return pending?.userId === userId;
 }
 
 function markSynced(userId: string, cloudUpdatedAt: string, extra: Partial<AuthSyncState> = {}) {
   writeSyncMeta(userId, cloudUpdatedAt);
-  clearMigrationPending();
   setAuthSyncState({
     lastSyncedAt: cloudUpdatedAt,
     status: "synced",
     messageKey: null,
-    mergePrompt: null,
     initialLoadDone: true,
     ...extra
   });
@@ -182,22 +134,21 @@ function setSyncFailure(error: unknown) {
   });
 }
 
-function clearMigrationPendingForOtherUser(userId: string) {
-  const pending = readMigrationPending();
-  if (pending && pending.userId !== userId) {
-    clearMigrationPending();
-  }
-}
+function canAutoSyncForUser(user: User | null) {
+  if (!user) return false;
 
-function showMigrationPrompt(userId: string, cloud: CloudSnapshot | null, reason: MergePromptReason) {
-  backupGuestSnapshotBeforeAuth();
-  writeMigrationPending(userId, reason);
-  setAuthSyncState({
-    mergePrompt: { cloud, reason },
-    status: "idle",
-    messageKey: null,
-    initialLoadDone: true
-  });
+  const { authReady, status, initialLoadDone } = useAuthSyncStore.getState();
+
+  return (
+    authReady &&
+    prepareCompleted &&
+    initialLoadDone &&
+    preparedUserId === user.id &&
+    status !== "syncing" &&
+    status !== "auth_expired" &&
+    status !== "disabled_missing_tables" &&
+    !signOutInFlight
+  );
 }
 
 async function runExclusive(task: () => Promise<CloudSnapshot | null>) {
@@ -224,7 +175,6 @@ async function handleAuthExpired() {
     authMessageKey: "account.sessionExpired",
     status: "auth_expired",
     messageKey: "account.sessionExpired",
-    mergePrompt: null,
     lastSyncedAt: null,
     initialLoadDone: false
   });
@@ -235,7 +185,6 @@ async function handleAuthExpired() {
   } catch {
     // Broken refresh tokens can make remote sign-out fail; local auth state is already cleared.
   } finally {
-    clearMigrationPending();
     restoreGuestCollectionAfterSignOut();
     window.setTimeout(() => {
       authExpiredHandling = false;
@@ -251,18 +200,6 @@ async function applyCloudSnapshot(userId: string, cloud: CloudSnapshot) {
 
 async function prepareCloudState(currentUser: User, force = false) {
   if (!force && preparedUserId === currentUser.id && prepareCompleted) {
-    const pending = readMigrationPending();
-    if (pending?.userId === currentUser.id && !useAuthSyncStore.getState().mergePrompt) {
-      const supabase = getSupabase();
-      if (supabase) {
-        try {
-          const cloud = await loadCloudCollection(supabase, currentUser.id);
-          showMigrationPrompt(currentUser.id, cloud, pending.reason);
-        } catch {
-          showMigrationPrompt(currentUser.id, null, pending.reason);
-        }
-      }
-    }
     return syncPromise ?? null;
   }
 
@@ -276,41 +213,28 @@ async function prepareCloudState(currentUser: User, force = false) {
   return runExclusive(async () => {
     preparedUserId = currentUser.id;
     prepareCompleted = false;
-    setAuthSyncState({ status: "syncing", messageKey: "account.loadingOnline", mergePrompt: null });
+    clearAutoSyncTimer();
+    setAuthSyncState({ status: "syncing", messageKey: "account.loadingOnline", initialLoadDone: false });
 
     try {
-      const local = getLocalSnapshot();
+      backupGuestSnapshotBeforeAuth();
       const cloud = await loadCloudCollection(supabase, currentUser.id);
-      const guestData = hasMeaningfulGuestData(local);
-      const cloudData = cloud ? hasMeaningfulCloudData(cloud) : false;
 
-      if (!guestData) {
-        clearMigrationPending();
-        if (cloud) {
-          await applyCloudSnapshot(currentUser.id, cloud);
-        } else if (!hasMeaningfulGuestData(local)) {
-          const cloudUpdatedAt = await saveCloudCollection(supabase, currentUser, local);
-          markSynced(currentUser.id, cloudUpdatedAt);
-        } else {
-          setAuthSyncState({ status: "idle", initialLoadDone: true });
-        }
-        prepareCompleted = true;
-        return cloud;
+      if (cloud) {
+        await applyCloudSnapshot(currentUser.id, cloud);
+      } else {
+        const empty = createEmptyCloudSnapshot();
+        muteNextLocalStoreSync();
+        saveLocalSnapshot(empty);
+        const cloudUpdatedAt = await saveCloudCollection(supabase, currentUser, empty);
+        markSynced(currentUser.id, cloudUpdatedAt);
       }
 
-      if (cloud && snapshotsAreEquivalent(local, cloud)) {
-        markSynced(currentUser.id, cloud.updatedAt);
-        prepareCompleted = true;
-        return cloud;
-      }
-
-      const reason: MergePromptReason = cloudData ? "both-have-data" : "guest-local";
-      showMigrationPrompt(currentUser.id, cloud, reason);
       prepareCompleted = true;
-      return null;
+      return cloud;
     } catch (error) {
       preparedUserId = null;
-      prepareCompleted = true;
+      prepareCompleted = false;
       setSyncFailure(error);
       return null;
     }
@@ -318,19 +242,10 @@ async function prepareCloudState(currentUser: User, force = false) {
 }
 
 async function runAutoSync() {
-  const { user, mergePrompt, status } = useAuthSyncStore.getState();
+  const { user } = useAuthSyncStore.getState();
   const supabase = getSupabase();
 
-  if (
-    !supabase ||
-    !user ||
-    !prepareCompleted ||
-    mergePrompt ||
-    isMigrationBlocking(user.id) ||
-    status === "syncing" ||
-    status === "auth_expired" ||
-    status === "disabled_missing_tables"
-  ) {
+  if (!supabase || !user || !canAutoSyncForUser(user)) {
     return null;
   }
 
@@ -341,22 +256,11 @@ async function runAutoSync() {
   }
 
   return runExclusive(async () => {
+    if (!canAutoSyncForUser(user)) return null;
+
     setAuthSyncState({ status: "syncing", messageKey: null });
     try {
       const snapshot = getLocalSnapshot();
-
-      if (!hasMeaningfulGuestData(snapshot)) {
-        const existingCloud = await loadCloudCollection(supabase, user.id);
-        if (
-          existingCloud &&
-          hasMeaningfulCloudData(existingCloud) &&
-          !snapshotsAreEquivalent(snapshot, existingCloud)
-        ) {
-          await applyCloudSnapshot(user.id, existingCloud);
-          return existingCloud;
-        }
-      }
-
       const cloudUpdatedAt = await saveCloudCollection(supabase, user, snapshot);
       markSynced(user.id, cloudUpdatedAt);
       return snapshot;
@@ -385,17 +289,9 @@ function ensureCollectionSubscription() {
     if (fingerprint === lastFingerprint) return;
     lastFingerprint = fingerprint;
 
-    const { user, mergePrompt, status } = useAuthSyncStore.getState();
+    const { user, status } = useAuthSyncStore.getState();
 
-    if (
-      !user ||
-      !prepareCompleted ||
-      mergePrompt ||
-      isMigrationBlocking(user.id) ||
-      suppressAutoSync ||
-      status === "auth_expired" ||
-      status === "disabled_missing_tables"
-    ) {
+    if (!user || !canAutoSyncForUser(user) || suppressAutoSync) {
       return;
     }
 
@@ -405,6 +301,8 @@ function ensureCollectionSubscription() {
       return;
     }
 
+    if (status === "syncing") return;
+
     setAuthSyncState({ status: "dirty" });
     scheduleAutoSync();
   });
@@ -413,6 +311,8 @@ function ensureCollectionSubscription() {
 export function initializeAuthSync() {
   if (initialized) return;
   initialized = true;
+
+  clearLegacyMigrationState();
 
   const supabase = getSupabase();
   if (!supabase) {
@@ -431,7 +331,6 @@ export function initializeAuthSync() {
       const user = data.session?.user ?? null;
       setAuthSyncState({ user, authReady: true, authMessageKey: null, status: user ? "idle" : "idle" });
       if (user) {
-        clearMigrationPendingForOtherUser(user.id);
         void prepareCloudState(user);
       }
     } catch (error) {
@@ -456,7 +355,6 @@ export function initializeAuthSync() {
         user: null,
         status: "idle",
         messageKey: null,
-        mergePrompt: null,
         lastSyncedAt: null,
         authReady: true,
         initialLoadDone: false
@@ -467,7 +365,6 @@ export function initializeAuthSync() {
     setAuthSyncState({ user: nextUser, authReady: true, authMessageKey: null });
 
     if (nextUser && previousUser?.id !== nextUser.id) {
-      clearMigrationPendingForOtherUser(nextUser.id);
       preparedUserId = null;
       prepareCompleted = false;
       window.setTimeout(() => {
@@ -510,19 +407,18 @@ export async function signOutLocally() {
   try {
     await supabase?.auth.signOut({ scope: "local" });
   } catch {
-    setAuthSyncState({ user: null, status: "idle", messageKey: null, mergePrompt: null, lastSyncedAt: null, initialLoadDone: false });
+    setAuthSyncState({ user: null, status: "idle", messageKey: null, lastSyncedAt: null, initialLoadDone: false });
   } finally {
-    setAuthSyncState({ user: null, status: "idle", messageKey: null, mergePrompt: null, lastSyncedAt: null, initialLoadDone: false });
-    clearMigrationPending();
+    setAuthSyncState({ user: null, status: "idle", messageKey: null, lastSyncedAt: null, initialLoadDone: false });
     restoreGuestCollectionAfterSignOut();
     signOutInFlight = false;
   }
 }
 
 export async function runManualSync() {
-  const { user, mergePrompt } = useAuthSyncStore.getState();
+  const { user } = useAuthSyncStore.getState();
   const supabase = getSupabase();
-  if (!supabase || !user || mergePrompt || isMigrationBlocking(user.id)) return null;
+  if (!supabase || !user || !canAutoSyncForUser(user)) return null;
 
   return runExclusive(async () => {
     setAuthSyncState({ status: "syncing", messageKey: null });
@@ -537,59 +433,17 @@ export async function runManualSync() {
   });
 }
 
-export async function resolveCloudMerge(action: "local" | "cloud" | "merge" | "later") {
-  const { user, mergePrompt } = useAuthSyncStore.getState();
-  const supabase = getSupabase();
-  if (!supabase || !user || !mergePrompt) return null;
-
-  if (action === "later") {
-    writeMigrationPending(user.id, mergePrompt.reason);
-    setAuthSyncState({ status: "idle", messageKey: "account.migrationPendingHint" });
-    return null;
-  }
-
-  return runExclusive(async () => {
-    setAuthSyncState({ status: "syncing", messageKey: null });
-
-    try {
-      const local = getLocalSnapshot();
-      const cloudBase = mergePrompt.cloud ?? createEmptyCloudSnapshot(local);
-
-      let nextSnapshot: CloudSnapshot;
-      if (action === "cloud") {
-        nextSnapshot = cloudBase;
-      } else if (action === "merge") {
-        nextSnapshot = mergeLocalAndCloud(local, cloudBase);
-      } else {
-        if (!hasMeaningfulGuestData(local) && hasMeaningfulCloudData(cloudBase)) {
-          await applyCloudSnapshot(user.id, cloudBase);
-          return cloudBase;
-        }
-        nextSnapshot = local;
-      }
-
-      muteNextLocalStoreSync();
-      saveLocalSnapshot(nextSnapshot);
-      const cloudUpdatedAt = await saveCloudCollection(supabase, user, nextSnapshot);
-      markSynced(user.id, cloudUpdatedAt, { messageKey: "account.syncSuccess" });
-      return nextSnapshot;
-    } catch (error) {
-      setSyncFailure(error);
-      return null;
-    }
-  });
-}
-
 export function cleanupAuthSyncForTests() {
   authSubscription?.unsubscribe();
   authSubscription = null;
   collectionUnsubscribe?.();
   collectionUnsubscribe = null;
   clearAutoSyncTimer();
-  clearMigrationPending();
+  clearLegacyMigrationState();
   initialized = false;
   syncPromise = null;
   preparedUserId = null;
   prepareCompleted = false;
   pendingAutoSyncAfterCurrent = false;
+  signOutInFlight = false;
 }
