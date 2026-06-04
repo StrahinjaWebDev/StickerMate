@@ -13,6 +13,12 @@ import type { TranslationKey } from "@/lib/i18n";
 
 const isDev = process.env.NODE_ENV === "development";
 
+const ACCOUNT_ERROR_MESSAGE_KEYS = new Set<TranslationKey>([
+  "account.syncWarning",
+  "account.cloudNotReady",
+  "account.notConfigured"
+]);
+
 export function AccountSection() {
   const { language, t } = useI18n();
   const user = useAuthSyncStore((state) => state.user);
@@ -25,7 +31,6 @@ export function AccountSection() {
 
   const profileInfo = user ? getProfileInfo(user) : null;
   const backupUnavailable = status === "failed" || status === "disabled_missing_tables";
-  const backupEnabled = Boolean(user) && !backupUnavailable && status !== "auth_expired";
 
   useEffect(() => {
     setGuestIdentity(getGuestIdentity());
@@ -42,8 +47,6 @@ export function AccountSection() {
       setLocalMessageKey(null);
     } else if (authStatus === "not-configured") {
       setLocalMessageKey("account.notConfigured");
-    } else if (authStatus === "success") {
-      setLocalMessageKey("account.authSuccess");
     }
 
     if (authStatus || hashParams.has("error")) {
@@ -81,18 +84,20 @@ export function AccountSection() {
               <div className="flex min-w-0 items-center gap-3">
                 <FallbackAvatar initials={getGuestInitials(guestName)} localOnly />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("account.guestMode")}</p>
+                  <p className="text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{t("account.guestUsingApp")}</p>
                   {guestIdentity ? (
                     <p className="mt-0.5 truncate text-base font-black text-ink dark:text-white">{guestName}</p>
                   ) : null}
-                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">{t("account.guestBody")}</p>
+                  <p className="mt-1 text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-400">
+                    {t("account.guestSignInPrompt")}
+                  </p>
                 </div>
               </div>
             </div>
 
             <Button className="w-full" tone="primary" onClick={handleGoogleSignIn}>
               <Cloud size={18} />
-              {t("account.signInForBackup")}
+              {t("account.signInGoogle")}
             </Button>
           </div>
         ) : profileInfo ? (
@@ -108,11 +113,6 @@ export function AccountSection() {
                   <p className={clsx("break-words text-sm font-bold text-neutral-600 dark:text-neutral-300", profileInfo.displayName && "mt-1")}>
                     {profileInfo.email}
                   </p>
-                  {backupEnabled ? (
-                    <p className="mt-2 inline-flex rounded-md bg-pitch/10 px-2 py-1 text-xs font-black text-pitch">
-                      {t("account.onlineBackupEnabled")}
-                    </p>
-                  ) : null}
                 </div>
               </div>
             </div>
@@ -136,7 +136,7 @@ export function AccountSection() {
         ) : null}
 
         {visibleMessageKey &&
-        visibleMessageKey !== "account.loadingOnline" &&
+        ACCOUNT_ERROR_MESSAGE_KEYS.has(visibleMessageKey as TranslationKey) &&
         status !== "auth_expired" &&
         !authError ? (
           <StatusMessage>{t(visibleMessageKey as TranslationKey)}</StatusMessage>

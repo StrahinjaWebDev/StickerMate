@@ -32,13 +32,9 @@ export default function SettingsPage() {
   const resetReview = useCollectionStore((state) => state.resetReview);
   const resetGuides = useCollectionStore((state) => state.resetGuides);
   const user = useAuthSyncStore((state) => state.user);
-  const syncStatus = useAuthSyncStore((state) => state.status);
   const { language, t } = useI18n();
   const resetWord = language === "sr" ? "resetuj" : "reset";
-  const settingsBodyKey: "settings.bodySignedIn" | "settings.bodyGuest" =
-    user && syncStatus !== "failed" && syncStatus !== "disabled_missing_tables" && syncStatus !== "auth_expired"
-      ? "settings.bodySignedIn"
-      : "settings.bodyGuest";
+  const settingsBodyKey: "settings.bodySignedIn" | "settings.bodyGuest" = user ? "settings.bodySignedIn" : "settings.bodyGuest";
 
   function confirmResetCollection() {
     resetCollection();
@@ -128,9 +124,11 @@ export default function SettingsPage() {
         <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-400">
           {t("about.unofficial")} {t("about.affiliation")}
         </p>
-        <p className="mt-3 rounded-lg bg-field p-3 text-sm font-semibold leading-6 text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300">
-          {t("app.storageNotice")}
-        </p>
+        {!user ? (
+          <p className="mt-3 rounded-lg bg-field p-3 text-sm font-semibold leading-6 text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300">
+            {t("app.storageNoticeGuest")}
+          </p>
+        ) : null}
         <p className="mt-3 text-xs font-bold leading-5 text-neutral-500 dark:text-neutral-400">
           {t("app.copyright")}
           <br />

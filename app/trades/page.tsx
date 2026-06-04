@@ -14,7 +14,6 @@ import type { TranslationKey } from "@/lib/i18n";
 import { getDuplicateCount, getTradableCount, parseStickerCodes, stickers } from "@/lib/stickers";
 import { formatDuplicateLabel } from "@/lib/duplicateLabel";
 import { getTeamIcon } from "@/lib/teamIcons";
-import { getTradeMatch } from "@/services/tradeQrService";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 function today() {
@@ -291,18 +290,14 @@ export default function TradesPage() {
           </div>
         ) : (
           <div className="mt-3 grid gap-2">
-            {friends.map((friend) => {
-              const match = getTradeMatch(quantities, friend);
-              const possibleCount = match.iCanGive.length + match.friendCanGive.length;
-              return (
+            {friends.map((friend) => (
                 <article key={friend.id} className="rounded-lg bg-field p-3 dark:bg-neutral-950">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <p className="font-black text-ink dark:text-white">{friend.name}</p>
                       <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
                         {t("tradeQr.missingCount", { count: friend.missing.length })} ·{" "}
-                        {t("tradeQr.duplicateCount", { count: friend.duplicates.length })} ·{" "}
-                        {t("trades.possibleTrades", { count: possibleCount })}
+                        {t("tradeQr.duplicateCount", { count: friend.duplicates.length })}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:w-56">
@@ -319,8 +314,7 @@ export default function TradesPage() {
                     </div>
                   </div>
                 </article>
-              );
-            })}
+              ))}
           </div>
         )}
       </Card>

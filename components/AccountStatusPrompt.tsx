@@ -34,14 +34,14 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
         <button
           type="button"
           onClick={signInWithGoogle}
-          aria-label={t("account.signInForBackup")}
+          aria-label={t("account.signInGoogle")}
           className={clsx(
             "hidden h-10 min-w-0 items-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-black text-ink shadow-sm transition hover:bg-field active:scale-[0.98] dark:border-white/10 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 sm:inline-flex",
             className
           )}
         >
           <Cloud size={17} />
-          <span className="hidden md:inline">{t("account.signInForBackup")}</span>
+          <span className="hidden md:inline">{t("account.signInGoogle")}</span>
         </button>
       );
     }
@@ -79,7 +79,7 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
           <span className="min-w-0 flex-1">
             <span className="block truncate font-black text-ink dark:text-white">{guestName}</span>
             <span className="mt-0.5 block truncate text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-              {t("account.localOnly")}
+              {t("account.guestSignInPrompt")}
             </span>
           </span>
           <UserCircle className="shrink-0 text-pitch sm:hidden" size={21} />
@@ -104,9 +104,15 @@ export function AccountStatusPrompt({ variant = "banner", className }: AccountSt
       <MiniAvatar avatarUrl={profileInfo?.avatarUrl ?? null} initials={profileInfo?.initials ?? "U"} size="lg" />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-black">{t("account.signedInCompact", { name: displayName })}</span>
-        <span className="mt-0.5 block truncate text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-          {backupUnavailable ? t("account.backupUnavailable") : t("account.onlineBackupEnabled")}
-        </span>
+        {backupUnavailable ? (
+          <span className="mt-0.5 block truncate text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+            {t("account.backupUnavailable")}
+          </span>
+        ) : profileInfo?.email && profileInfo.displayName ? (
+          <span className="mt-0.5 block truncate text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+            {profileInfo.email}
+          </span>
+        ) : null}
       </span>
       <UserCircle className="shrink-0 text-pitch" size={21} />
     </Link>

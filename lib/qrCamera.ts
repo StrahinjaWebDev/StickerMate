@@ -2,7 +2,7 @@
 
 import { persistDebug } from "@/lib/persistDebug";
 
-const PREVIEW_TIMEOUT_MS = 12000;
+const PREVIEW_TIMEOUT_MS = 15000;
 
 type CameraErrorKind = "permission" | "unavailable" | "preview";
 
@@ -34,12 +34,11 @@ export function isMobileSafari() {
   return iOS && /AppleWebKit/.test(ua) && !/CriOS|FxiOS|OPiOS|EdgiOS|Chrome/.test(ua);
 }
 
-/** Prefer canvas mirror for preview on iOS Safari where <video> often stays black. */
+/** iOS Safari: mirror frames to canvas when direct <video> paint is unreliable. */
 export function shouldUseCanvasPreview() {
   return isMobileSafari();
 }
 
-/** Request rear camera when possible; fall back to default camera on iOS/Safari. */
 export async function requestQrCameraStream(): Promise<MediaStream> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     throw new QrCameraError("unavailable");
@@ -57,7 +56,8 @@ export async function requestQrCameraStream(): Promise<MediaStream> {
       });
       persistDebug("qr-camera-stream-received", {
         constraint: JSON.stringify(constraints.video),
-        trackState: stream.getVideoTracks()[0]?.readyState ?? "none"
+        trackState: stream.getVideoTracks()[0]?.readyState ?? "none",
+        settings: JSON.stringify(stream.getVideoTracks()[0]?.getSettings?.() ?? {})
       });
       return stream;
     } catch (error) {
@@ -91,6 +91,15 @@ export function configureVideoElement(video: HTMLVideoElement) {
   video.setAttribute("muted", "true");
 }
 
+/** iOS needs a real layout box before srcObject or frames may never decode. */
+export function syncVideoElementLayout(video: HTMLVideoElement, container: HTMLElement) {
+  const width = Math.max(320, Math.floor(container.clientWidth || 320));
+  const height = Math.max(240, Math.floor(container.clientHeight || 240));
+  video.style.width = `${width}px`;
+  video.style.height = `${height}px`;
+  persistDebug("qr-camera-layout-synced", { width, height, containerW: container.clientWidth, containerH: container.clientHeight });
+}
+
 async function attemptVideoPlay(video: HTMLVideoElement) {
   try {
     await video.play();
@@ -108,13 +117,21 @@ function hasVideoDimensions(video: HTMLVideoElement) {
   return video.videoWidth > 0 && video.videoHeight > 0;
 }
 
-/** Attach MediaStream and wait until frames are available for decode/preview. */
-export async function attachStreamToVideoElement(video: HTMLVideoElement, stream: MediaStream): Promise<void> {
+export async function attachStreamToVideoElement(
+  video: HTMLVideoElement,
+  stream: MediaStream,
+  container?: HTMLElement | null
+): Promise<void> {
+  if (container) {
+    syncVideoElementLayout(video, container);
+  }
+
   configureVideoElement(video);
   video.srcObject = stream;
   persistDebug("qr-camera-srcobject-assigned", {
-    hasVideo: Boolean(video),
-    trackState: stream.getVideoTracks()[0]?.readyState ?? "none"
+    trackState: stream.getVideoTracks()[0]?.readyState ?? "none",
+    layoutWidth: video.clientWidth,
+    layoutHeight: video.clientHeight
   });
 
   await waitForVideoFrames(video);
@@ -125,7 +142,6 @@ async function waitForVideoFrames(video: HTMLVideoElement): Promise<void> {
     let settled = false;
     let pollId = 0;
     let pollCount = 0;
-    let retryAttachAt = 0;
 
     const finish = () => {
       if (settled) return;
@@ -180,26 +196,24 @@ async function waitForVideoFrames(video: HTMLVideoElement): Promise<void> {
         finish();
         return;
       }
-      if (pollCount === 30 || pollCount === 90) {
+      if (pollCount === 20 || pollCount === 60 || pollCount === 120) {
         void attemptVideoPlay(video);
       }
-      if (pollCount === retryAttachAt && video.srcObject) {
-        const stream = video.srcObject as MediaStream;
+      if (pollCount === 90 && video.srcObject) {
+        const activeStream = video.srcObject as MediaStream;
         video.srcObject = null;
         window.requestAnimationFrame(() => {
-          video.srcObject = stream;
+          video.srcObject = activeStream;
           void attemptVideoPlay(video);
+          persistDebug("qr-camera-reattach", { pollCount });
         });
-        persistDebug("qr-camera-reattach", { pollCount });
       }
-      if (pollCount >= 360) {
+      if (pollCount >= 480) {
         fail(new Error("video dimensions stayed zero"));
         return;
       }
       pollId = window.requestAnimationFrame(poll);
     };
-
-    retryAttachAt = 120;
 
     video.addEventListener("loadedmetadata", onLoadedMetadata);
     video.addEventListener("loadeddata", onLoadedMetadata);
@@ -212,46 +226,86 @@ async function waitForVideoFrames(video: HTMLVideoElement): Promise<void> {
   });
 }
 
-/** Mirror video frames to canvas — reliable visible preview on iOS Safari. */
+type VideoFrameCallbackVideo = HTMLVideoElement & {
+  requestVideoFrameCallback?: (callback: (now: number, metadata: VideoFrameCallbackMetadata) => void) => number;
+  cancelVideoFrameCallback?: (handle: number) => void;
+};
+
+/** Mirror decoded frames to canvas for visible preview on iOS Safari. */
 export function startCanvasPreviewLoop(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
   onFirstFrame?: () => void
 ): () => void {
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) return () => {};
 
-  let rafId = 0;
+  let stopped = false;
   let notified = false;
+  let rafId = 0;
+  let videoFrameHandle: number | null = null;
+  const frameVideo = video as VideoFrameCallbackVideo;
 
   const draw = () => {
-    if (hasVideoDimensions(video)) {
-      const rect = canvas.getBoundingClientRect();
-      const width = Math.max(1, Math.floor(rect.width));
-      const height = Math.max(1, Math.floor(rect.height));
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-      }
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      if (!notified) {
-        notified = true;
-        persistDebug("qr-camera-canvas-first-frame", {
-          width: video.videoWidth,
-          height: video.videoHeight,
-          canvasWidth: canvas.width,
-          canvasHeight: canvas.height
-        });
-        onFirstFrame?.();
-      }
+    if (stopped || !hasVideoDimensions(video)) return false;
+
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.floor(rect.width));
+    const height = Math.max(1, Math.floor(rect.height));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
     }
-    rafId = window.requestAnimationFrame(draw);
+
+    try {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    } catch (error) {
+      persistDebug("qr-camera-canvas-draw-failed", { error: String(error) });
+      return false;
+    }
+
+    if (!notified) {
+      notified = true;
+      persistDebug("qr-camera-canvas-first-frame", {
+        width: video.videoWidth,
+        height: video.videoHeight,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height
+      });
+      onFirstFrame?.();
+    }
+    return true;
   };
 
-  rafId = window.requestAnimationFrame(draw);
+  const loopWithRaf = () => {
+    if (stopped) return;
+    draw();
+    rafId = window.requestAnimationFrame(loopWithRaf);
+  };
+
+  const loopWithVideoFrameCallback = () => {
+    if (stopped || typeof frameVideo.requestVideoFrameCallback !== "function") return;
+    videoFrameHandle = frameVideo.requestVideoFrameCallback(() => {
+      draw();
+      loopWithVideoFrameCallback();
+    });
+  };
+
+  const useVideoFrameCallback =
+    typeof frameVideo.requestVideoFrameCallback === "function";
+
+  if (useVideoFrameCallback) {
+    loopWithVideoFrameCallback();
+  } else {
+    rafId = window.requestAnimationFrame(loopWithRaf);
+  }
 
   return () => {
+    stopped = true;
     if (rafId) window.cancelAnimationFrame(rafId);
+    if (videoFrameHandle !== null && frameVideo.cancelVideoFrameCallback) {
+      frameVideo.cancelVideoFrameCallback(videoFrameHandle);
+    }
   };
 }
 

@@ -485,7 +485,8 @@ import { readFileSync } from "node:fs";
 
 const dialog = readFileSync("components/ConfirmDialog.tsx", "utf8");
 assert(dialog.includes("items-center"), "Modal uses viewport-centered flex alignment");
-assert(dialog.includes("z-[60]"), "Modal stacks above bottom nav");
+assert(dialog.includes("createPortal"), "Modal renders via portal to escape scroll/transform ancestors");
+assert(dialog.includes("z-[100]"), "Modal stacks above bottom nav");
 assert(dialog.includes("safe-area-inset"), "Modal uses safe-area padding");
 
 console.log(`\n=== Result: ${passed} passed, ${failed} failed ===\n`);

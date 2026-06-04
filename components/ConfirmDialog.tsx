@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Primitives";
 
 export function ConfirmDialog({
@@ -28,45 +29,64 @@ export function ConfirmDialog({
   onCancel: () => void;
 }) {
   const [typedValue, setTypedValue] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setTypedValue("");
         onCancel();
       }
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onCancel]);
 
-  useEffect(() => {
-    if (!open) return;
+    window.addEventListener("keydown", onKeyDown);
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      dialogRef.current?.focus({ preventScroll: true });
+    });
+
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open]);
 
-  if (!open) return null;
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus({ preventScroll: true });
+    };
+  }, [open, onCancel]);
+
+  if (!open || !mounted) return null;
+
   const disabled = typedConfirmation ? typedValue !== typedConfirmation.value : false;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:p-6"
+      className="fixed inset-0 z-[100] flex items-center justify-center overscroll-contain bg-ink/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:p-6"
       onClick={() => {
         setTypedValue("");
         onCancel();
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-body"
-        className="animate-status-in w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-lift dark:border-white/10 dark:bg-neutral-900"
+        tabIndex={-1}
+        className="animate-status-in max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] w-full max-w-md overflow-y-auto rounded-lg border border-line bg-white p-5 shadow-lift outline-none dark:border-white/10 dark:bg-neutral-900"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="confirm-dialog-title" className="text-xl font-black text-ink dark:text-white">
@@ -108,6 +128,7 @@ export function ConfirmDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
