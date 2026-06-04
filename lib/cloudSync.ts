@@ -5,8 +5,7 @@ import { getEntryAmountRsd, PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spen
 import {
   dedupeFriends,
   filterRemovedFriends,
-  normalizeSavedFriends,
-  stripShareLinkedFriendSnapshotsForCloud
+  normalizeSavedFriends
 } from "@/lib/savedFriends";
 import { hasUnsyncedLocalChanges } from "@/lib/syncMeta";
 import { stickerByCode } from "@/lib/stickers";
@@ -449,13 +448,17 @@ export function getLocalSyncFingerprint() {
   return JSON.stringify({ ...snapshot, updatedAt: "" });
 }
 
-/** Prepare snapshot for Supabase upload — strip share-linked friend trade lists from settings. */
+/** Prepare snapshot for Supabase upload — share-linked relations live in saved_friends, not settings. */
 export function snapshotForCloudUpload(snapshot: CloudSnapshot): CloudSnapshot {
+  const localOnlyFriends = snapshot.settings.friends.filter((friend) => !friend.shareId);
+
   return {
     ...snapshot,
     settings: {
       ...snapshot.settings,
-      friends: stripShareLinkedFriendSnapshotsForCloud(snapshot.settings.friends)
+      friends: localOnlyFriends,
+      deletedFriendIds: [],
+      deletedShareIds: []
     }
   };
 }

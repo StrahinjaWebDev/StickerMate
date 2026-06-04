@@ -1,7 +1,13 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+import {
+  COLLECTION_PERSIST_VERSION,
+  createScopedCollectionStorage,
+  persistKeyForScope,
+  type CollectionPersistScope
+} from "@/lib/collectionPersistScope";
 import {
   clearDeletionForFriend,
   findExistingFriend,
@@ -96,6 +102,63 @@ type CollectionStore = {
   completeReview: () => void;
   resetReview: () => void;
 };
+
+export type PersistedCollectionState = {
+  quantities: Record<string, number>;
+  onboarded: boolean;
+  theme: ThemePreference;
+  language: LanguageCode;
+  viewMode: StickerViewMode;
+  recentCodes: string[];
+  entryHistory: EntryHistoryItem[];
+  friends: TradeFriend[];
+  deletedFriendIds: string[];
+  deletedShareIds: string[];
+  tradeDisplayName: string;
+  tradeHistory: TradeHistoryItem[];
+  spendingEntries: SpendingEntry[];
+  defaultCurrency: SpendingCurrency;
+  packPriceRsd: number;
+  stickersPerPack: number;
+  dismissedGuides: Partial<Record<GuideKey, true>>;
+  reviewCurrentIndex: number;
+  reviewCompleted: boolean;
+  reviewUpdatedAt?: string;
+};
+
+export function partializeCollectionState(state: CollectionStore): PersistedCollectionState {
+  return {
+    quantities: state.quantities,
+    onboarded: state.onboarded,
+    theme: state.theme,
+    language: state.language,
+    viewMode: state.viewMode,
+    recentCodes: state.recentCodes,
+    entryHistory: state.entryHistory,
+    friends: state.friends,
+    deletedFriendIds: state.deletedFriendIds,
+    deletedShareIds: state.deletedShareIds,
+    tradeDisplayName: state.tradeDisplayName,
+    tradeHistory: state.tradeHistory,
+    spendingEntries: state.spendingEntries,
+    defaultCurrency: state.defaultCurrency,
+    packPriceRsd: state.packPriceRsd,
+    stickersPerPack: state.stickersPerPack,
+    dismissedGuides: state.dismissedGuides,
+    reviewCurrentIndex: state.reviewCurrentIndex,
+    reviewCompleted: state.reviewCompleted,
+    reviewUpdatedAt: state.reviewUpdatedAt
+  };
+}
+
+export function persistCollectionStoreToScope(scope: CollectionPersistScope) {
+  if (typeof window === "undefined") return;
+  const payload = JSON.stringify({
+    state: partializeCollectionState(useCollectionStore.getState()),
+    version: COLLECTION_PERSIST_VERSION
+  });
+  window.localStorage.setItem(persistKeyForScope(scope), payload);
+}
 
 function cleanQuantity(quantity: number) {
   if (!Number.isFinite(quantity)) return 0;
@@ -471,34 +534,15 @@ export const useCollectionStore = create<CollectionStore>()(
         })
     }),
     {
-      name: "stickermate-collection",
+      name: "stickermate-collection-state",
+      storage: createJSONStorage(() => createScopedCollectionStorage()),
+      skipHydration: true,
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         state.deletedShareIds = state.deletedShareIds ?? [];
         state.friends = normalizeSavedFriends(state.friends, state.deletedFriendIds, state.deletedShareIds);
       },
-      partialize: (state) => ({
-        quantities: state.quantities,
-        onboarded: state.onboarded,
-        theme: state.theme,
-        language: state.language,
-        viewMode: state.viewMode,
-        recentCodes: state.recentCodes,
-        entryHistory: state.entryHistory,
-        friends: state.friends,
-        deletedFriendIds: state.deletedFriendIds,
-        deletedShareIds: state.deletedShareIds,
-        tradeDisplayName: state.tradeDisplayName,
-        tradeHistory: state.tradeHistory,
-        spendingEntries: state.spendingEntries,
-        defaultCurrency: state.defaultCurrency,
-        packPriceRsd: state.packPriceRsd,
-        stickersPerPack: state.stickersPerPack,
-        dismissedGuides: state.dismissedGuides,
-        reviewCurrentIndex: state.reviewCurrentIndex,
-        reviewCompleted: state.reviewCompleted,
-        reviewUpdatedAt: state.reviewUpdatedAt
-      })
+      partialize: partializeCollectionState
     }
   )
 );
@@ -514,4 +558,9 @@ export function waitForCollectionHydration(): Promise<void> {
       resolve();
     });
   });
+}
+
+export async function rehydrateCollectionStore() {
+  useCollectionStore.persist.rehydrate();
+  await waitForCollectionHydration();
 }

@@ -16,9 +16,21 @@ import {
   type CloudSnapshot,
   type CloudSyncStatus
 } from "@/lib/cloudSync";
-import { useCollectionStore, waitForCollectionHydration } from "@/stores/useCollectionStore";
+import { useCollectionStore } from "@/stores/useCollectionStore";
+import {
+  bootstrapCollectionPersistence,
+  persistGuestCollectionScope,
+  persistUserCollectionScope,
+  switchToGuestCollectionScope,
+  switchToUserCollectionScope
+} from "@/lib/collectionBootstrap";
 import { backupGuestSnapshotBeforeAuth, restoreGuestCollectionAfterSignOut } from "@/lib/guestProfiles";
 import { refreshAllSavedFriendsWithShareId } from "@/lib/refreshSavedFriends";
+import {
+  hydrateSavedFriendsForSignedInUser,
+  mergeSignedInFriendsForStore,
+  stripShareLinkedFriendsFromCloudSettings
+} from "@/lib/savedFriendsDb";
 import { hasUnsyncedLocalChanges, writeUserSyncMeta } from "@/lib/syncMeta";
 import { createClient } from "@/utils/supabase/client";
 
@@ -210,6 +222,37 @@ async function handleAuthExpired() {
   }
 }
 
+async function applySignedInSavedFriends(
+  supabase: NonNullable<ReturnType<typeof getSupabase>>,
+  currentUser: User,
+  resolved: CloudSnapshot,
+  localBeforeApply: CloudSnapshot
+) {
+  const shareLinked = await hydrateSavedFriendsForSignedInUser(supabase, currentUser.id, {
+    legacyFromCloud: resolved.settings.friends,
+    legacyFromLocal: localBeforeApply.settings.friends,
+    deletedShareIds: [
+      ...(resolved.settings.deletedShareIds ?? []),
+      ...(localBeforeApply.settings.deletedShareIds ?? [])
+    ]
+  });
+
+  const localOnly = stripShareLinkedFriendsFromCloudSettings([
+    ...resolved.settings.friends,
+    ...localBeforeApply.settings.friends
+  ]);
+
+  return {
+    ...resolved,
+    settings: {
+      ...resolved.settings,
+      friends: mergeSignedInFriendsForStore(shareLinked, localOnly),
+      deletedFriendIds: [],
+      deletedShareIds: []
+    }
+  };
+}
+
 async function applyCloudSnapshot(
   supabase: NonNullable<ReturnType<typeof getSupabase>>,
   currentUser: User,
@@ -219,11 +262,13 @@ async function applyCloudSnapshot(
   const local = getLocalSnapshot();
   const fingerprint = getLocalSyncFingerprint();
   const hadUnsyncedLocal = !preferCloud && hasUnsyncedLocalChanges(currentUser.id, fingerprint);
-  const resolved = resolveCloudSnapshotForLoad(currentUser.id, cloud, local, fingerprint, preferCloud);
+  let resolved = resolveCloudSnapshotForLoad(currentUser.id, cloud, local, fingerprint, preferCloud);
+  resolved = await applySignedInSavedFriends(supabase, currentUser, resolved, local);
 
   muteNextLocalStoreSync();
   saveLocalSnapshot(resolved);
   await refreshAllSavedFriendsWithShareId();
+  persistUserCollectionScope(currentUser.id);
 
   if (hadUnsyncedLocal) {
     const cloudUpdatedAt = await saveCloudCollection(supabase, currentUser, getLocalSnapshot());
@@ -261,11 +306,13 @@ async function prepareCloudState(currentUser: User, force = false) {
       if (cloud) {
         await applyCloudSnapshot(supabase, currentUser, cloud, preferCloud);
       } else {
-        // First cloud row for this account: promote meaningful local/guest working copy, not empty.
-        const initial = initialCloudSnapshotForNewAccount(getLocalSnapshot());
+        const local = getLocalSnapshot();
+        const initial = initialCloudSnapshotForNewAccount(local);
+        const withSavedFriends = await applySignedInSavedFriends(supabase, currentUser, initial, local);
         muteNextLocalStoreSync();
-        saveLocalSnapshot(initial);
+        saveLocalSnapshot(withSavedFriends);
         await refreshAllSavedFriendsWithShareId();
+        persistUserCollectionScope(currentUser.id);
         const cloudUpdatedAt = await saveCloudCollection(supabase, currentUser, getLocalSnapshot());
         markSynced(currentUser.id, cloudUpdatedAt);
       }
@@ -365,11 +412,11 @@ export function initializeAuthSync() {
 
   void (async () => {
     try {
-      await waitForCollectionHydration();
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
 
       const user = data.session?.user ?? null;
+      await bootstrapCollectionPersistence(user?.id ?? null);
       setAuthSyncState({ user, authReady: true, authMessageKey: null, status: user ? "idle" : "idle" });
       if (user) {
         void prepareCloudState(user);
@@ -413,9 +460,19 @@ export function initializeAuthSync() {
     if (nextUser && previousUser?.id !== nextUser.id) {
       preparedUserId = null;
       prepareCompleted = false;
-      window.setTimeout(() => {
-        void waitForCollectionHydration().then(() => prepareCloudState(nextUser));
-      }, 0);
+      const skipUserRehydrate = preferCloudAccountLoad;
+      void (async () => {
+        if (previousUser) {
+          persistUserCollectionScope(previousUser.id);
+        } else {
+          persistGuestCollectionScope();
+        }
+        await switchToUserCollectionScope(nextUser.id, {
+          rehydrate: !skipUserRehydrate,
+          persistGuestFirst: !previousUser
+        });
+        await prepareCloudState(nextUser);
+      })();
     }
   });
 
@@ -451,8 +508,11 @@ export async function signOutLocally() {
 
   await flushCollectionSync();
 
-  const guestLanguage = useCollectionStore.getState().language;
-  restoreGuestCollectionAfterSignOut(guestLanguage);
+  const previousUser = useAuthSyncStore.getState().user;
+  if (previousUser) {
+    persistUserCollectionScope(previousUser.id);
+  }
+  await switchToGuestCollectionScope(true);
 
   const supabase = getSupabase();
   try {

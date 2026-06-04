@@ -19,6 +19,18 @@ import {
   resolveCloudSnapshotForLoad,
   snapshotForCloudUpload
 } from "../lib/cloudSync";
+import {
+  LEGACY_COLLECTION_KEY,
+  migrateLegacyCollectionToGuestScope,
+  persistKeyForScope,
+  resetCollectionPersistScopeForTests,
+  setCollectionPersistScope
+} from "../lib/collectionPersistScope";
+import {
+  mergeSignedInFriendsForStore,
+  savedFriendRowToTradeFriend,
+  stripShareLinkedFriendsFromCloudSettings
+} from "../lib/savedFriendsDb";
 import { hasUnsyncedLocalChanges, writeUserSyncMeta } from "../lib/syncMeta";
 import { extractShareIdFromTradeInput, buildTradeProfilePayload, getTradeMatch, buildSmartTradeProposal, pickSmartTradeProposal } from "../services/tradeQrService";
 import { translate } from "../lib/i18n";
@@ -295,8 +307,12 @@ const cloudPayload = snapshotForCloudUpload({
   updatedAt: "2026-01-01T00:00:00.000Z"
 });
 assert(
-  cloudPayload.settings.friends[0]!.missing.length === 0,
-  "snapshotForCloudUpload strips share-linked lists"
+  cloudPayload.settings.friends.length === 0,
+  "snapshotForCloudUpload omits share-linked friends from cloud settings"
+);
+assert(
+  cloudPayload.settings.deletedShareIds?.length === 0 && cloudPayload.settings.deletedFriendIds.length === 0,
+  "snapshotForCloudUpload clears friend tombstones (saved_friends owns relations)"
 );
 
 const localSnap = {
@@ -346,6 +362,75 @@ const promoted = initialCloudSnapshotForNewAccount(localSnap);
 assert((promoted.quantities[CODE_MISSING] ?? 0) === 2, "New account promotes meaningful local snapshot");
 const emptyPromoted = initialCloudSnapshotForNewAccount(createEmptyCloudSnapshot());
 assert(Object.keys(emptyPromoted.quantities).length === 0, "New account without data stays empty");
+
+console.log("\n=== Phase 2 scoped localStorage ===\n");
+
+resetCollectionPersistScopeForTests();
+const guestId = "guest_test_1";
+const userA = "user-a-id";
+const userB = "user-b-id";
+const guestKey = persistKeyForScope({ type: "guest", id: guestId });
+const userAKey = persistKeyForScope({ type: "user", id: userA });
+const userBKey = persistKeyForScope({ type: "user", id: userB });
+
+globalThis.localStorage.clear();
+globalThis.localStorage.setItem(
+  LEGACY_COLLECTION_KEY,
+  JSON.stringify({ state: { quantities: { [CODE_MISSING]: 5 }, friends: [] }, version: 0 })
+);
+migrateLegacyCollectionToGuestScope(guestId);
+assert(Boolean(globalThis.localStorage.getItem(guestKey)?.includes(CODE_MISSING)), "Legacy global key migrates into guest scope only");
+assert(!globalThis.localStorage.getItem(userAKey), "Legacy global key is not copied to user scope");
+
+globalThis.localStorage.setItem(
+  userAKey,
+  JSON.stringify({ state: { quantities: { [CODE_FRIEND_DUP]: 3 }, friends: [] }, version: 0 })
+);
+globalThis.localStorage.setItem(
+  userBKey,
+  JSON.stringify({ state: { quantities: { [CODE_NEW_FRIEND_DUP]: 7 }, friends: [] }, version: 0 })
+);
+assert(
+  globalThis.localStorage.getItem(userAKey) !== globalThis.localStorage.getItem(userBKey),
+  "User A and User B scoped keys stay isolated"
+);
+
+setCollectionPersistScope({ type: "guest", id: guestId });
+assert(persistKeyForScope({ type: "guest", id: guestId }) === guestKey, "Guest persist key uses stickermate-guest:{id}");
+assert(persistKeyForScope({ type: "user", id: userA }) === userAKey, "User persist key uses stickermate-user:{id}");
+
+console.log("\n=== Phase 3 saved_friends helpers ===\n");
+
+const dbFriend = savedFriendRowToTradeFriend({
+  id: "row-1",
+  user_id: userA,
+  album_id: "fifa-world-cup-2026",
+  friend_share_id: "share-abc",
+  local_friend_id: "friend-db-1",
+  friend_display_name: "User A",
+  notes: null,
+  imported_at: "2026-01-01T00:00:00.000Z",
+  last_fetched_at: "2026-06-03T12:00:00.000Z",
+  last_snapshot_at: "2026-06-03T12:00:00.000Z",
+  cached_missing_count: 1,
+  cached_duplicate_count: 1,
+  cached_possible_swaps_count: null,
+  cached_snapshot: { missing: [CODE_MISSING], duplicates: [CODE_FRIEND_DUP] },
+  deleted_at: null,
+  created_at: "2026-01-01T00:00:00.000Z",
+  updated_at: "2026-06-03T12:00:00.000Z"
+});
+assert(dbFriend.shareId === "share-abc" && dbFriend.missing.includes(CODE_MISSING), "saved_friends row maps to TradeFriend with cached fallback");
+
+const mergedFriends = mergeSignedInFriendsForStore(
+  [makeFriend({ id: "db-1", shareId: "share-abc" }), makeFriend({ id: "db-2", shareId: "share-abc", name: "Dup" })],
+  [makeFriend({ id: "local-1", shareId: undefined }), makeFriend({ id: "local-2", shareId: "share-xyz" })]
+);
+assert(mergedFriends.length === 2, "mergeSignedInFriendsForStore dedupes share-linked and keeps local-only");
+assert(
+  stripShareLinkedFriendsFromCloudSettings([makeFriend(), makeFriend({ shareId: undefined })]).length === 1,
+  "stripShareLinkedFriendsFromCloudSettings removes share-linked legacy settings friends"
+);
 
 console.log("\n=== Trade profile reflects all quantity changes ===\n");
 

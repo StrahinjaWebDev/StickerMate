@@ -1,6 +1,7 @@
 "use client";
 
 import { albumId, getLocalSnapshot, saveLocalSnapshot, type CloudSnapshot } from "@/lib/cloudSync";
+import { persistGuestCollectionScope, switchToGuestCollectionScope } from "@/lib/collectionBootstrap";
 import { generateGuestName } from "@/lib/guestNames";
 import { PACK_PRICE_RSD, STICKERS_PER_PACK } from "@/lib/spending";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -180,13 +181,12 @@ export function saveGuestSnapshot(snapshot = getLocalSnapshot()) {
 /** Preserve guest collection before OAuth so sign-out can restore it safely. */
 export function backupGuestSnapshotBeforeAuth() {
   if (!isBrowser()) return;
-  saveGuestSnapshot(getLocalSnapshot());
+  persistGuestCollectionScope();
 }
 
-/** After sign-out, reload the guest profile into the active collection store. */
+/** After sign-out, reload the guest scoped local collection store. */
 export function restoreGuestCollectionAfterSignOut(language: LanguageCode = "sr") {
   if (!isBrowser()) return;
-  const identity = ensureGuestIdentity();
-  const snapshot = readSnapshot(identity.id) ?? emptySnapshot(language);
-  saveLocalSnapshot(snapshot);
+  void switchToGuestCollectionScope(true);
+  void language;
 }

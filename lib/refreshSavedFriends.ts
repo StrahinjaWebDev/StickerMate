@@ -1,7 +1,9 @@
 "use client";
 
 import { applyLiveTradeRecord, friendTradeDataEqual } from "@/lib/savedFriends";
+import { updateSavedFriendLiveCacheInDb } from "@/lib/savedFriendsDb";
 import { fetchTradeShareByShareId } from "@/lib/tradeShareService";
+import { useAuthSyncStore } from "@/lib/authSyncStore";
 import { createClient } from "@/utils/supabase/client";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend } from "@/types/sticker";
@@ -34,7 +36,17 @@ function persistLiveFriend(
     notes: current.notes
   });
 
-  return useCollectionStore.getState().friends.find((item) => item.id === friend.id) ?? next;
+  const updated = useCollectionStore.getState().friends.find((item) => item.id === friend.id) ?? next;
+  const { user } = useAuthSyncStore.getState();
+  const supabase = createClient();
+
+  if (user && updated.shareId && supabase) {
+    void updateSavedFriendLiveCacheInDb(supabase, user.id, updated, live.updatedAt).catch((error) => {
+      console.warn("[saved friends] cache update failed", error);
+    });
+  }
+
+  return updated;
 }
 
 /** Fetch latest public trade data for one saved friend and update the local cache on success. */

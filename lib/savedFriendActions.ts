@@ -2,6 +2,8 @@
 
 import { flushCollectionSync, useAuthSyncStore } from "@/lib/authSyncStore";
 import { resolveFriendForImport } from "@/lib/refreshSavedFriends";
+import { removeSavedFriendFromDb, upsertSavedFriendInDb } from "@/lib/savedFriendsDb";
+import { createClient } from "@/utils/supabase/client";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeFriend } from "@/types/sticker";
 
@@ -16,8 +18,20 @@ export async function removeSavedFriend(friendId: string) {
     deletedShareIds: state.deletedShareIds
   };
 
+  const { user } = useAuthSyncStore.getState();
+  const supabase = createClient();
+
+  if (user && friend.shareId && supabase) {
+    try {
+      await removeSavedFriendFromDb(supabase, user.id, friend.shareId);
+    } catch (error) {
+      console.warn("[saved friends] remove from db failed", error);
+      return false;
+    }
+  }
+
   useCollectionStore.getState().removeFriend(friendId);
-  const synced = await flushCollectionSync();
+  const synced = user ? await flushCollectionSync() : true;
 
   if (!synced) {
     useCollectionStore.setState(rollback);
@@ -49,6 +63,17 @@ export async function importSavedFriend(friend: Omit<TradeFriend, "id" | "import
   const { user } = useAuthSyncStore.getState();
   if (!user) {
     return { ok: true as const, friend: saved, synced: true };
+  }
+
+  const supabase = createClient();
+  if (saved.shareId && supabase) {
+    try {
+      await upsertSavedFriendInDb(supabase, user.id, saved);
+    } catch (error) {
+      console.warn("[saved friends] upsert to db failed", error);
+      useCollectionStore.setState(before);
+      return { ok: false as const, friend: null, synced: false };
+    }
   }
 
   const synced = await flushCollectionSync();
