@@ -28,15 +28,17 @@ export default function FriendDetailPage() {
     let cancelled = false;
     setLiveStatus("loading");
 
+    const currentFriendId = activeFriendId;
+
     void (async () => {
-      const result = await refreshLiveFriendById(activeFriendId);
+      const result = await refreshLiveFriendById(currentFriendId);
       if (cancelled) return;
       setLiveStatus(result.liveStatus === "idle" ? "cached" : result.liveStatus);
     })();
 
     function onVisible() {
       if (document.visibilityState !== "visible") return;
-      void refreshLiveFriendById(activeFriendId).then((result) => {
+      void refreshLiveFriendById(currentFriendId).then((result) => {
         if (!cancelled) setLiveStatus(result.liveStatus === "idle" ? "cached" : result.liveStatus);
       });
     }
