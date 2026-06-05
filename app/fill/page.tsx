@@ -32,7 +32,7 @@ export default function FillPage() {
 
     const result = addConfirmedCodes(validation.validCodes, t("entry.title"));
     setSummary(result);
-    setMessage(t("entry.saved"));
+    setMessage(null);
     setCodesText("");
     setEntryOpen(false);
   }
@@ -116,7 +116,7 @@ export default function FillPage() {
         </Button>
         </Card>
       ) : null}
-      {message ? <StatusMessage>{message}</StatusMessage> : null}
+      {message && !summary ? <StatusMessage>{message}</StatusMessage> : null}
       {summary ? <ImportPreview summary={summary} /> : null}
     </div>
   );
