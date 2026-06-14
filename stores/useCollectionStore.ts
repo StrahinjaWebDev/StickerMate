@@ -47,6 +47,7 @@ type TradeInput = {
   stickersReceived: string[];
   note?: string;
   appliedToCollection: boolean;
+  allowAlbumGive?: boolean;
 };
 
 type CollectionStore = {
@@ -217,27 +218,28 @@ function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function uniqueValidCodes(codes: string[]) {
-  return Array.from(new Set(codes.map((code) => code.trim().toUpperCase()).filter((code) => stickerByCode.has(code))));
+function normalizeValidTradeCodes(codes: string[]) {
+  return codes.map((code) => code.trim().toUpperCase()).filter((code) => stickerByCode.has(code));
 }
 
 function applyTradeQuantities(
   quantities: Record<string, number>,
   stickersGiven: string[],
   stickersReceived: string[],
-  reverse = false
+  reverse = false,
+  allowAlbumGive = false
 ) {
   let next = quantities;
-  const given = uniqueValidCodes(stickersGiven);
-  const received = uniqueValidCodes(stickersReceived);
+  const given = normalizeValidTradeCodes(stickersGiven);
+  const received = normalizeValidTradeCodes(stickersReceived);
   const decrementCodes = reverse ? received : given;
   const incrementCodes = reverse ? given : received;
 
   for (const code of decrementCodes) {
     next = withQuantity(next, code, (quantity) => {
-      if (reverse) {
-        return Math.max(0, quantity - 1);
-      }
+      const nextQuantity = quantity - 1;
+      if (reverse) return Math.max(0, nextQuantity);
+      if (allowAlbumGive) return Math.max(0, nextQuantity);
       return quantity > 1 ? quantity - 1 : quantity;
     });
   }
@@ -457,8 +459,8 @@ export const useCollectionStore = create<CollectionStore>()(
           spendingEntries: state.spendingEntries.filter((entry) => entry.id !== id)
         })),
       addTradeHistory: (trade) => {
-        const given = uniqueValidCodes(trade.stickersGiven);
-        const received = uniqueValidCodes(trade.stickersReceived);
+        const given = normalizeValidTradeCodes(trade.stickersGiven);
+        const received = normalizeValidTradeCodes(trade.stickersReceived);
         const tradeItem: TradeHistoryItem = {
           id: createId("trade"),
           date: trade.date,
@@ -472,7 +474,7 @@ export const useCollectionStore = create<CollectionStore>()(
 
         set((state) => ({
           quantities: trade.appliedToCollection
-            ? applyTradeQuantities(state.quantities, given, received)
+            ? applyTradeQuantities(state.quantities, given, received, false, trade.allowAlbumGive)
             : state.quantities,
           recentCodes: trade.appliedToCollection ? mergeRecent(state.recentCodes, received) : state.recentCodes,
           tradeHistory: [tradeItem, ...state.tradeHistory]

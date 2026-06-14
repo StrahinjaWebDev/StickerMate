@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "verify:friend-qr": "tsx scripts/verify-friend-qr-flow.ts",
     "verify:entry-import": "tsx scripts/verify-entry-import.ts",
+    "verify:trade-flow": "tsx scripts/verify-trade-flow.ts",
     "verify:supabase-env": "tsx scripts/check-supabase-env.ts",
     "download:images": "tsx scripts/download-sticker-images.ts"
   },
