@@ -306,7 +306,7 @@
   "trades.pickerAddReceive": "+ Dobijam",
   "trades.proposalAlbumConfirm": "Ipak pošalji predlog",
   "trades.historyCounts": "Dao {given} · Dobio {received}",
-  "trades.repeatMessage": "Ponovi poruku",
+  "trades.repeatMessage": "Kopiraj poruku",
   "trades.albumCopyWarningTitle": "Daješ poslednji primerak",
   "trades.albumCopyWarningBody": "Za {codes}: imaš samo jedan primerak u albumu. Ako ga daš, više ga nećeš imati.",
   "trades.albumCopyConfirm": "Ipak daj",

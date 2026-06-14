@@ -306,7 +306,7 @@
   "trades.pickerAddReceive": "+ Receive",
   "trades.proposalAlbumConfirm": "Send proposal anyway",
   "trades.historyCounts": "Gave {given} · Got {received}",
-  "trades.repeatMessage": "Repeat message",
+  "trades.repeatMessage": "Copy message",
   "trades.albumCopyWarningTitle": "Giving your only copy",
   "trades.albumCopyWarningBody": "For {codes}: you only have one album copy. If you give it away, it will be gone from your album.",
   "trades.albumCopyConfirm": "Give anyway",

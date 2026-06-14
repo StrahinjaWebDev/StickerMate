@@ -17,6 +17,7 @@ import {
   validateManualTradeCodes
 } from "@/lib/manualTrade";
 import { parseStickerCodes } from "@/lib/stickers";
+import { buildMessagePreview, isMessagePreviewShortened } from "@/lib/tradeMessages";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 type PendingAction = "save" | "proposal-copy" | "proposal-share" | "proposal-whatsapp";
@@ -35,6 +36,7 @@ export function ManualTradeForm({ onSaved }: { onSaved: () => void }) {
   const [receiveCodes, setReceiveCodes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [proposalCopied, setProposalCopied] = useState(false);
+  const [showFullProposal, setShowFullProposal] = useState(false);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerFilter, setPickerFilter] = useState<ManualTradePickerFilter>("all");
@@ -53,6 +55,11 @@ export function ManualTradeForm({ onSaved }: { onSaved: () => void }) {
     () => buildManualTradeProposalMessage(validation.given, validation.received, t),
     [t, validation.given, validation.received]
   );
+  const proposalPreview = useMemo(
+    () => buildMessagePreview(proposalMessage, showFullProposal),
+    [proposalMessage, showFullProposal]
+  );
+  const isProposalPreviewShortened = isMessagePreviewShortened(proposalMessage, proposalPreview);
 
   const hasProposalContent = validation.given.length > 0 || validation.received.length > 0;
 
@@ -234,9 +241,23 @@ export function ManualTradeForm({ onSaved }: { onSaved: () => void }) {
             {t("trades.manualProposalBody")}
           </p>
           {hasProposalContent ? (
-            <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-white p-3 text-sm font-semibold leading-6 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
-              {proposalMessage}
-            </pre>
+            <>
+              {isProposalPreviewShortened ? (
+                <p className="mt-3 text-xs font-semibold text-neutral-600 dark:text-neutral-400">{t("trades.messagePreviewHint")}</p>
+              ) : null}
+              <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-white p-3 text-sm font-semibold leading-6 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+                {proposalPreview}
+              </pre>
+              {isProposalPreviewShortened ? (
+                <Button type="button" className="mt-2 min-h-10 px-3 text-sm" onClick={() => setShowFullProposal(true)}>
+                  {t("trades.showFullMessage")}
+                </Button>
+              ) : showFullProposal && proposalMessage.length > 220 ? (
+                <Button type="button" className="mt-2 min-h-10 px-3 text-sm" onClick={() => setShowFullProposal(false)}>
+                  {t("trades.showLess")}
+                </Button>
+              ) : null}
+            </>
           ) : (
             <p className="mt-3 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t("trades.manualProposalEmpty")}</p>
           )}

@@ -29,8 +29,16 @@ export function buildTradesWhatsAppMessage({
 
 /** UI-only preview. Copy/share/WhatsApp must use the full message. */
 export function buildTradesWhatsAppPreview(message: string, showFull: boolean) {
+  return buildMessagePreview(message, showFull);
+}
+
+export function buildMessagePreview(message: string, showFull: boolean) {
   if (showFull || message.length <= WHATSAPP_PREVIEW_CHAR_LIMIT) {
     return message;
   }
   return `${message.slice(0, WHATSAPP_PREVIEW_CHAR_LIMIT).trim()}…`;
+}
+
+export function isMessagePreviewShortened(message: string, preview: string) {
+  return message !== preview;
 }

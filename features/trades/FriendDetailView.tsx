@@ -15,6 +15,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { getDuplicateCount } from "@/lib/stickers";
 import { formatMyDuplicateBadge } from "@/lib/duplicateLabel";
 import { buildFriendTradeMessage, buildSmartTradeProposal, getTradeMatch } from "@/services/tradeQrService";
+import { buildMessagePreview, isMessagePreviewShortened } from "@/lib/tradeMessages";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 
 export function FriendDetailView({
@@ -44,6 +45,11 @@ export function FriendDetailView({
     () => (friend ? buildFriendTradeMessage(friend.name, match.iCanGive, match.friendCanGive, t) : ""),
     [friend, match.friendCanGive, match.iCanGive, t]
   );
+  const tradeMessagePreview = useMemo(
+    () => buildMessagePreview(tradeMessage, showFullMessage),
+    [showFullMessage, tradeMessage]
+  );
+  const tradeMessageShortened = isMessagePreviewShortened(tradeMessage, tradeMessagePreview);
   const importedLabel = useMemo(
     () =>
       friend
@@ -155,21 +161,26 @@ export function FriendDetailView({
       </Card>
 
       <Card>
-        <button
-          type="button"
-          className="flex w-full items-center justify-between gap-3 text-left"
-          onClick={() => setShowFullMessage((current) => !current)}
-        >
+        <div className="flex items-start justify-between gap-3">
           <h2 className="text-lg font-black text-ink dark:text-white">{t("friendDetail.messageTitle")}</h2>
-          <span className="inline-flex min-h-10 items-center gap-1 text-sm font-black text-pitch">
-            {showFullMessage ? t("friendDetail.hideFullMessage") : t("friendDetail.showFullMessage")}
-            <ChevronDown size={18} className={showFullMessage ? "rotate-180 transition" : "transition"} aria-hidden="true" />
-          </span>
-        </button>
-        {showFullMessage ? (
+          {tradeMessageShortened ? (
+            <button
+              type="button"
+              className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm font-black text-pitch"
+              onClick={() => setShowFullMessage((current) => !current)}
+            >
+              {showFullMessage ? t("friendDetail.hideFullMessage") : t("friendDetail.showFullMessage")}
+              <ChevronDown size={18} className={showFullMessage ? "rotate-180 transition" : "transition"} aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+        {tradeMessageShortened && !showFullMessage ? (
+          <p className="mt-2 text-xs font-semibold text-neutral-600 dark:text-neutral-400">{t("trades.messagePreviewHint")}</p>
+        ) : null}
+        {tradeMessage ? (
           <>
             <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-field p-3 text-sm font-semibold leading-6 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-              {tradeMessage}
+              {tradeMessagePreview}
             </pre>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               <Button onClick={copyMessage}>

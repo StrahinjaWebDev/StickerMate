@@ -13,7 +13,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { removeSavedFriend } from "@/lib/savedFriendActions";
 import type { TranslationKey } from "@/lib/i18n";
 import { getDuplicateCount, getTradableCount, stickers } from "@/lib/stickers";
-import { buildTradesWhatsAppMessage, buildTradesWhatsAppPreview } from "@/lib/tradeMessages";
+import { buildTradesWhatsAppMessage, buildTradesWhatsAppPreview, isMessagePreviewShortened } from "@/lib/tradeMessages";
 import { formatDuplicateLabel } from "@/lib/duplicateLabel";
 import { getTeamIcon } from "@/lib/teamIcons";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -95,7 +95,7 @@ export default function TradesPage() {
     () => buildTradesWhatsAppPreview(whatsAppFullMessage, showFullMessage),
     [showFullMessage, whatsAppFullMessage]
   );
-  const isMessagePreviewShortened = whatsAppFullMessage !== whatsAppPreview;
+  const messagePreviewShortened = isMessagePreviewShortened(whatsAppFullMessage, whatsAppPreview);
 
   async function copyMessage() {
     await navigator.clipboard.writeText(whatsAppFullMessage);
@@ -234,13 +234,13 @@ export default function TradesPage() {
             </button>
           ))}
         </div>
-        {isMessagePreviewShortened ? (
+        {messagePreviewShortened ? (
           <p className="mt-3 text-xs font-semibold text-neutral-600 dark:text-neutral-400">{t("trades.messagePreviewHint")}</p>
         ) : null}
         <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-field p-3 text-sm font-semibold leading-6 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
           {whatsAppPreview}
         </pre>
-        {isMessagePreviewShortened ? (
+        {messagePreviewShortened ? (
           <Button className="mt-2 min-h-10 px-3 text-sm" onClick={() => setShowFullMessage(true)}>
             {t("trades.showFullMessage")}
           </Button>
