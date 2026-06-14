@@ -1,17 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, Copy, History, MessageCircle, Plus, QrCode, RotateCcw, Trash2, UserPlus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, Copy, History, MessageCircle, Plus, QrCode, RotateCcw, Trash2, UserPlus } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge, Button, Card } from "@/components/ui/Primitives";
 import { StickerImage } from "@/features/stickers/StickerImage";
+import { buildHistoryProposalMessage, ManualTradeForm } from "@/features/trades/ManualTradeForm";
 import { useRefreshSavedFriendsOnOpen } from "@/hooks/useLiveSavedFriends";
 import { useI18n } from "@/hooks/useI18n";
 import { removeSavedFriend } from "@/lib/savedFriendActions";
 import type { TranslationKey } from "@/lib/i18n";
-import { validateManualTradeInput } from "@/lib/manualTrade";
 import { getDuplicateCount, getTradableCount, stickers } from "@/lib/stickers";
 import { buildTradesWhatsAppMessage, buildTradesWhatsAppPreview } from "@/lib/tradeMessages";
 import { formatDuplicateLabel } from "@/lib/duplicateLabel";
@@ -20,10 +20,6 @@ import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { TradeHistoryItem } from "@/types/sticker";
 
 const TRADE_HISTORY_PREVIEW_LIMIT = 12;
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function formatTradeDateTime(trade: TradeHistoryItem) {
   const source = trade.createdAt ?? trade.date;
@@ -57,7 +53,6 @@ export default function TradesPage() {
   const quantities = useCollectionStore((state) => state.quantities);
   const friends = useCollectionStore((state) => state.friends);
   const tradeHistory = useCollectionStore((state) => state.tradeHistory);
-  const addTradeHistory = useCollectionStore((state) => state.addTradeHistory);
   const deleteTradeHistory = useCollectionStore((state) => state.deleteTradeHistory);
   const undoTradeHistory = useCollectionStore((state) => state.undoTradeHistory);
   const [removeFriendId, setRemoveFriendId] = useState<string | null>(null);
@@ -67,18 +62,8 @@ export default function TradesPage() {
   const [messageType, setMessageType] = useState<"missing" | "duplicates" | "both">("both");
   const [copied, setCopied] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  const [friendName, setFriendName] = useState("");
-  const [giveText, setGiveText] = useState("");
-  const [receiveText, setReceiveText] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showFullMessage, setShowFullMessage] = useState(false);
-  const [albumCopyConfirmOpen, setAlbumCopyConfirmOpen] = useState(false);
-  const [pendingTrade, setPendingTrade] = useState<{
-    given: string[];
-    received: string[];
-    albumCopyWarnings: string[];
-  } | null>(null);
   const previewLimit = useDuplicatePreviewLimit();
 
   const tradable = useMemo(
@@ -128,75 +113,6 @@ export default function TradesPage() {
 
   function openWhatsApp() {
     window.open(`https://wa.me/?text=${encodeURIComponent(whatsAppFullMessage)}`, "_blank", "noopener,noreferrer");
-  }
-
-  function resetTradeForm() {
-    setFriendName("");
-    setGiveText("");
-    setReceiveText("");
-    setError(null);
-    setFormOpen(false);
-  }
-
-  function saveTrade(given: string[], received: string[], allowAlbumGive: boolean) {
-    addTradeHistory({
-      date: today(),
-      friendName: friendName.trim() || t("trades.manualTradeDefaultName"),
-      stickersGiven: given,
-      stickersReceived: received,
-      appliedToCollection: true,
-      allowAlbumGive
-    });
-    resetTradeForm();
-    setSuccess(t("trades.manualTradeSaved"));
-    window.setTimeout(() => setSuccess(null), 3000);
-  }
-
-  function submitTrade(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSuccess(null);
-
-    const validation = validateManualTradeInput(giveText, receiveText, quantities);
-    const { given, received, invalidGiven, invalidReceived, insufficientGiven, albumCopyWarnings } = validation;
-
-    if (given.length === 0 && received.length === 0) {
-      setError(t("trades.codesError"));
-      return;
-    }
-
-    const invalidCodes = [...invalidGiven, ...invalidReceived];
-    if (invalidCodes.length > 0) {
-      setError(t("trades.invalidCodesError", { codes: invalidCodes.join(", ") }));
-      return;
-    }
-
-    if (insufficientGiven.length > 0) {
-      const first = insufficientGiven[0];
-      setError(
-        t("trades.insufficientGiveError", {
-          code: first.code,
-          available: first.available,
-          requested: first.requested
-        })
-      );
-      return;
-    }
-
-    if (albumCopyWarnings.length > 0) {
-      setPendingTrade({ given, received, albumCopyWarnings });
-      setAlbumCopyConfirmOpen(true);
-      return;
-    }
-
-    saveTrade(given, received, false);
-  }
-
-  function confirmAlbumCopyTrade() {
-    if (!pendingTrade) return;
-    saveTrade(pendingTrade.given, pendingTrade.received, true);
-    setPendingTrade(null);
-    setAlbumCopyConfirmOpen(false);
   }
 
   return (
@@ -394,12 +310,14 @@ export default function TradesPage() {
 
       <Card>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.manualTitle")}</h2>
+          <div>
+            <h2 className="text-xl font-black text-ink dark:text-white">{t("trades.manualTitle")}</h2>
+            <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t("trades.manualSubtitle")}</p>
+          </div>
           <Button
             tone="primary"
             onClick={() => {
               setFormOpen((current) => !current);
-              setError(null);
               setSuccess(null);
             }}
           >
@@ -409,37 +327,13 @@ export default function TradesPage() {
         </div>
         {success ? <p className="mt-3 rounded-lg bg-pitch/10 p-3 text-sm font-bold text-pitch">{success}</p> : null}
         {formOpen ? (
-          <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={submitTrade}>
-            <TradeField label={t("trades.friendNameOptional")} className="sm:col-span-2">
-              <input
-                value={friendName}
-                onChange={(event) => setFriendName(event.target.value)}
-                className="w-full rounded-lg border-line bg-field font-semibold text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-                placeholder={t("trades.manualTradeDefaultName")}
-              />
-            </TradeField>
-            <TradeField label={t("trades.iGive")} hint={t("trades.giveHelper")}>
-              <textarea
-                value={giveText}
-                onChange={(event) => setGiveText(event.target.value)}
-                className="min-h-24 w-full rounded-lg border-line bg-field font-mono text-sm font-bold uppercase text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-                placeholder="MEX1 BRA14"
-              />
-            </TradeField>
-            <TradeField label={t("trades.iReceive")}>
-              <textarea
-                value={receiveText}
-                onChange={(event) => setReceiveText(event.target.value)}
-                className="min-h-24 w-full rounded-lg border-line bg-field font-mono text-sm font-bold uppercase text-ink shadow-sm focus:border-pitch focus:ring-pitch dark:border-white/10 dark:bg-neutral-950 dark:text-white"
-                placeholder="BRA14 ARG17"
-              />
-            </TradeField>
-            {error ? <p className="rounded-lg bg-coral/10 p-3 text-sm font-bold text-coral sm:col-span-2">{error}</p> : null}
-            <Button tone="primary" type="submit" className="sm:col-span-2">
-              <Check size={18} />
-              {t("trades.saveTrade")}
-            </Button>
-          </form>
+          <ManualTradeForm
+            onSaved={() => {
+              setFormOpen(false);
+              setSuccess(t("trades.manualTradeSaved"));
+              window.setTimeout(() => setSuccess(null), 3000);
+            }}
+          />
         ) : null}
       </Card>
 
@@ -494,20 +388,6 @@ export default function TradesPage() {
           })();
         }}
       />
-
-      <ConfirmDialog
-        open={albumCopyConfirmOpen}
-        title={t("trades.albumCopyWarningTitle")}
-        body={t("trades.albumCopyWarningBody", { codes: pendingTrade?.albumCopyWarnings.join(", ") ?? "" })}
-        cancelLabel={t("common.cancel")}
-        confirmLabel={t("trades.albumCopyConfirm")}
-        confirmTone="danger"
-        onCancel={() => {
-          setAlbumCopyConfirmOpen(false);
-          setPendingTrade(null);
-        }}
-        onConfirm={confirmAlbumCopyTrade}
-      />
     </div>
   );
 }
@@ -531,10 +411,18 @@ function TradeHistoryCard({
   trade: TradeHistoryItem;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [messageCopied, setMessageCopied] = useState(false);
   const givenSummary = formatTradeCodeList(trade.stickersGiven, expanded, TRADE_HISTORY_PREVIEW_LIMIT);
   const receivedSummary = formatTradeCodeList(trade.stickersReceived, expanded, TRADE_HISTORY_PREVIEW_LIMIT);
   const hasLongList =
     trade.stickersGiven.length > TRADE_HISTORY_PREVIEW_LIMIT || trade.stickersReceived.length > TRADE_HISTORY_PREVIEW_LIMIT;
+  const proposalMessage = buildHistoryProposalMessage(trade, t);
+
+  async function copyHistoryMessage() {
+    await navigator.clipboard.writeText(proposalMessage);
+    setMessageCopied(true);
+    window.setTimeout(() => setMessageCopied(false), 1500);
+  }
 
   return (
     <article className="rounded-lg bg-field p-3 dark:bg-neutral-950">
@@ -542,6 +430,12 @@ function TradeHistoryCard({
         <div className="min-w-0 flex-1">
           <p className="font-black text-ink dark:text-white">{trade.friendName}</p>
           <p className="text-xs font-bold text-neutral-500 dark:text-neutral-400">{formatTradeDateTime(trade)}</p>
+          <p className="mt-2 text-xs font-bold text-neutral-500 dark:text-neutral-400">
+            {t("trades.historyCounts", {
+              given: trade.stickersGiven.length,
+              received: trade.stickersReceived.length
+            })}
+          </p>
           <p className="mt-2 break-words text-sm font-semibold text-neutral-700 dark:text-neutral-300">
             {t("trades.historyGiven")}: {givenSummary}
           </p>
@@ -557,6 +451,10 @@ function TradeHistoryCard({
               {expanded ? t("trades.historyHideAll") : t("trades.historyShowAll")}
             </button>
           ) : null}
+          <Button className="mt-2 min-h-10 px-3 text-xs" onClick={() => void copyHistoryMessage()}>
+            <Copy size={15} />
+            {messageCopied ? t("common.copied") : t("trades.repeatMessage")}
+          </Button>
           {trade.note ? (
             <p className="mt-1 text-sm font-semibold text-neutral-600 dark:text-neutral-400">
               {t("spending.note")}: {trade.note}
@@ -584,25 +482,5 @@ function TradeHistoryCard({
         </div>
       </div>
     </article>
-  );
-}
-
-function TradeField({
-  children,
-  className,
-  hint,
-  label
-}: {
-  children: React.ReactNode;
-  className?: string;
-  hint?: string;
-  label: string;
-}) {
-  return (
-    <label className={className}>
-      <span className="text-sm font-black text-ink dark:text-white">{label}</span>
-      {hint ? <span className="mt-0.5 block text-xs font-semibold text-neutral-600 dark:text-neutral-400">{hint}</span> : null}
-      <span className="mt-1 block">{children}</span>
-    </label>
   );
 }

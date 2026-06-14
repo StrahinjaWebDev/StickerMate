@@ -1,7 +1,7 @@
 /**
  * Verifies WhatsApp full messages and manual trade validation/quantity rules.
  */
-import { validateManualTradeInput } from "../lib/manualTrade";
+import { buildManualTradeProposalMessage, validateManualTradeInput } from "../lib/manualTrade";
 import { buildTradesWhatsAppMessage, buildTradesWhatsAppPreview } from "../lib/tradeMessages";
 import { stickerByCode } from "../lib/stickers";
 
@@ -21,6 +21,9 @@ function assert(condition: boolean, label: string) {
 const t = (key: string, params?: Record<string, string | number>) => {
   if (key === "trades.messageMissing") return `MISSING:\n${params?.missing ?? ""}`;
   if (key === "trades.messageDuplicates") return `DUP:\n${params?.duplicates ?? ""}`;
+  if (key === "trades.manualProposalMessage") {
+    return `PROPOSAL:\n${params?.give ?? ""}\n${params?.need ?? ""}`;
+  }
   return `BOTH:\n${params?.missing ?? ""}\n${params?.duplicates ?? ""}`;
 };
 
@@ -57,6 +60,15 @@ console.log("WhatsApp full message");
   const preview = buildTradesWhatsAppPreview(full, false);
   assert(preview !== full, "preview is shorter than full message for long text");
   assert(buildTradesWhatsAppPreview(full, true) === full, "expanded preview equals full message");
+}
+
+console.log("Manual trade proposal message");
+{
+  const proposal = buildManualTradeProposalMessage(["BIH9", "MAR18", "USA6"], ["MEX3", "RSA5", "KOR1"], t);
+  assert(proposal.includes("BIH9"), "proposal includes all give codes");
+  assert(proposal.includes("KOR1"), "proposal includes all need codes");
+  assert(!proposal.includes("…"), "proposal has no ellipsis");
+  assert(!proposal.includes("..."), "proposal has no triple-dot truncation");
 }
 
 console.log("Manual trade validation");
